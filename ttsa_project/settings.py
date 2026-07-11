@@ -82,9 +82,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'ttsa_academy',
-        'USER': 'root',
-        'PASSWORD': 'iloveyoujaleth^100',
-        'HOST': 'localhost',
+        'USER': 'SmartCampusApp',
+        'PASSWORD': 'Sm@rtCampus#2026!X9',
+        'HOST': '127.0.0.1',
         'PORT': '3306',
         'OPTIONS': {
             'charset': 'utf8mb4',
