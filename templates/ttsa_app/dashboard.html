@@ -1,0 +1,203 @@
+{% extends 'ttsa_app/base.html' %}
+
+{% block title %}Dashboard - TTSA Academy{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- Welcome Header -->
+    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl shadow-lg p-6 mb-6 text-white">
+        <div class="flex flex-col md:flex-row justify-between items-center">
+            <div>
+                <h1 class="fredoka text-3xl font-bold mb-2">Welcome back, {{ user.username }}!</h1>
+                <p class="text-purple-100">Ready to continue your chess journey?</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex space-x-4">
+                <div class="text-center">
+                    <div class="text-3xl font-bold">{{ profile.learning_streak }}</div>
+                    <div class="text-sm text-purple-100">Day Streak</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold">{{ profile.rating }}</div>
+                    <div class="text-sm text-purple-100">Rating</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold">{{ profile.level }}</div>
+                    <div class="text-sm text-purple-100">Level</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Total Games</p>
+                    <p class="text-2xl font-bold text-gray-800">{{ recent_games.count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-chess text-blue-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Coins</p>
+                    <p class="text-2xl font-bold text-gray-800">{{ profile.coins }}</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-coins text-yellow-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Lessons</p>
+                    <p class="text-2xl font-bold text-gray-800">{{ completed_lessons }}/{{ total_lessons }}</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-book text-green-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm">Achievements</p>
+                    <p class="text-2xl font-bold text-gray-800">{{ achievements.count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-trophy text-purple-600"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Recent Games -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="fredoka text-xl font-bold text-gray-800 mb-4">Recent Games</h2>
+                {% if recent_games %}
+                    <div class="space-y-3">
+                        {% for game in recent_games %}
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-{{ game.result }}-100 rounded-full flex items-center justify-center">
+                                    {% if game.result == 'win' %}
+                                        <i class="fas fa-trophy text-green-600"></i>
+                                    {% elif game.result == 'loss' %}
+                                        <i class="fas fa-times text-red-600"></i>
+                                    {% else %}
+                                        <i class="fas fa-handshake text-gray-600"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <p class="font-semibold">{{ game.get_difficulty_level_display }}</p>
+                                    <p class="text-sm text-gray-600">{{ game.moves_count }} moves • {{ game.created_at|date:"M d, Y" }}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                    {% if game.result == 'win' %}bg-green-100 text-green-800
+                                    {% elif game.result == 'loss' %}bg-red-100 text-red-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ game.result|title }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <i class="fas fa-chess-board text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-600">No games played yet. Start your first game!</p>
+                        <a href="{% url 'chess_game' %}" class="inline-block mt-4 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                            Play Your First Game
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Achievements -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
+                <h2 class="fredoka text-xl font-bold text-gray-800 mb-4">Recent Achievements</h2>
+                {% if achievements %}
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {% for player_achievement in achievements|slice:":6" %}
+                        <div class="text-center p-3 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg">
+                            <div class="text-3xl mb-2">{{ player_achievement.achievement.icon }}</div>
+                            <p class="font-semibold text-sm">{{ player_achievement.achievement.name }}</p>
+                            <p class="text-xs text-gray-600">{{ player_achievement.earned_at|date:"M d" }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <i class="fas fa-medal text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-600">No achievements yet. Keep playing to unlock them!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="fredoka text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
+                <div class="space-y-3">
+                    <a href="{% url 'chess_game' %}" class="block w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition text-center font-semibold">
+                        <i class="fas fa-play mr-2"></i>Quick Game
+                    </a>
+                    <a href="{% url 'lessons' %}" class="block w-full px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-center font-semibold">
+                        <i class="fas fa-book-open mr-2"></i>Continue Learning
+                    </a>
+                    <a href="{% url 'puzzles' %}" class="block w-full px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-center font-semibold">
+                        <i class="fas fa-puzzle-piece mr-2"></i>Daily Puzzle
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Learning Progress -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="fredoka text-xl font-bold text-gray-800 mb-4">Learning Progress</h2>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-600">Overall Progress</span>
+                            <span class="font-semibold">{{ profile.level }}/10</span>
+                        </div>
+                        <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full progress-bar-fill" data-progress="{{ profile.level }}0"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-600">Experience</span>
+                            <span class="font-semibold">{{ profile.experience_points }} XP</span>
+                        </div>
+                        <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full" style="width: 50%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-2 border-t">
+                        <p class="text-sm text-gray-600">Next level in</p>
+                        <p class="font-semibold text-purple-600">500 XP</p>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}

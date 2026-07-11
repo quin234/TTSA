@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TTSA - Taita Taveta Sports Academy{% endblock %}</title>
+    
+    {% load static %}
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
+    <link rel="shortcut icon" href="{% static 'favicon.svg' %}">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- jQuery (required for Chessboard.js) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    
+    <!-- Chess.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.min.js"></script>
+    
+    <!-- Chessboard.js library -->
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    
+    <!-- Guest Progress Tracking -->
+    <script src="{% static 'js/guest-progress.js' %}"></script>
+    
+    <!-- Chess Sound Effects -->
+    <script src="{% static 'js/chess-sounds.js' %}"></script>
+    
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --secondary-color: #8b5cf6;
+            --accent-color: #ec4899;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --chess-light: #f0d9b5;
+            --chess-dark: #b58863;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .fredoka {
+            font-family: 'Fredoka', cursive;
+        }
+        
+        .chess-board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 1;
+            border: 4px solid #4a5568;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .chess-square {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .chess-square.light {
+            background-color: var(--chess-light);
+        }
+        
+        .chess-square.dark {
+            background-color: var(--chess-dark);
+        }
+        
+        .chess-square:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        
+        .chess-square.selected {
+            background-color: #fbbf24 !important;
+            box-shadow: inset 0 0 0 3px #f59e0b;
+        }
+        
+        .chess-square.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 30%;
+            height: 30%;
+            background-color: rgba(16, 185, 129, 0.5);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .chess-square.capture-move::after {
+            content: '';
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            border: 3px solid rgba(239, 68, 68, 0.7);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .sidebar-collapsed {
+            transform: translateX(-100%);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                z-index: 50;
+                height: 100vh;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+        }
+        
+        .achievement-badge {
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        .learning-mode .chess-square {
+            position: relative;
+        }
+        
+        .learning-mode .hint-square::before {
+            content: '💡';
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            font-size: 1rem;
+            animation: bounce 1s infinite;
+        }
+        
+        .piece-animation {
+            animation: pieceMove 0.5s ease;
+        }
+        
+        @keyframes pieceMove {
+            0% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.2) rotate(10deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 to-indigo-100">
+    
+    <!-- Header -->
+    <header class="bg-white shadow-lg sticky top-0 z-40">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <!-- Mobile Menu Toggle -->
+                <button id="mobileMenuToggle" class="md:hidden text-gray-600 hover:text-gray-800 focus:outline-none">
+                    <i class="fas fa-bars text-2xl"></i>
+                </button>
+                
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <img src="{% static 'images/logo.png' %}" alt="TTSA Logo" class="h-12 w-auto">
+                    <h1 class="fredoka text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                        TTSA Chess Academy
+                    </h1>
+                </div>
+                
+                <!-- User Info -->
+                {% if user.is_authenticated %}
+                <div class="flex items-center space-x-4">
+                    <!-- Rating -->
+                    <div class="hidden sm:flex items-center space-x-1 bg-yellow-100 px-3 py-1 rounded-full">
+                        <i class="fas fa-star text-yellow-500"></i>
+                        <span class="font-semibold text-yellow-800">{{ profile.rating }}</span>
+                    </div>
+                    
+                    <!-- Coins -->
+                    <div class="hidden sm:flex items-center space-x-1 bg-amber-100 px-3 py-1 rounded-full">
+                        <i class="fas fa-coins text-amber-500"></i>
+                        <span class="font-semibold text-amber-800">{{ profile.coins }}</span>
+                    </div>
+                    
+                    <!-- Streak -->
+                    <div class="hidden sm:flex items-center space-x-1 bg-red-100 px-3 py-1 rounded-full">
+                        <i class="fas fa-fire text-red-500"></i>
+                        <span class="font-semibold text-red-800">{{ profile.learning_streak }}</span>
+                    </div>
+                    
+                    <!-- Notifications -->
+                    <button class="relative p-2 text-gray-600 hover:text-gray-800">
+                        <i class="fas fa-bell text-xl"></i>
+                        <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                    </button>
+                    
+                    <!-- User Avatar -->
+                    <div class="flex items-center space-x-2">
+                        <img src="{{ profile.avatar.url }}" alt="{{ user.username }}" class="w-8 h-8 rounded-full border-2 border-purple-500">
+                        <span class="hidden sm:block font-medium text-gray-700">{{ user.username }}</span>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Guest User - Non-intrusive login/signup buttons -->
+                <div class="flex items-center space-x-3">
+                    <div class="hidden sm:flex items-center space-x-2 bg-purple-50 px-3 py-1 rounded-full">
+                        <i class="fas fa-user text-purple-500"></i>
+                        <span class="text-sm font-medium text-purple-700">Guest</span>
+                    </div>
+                    <a href="{% url 'signup' %}" class="px-3 py-1.5 text-sm text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-50 transition">
+                        Sign Up
+                    </a>
+                    <a href="{% url 'login' %}" class="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                        Login
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+    
+    <div class="flex h-screen pt-16">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar w-64 bg-white shadow-xl overflow-y-auto">
+            <nav class="p-4">
+                <ul class="space-y-2">
+                    {% if user.is_authenticated %}
+                    <li>
+                        <a href="{% url 'dashboard' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'dashboard' %}bg-purple-100 text-purple-700{% endif %}">
+                            <i class="fas fa-home text-lg"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li>
+                        <a href="{% url 'chess_game' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'chess_game' %}bg-purple-100 text-purple-700{% endif %}">
+                            <i class="fas fa-chess text-lg"></i>
+                            <span>Play vs Computer</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'multiplayer_create' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'multiplayer_create' %}bg-purple-100 text-purple-700{% endif %}">
+                            <i class="fas fa-users text-lg"></i>
+                            <span>Create Game</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'lessons' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'lessons' %}bg-purple-100 text-purple-700{% endif %}">
+                            <i class="fas fa-book text-lg"></i>
+                            <span>Chess Lessons</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'video_lessons' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'video_lessons' %}bg-purple-100 text-purple-700{% endif %}">
+                            <i class="fas fa-video text-lg"></i>
+                            <span>Video Lessons</span>
+                        </a>
+                    </li>
+                    {% if user.is_authenticated %}
+                    <li>
+                        <a href="{% url 'achievements' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'achievements' %}bg-purple-100 text-purple-700{% endif %}">
+                            <i class="fas fa-trophy text-lg"></i>
+                            <span>Achievements</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.is_authenticated %}
+                    <li>
+                        <a href="{% url 'settings' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'settings' %}bg-purple-100 text-purple-700{% endif %}">
+                            <i class="fas fa-cog text-lg"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.is_authenticated %}
+                    <li class="pt-4 border-t">
+                        <form action="{% url 'logout' %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-red-50 text-red-600 transition w-full text-left">
+                                <i class="fas fa-sign-out-alt text-lg"></i>
+                                <span>Logout</span>
+                            </button>
+                        </form>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto bg-gray-50">
+            {% block content %}
+            {% endblock %}
+        </main>
+    </div>
+    
+    <!-- Mobile Menu Overlay -->
+    <div id="mobileMenuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden"></div>
+    
+    <!-- JavaScript -->
+    <script src="{% static 'js/main.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

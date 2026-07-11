@@ -1,0 +1,716 @@
+{% extends 'ttsa_app/base.html' %}
+
+{% block title %}{{ lesson.title }} - TTSA Academy{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 mb-6 text-white">
+        <div class="flex items-center justify-between">
+            <div>
+                <a href="{% url 'lessons' %}" class="text-green-100 hover:text-white mb-2 inline-block">
+                    <i class="fas fa-arrow-left mr-2"></i>Back to Lessons
+                </a>
+                <h1 class="fredoka text-3xl font-bold mb-2">{{ lesson.title }}</h1>
+                <p class="text-green-100">{{ lesson.description }}</p>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold">{{ lesson.points_reward }}</div>
+                <div class="text-sm text-green-100">Points</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lesson Content -->
+    <div class="grid lg:grid-cols-3 gap-6">
+        
+        <!-- Main Content Area -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Chess Board for Interactive Lessons -->
+            {% if lesson.is_interactive %}
+            <div class="bg-white rounded-xl shadow-lg p-6" data-lesson-id="{{ lesson.id }}" data-is-guest="{% if is_guest %}true{% else %}false{% endif %}" data-points-reward="{{ lesson.points_reward }}" data-complete-url="{% url 'complete_lesson' lesson.id %}" data-lessons-url="{% url 'lessons' %}">
+                <h2 class="fredoka text-xl font-bold text-gray-800 mb-4">Interactive Board</h2>
+                <div id="lesson-board" style="width: 400px; margin: 0 auto;"></div>
+                
+                <!-- Playback Controls -->
+                <div class="flex justify-center items-center space-x-2 mb-4 mt-4">
+                    <button id="first-move" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition" title="First move">
+                        <i class="fas fa-fast-backward"></i>
+                    </button>
+                    <button id="previous-move" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition" title="Previous move">
+                        <i class="fas fa-step-backward"></i>
+                    </button>
+                    <button id="play-pause" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition" title="Play/Pause">
+                        <i class="fas fa-play" id="play-icon"></i>
+                    </button>
+                    <button id="next-move" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition" title="Next move">
+                        <i class="fas fa-step-forward"></i>
+                    </button>
+                    <button id="last-move" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition" title="Last move">
+                        <i class="fas fa-fast-forward"></i>
+                    </button>
+                    <button id="replay-move" class="px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition" title="Replay current move">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                    <button id="reset-position" class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition" title="Reset position">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                </div>
+                
+                <!-- Speed Control -->
+                <div class="flex items-center justify-center space-x-4 mb-4">
+                    <span class="text-gray-600 text-sm">Speed:</span>
+                    <input type="range" id="speed-slider" min="0.5" max="3" step="0.5" value="1" class="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="speed-value" class="text-gray-600 text-sm font-semibold">1x</span>
+                </div>
+                
+                <!-- Text-to-Speech Toggle -->
+                <div class="flex items-center justify-center space-x-3 mb-4">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="tts-toggle" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                        <span class="ml-3 text-sm font-medium text-gray-700">Voice Narration</span>
+                    </label>
+                </div>
+                
+                <!-- Move Counter -->
+                <div class="text-center mb-4">
+                    <span class="text-gray-600">Move: </span>
+                    <span id="move-counter" class="font-bold text-gray-800">0 / 0</span>
+                </div>
+                
+                <!-- Current Move Description -->
+                <div id="move-description" class="bg-gray-50 rounded-lg p-3 mb-4 text-center">
+                    <p class="text-gray-600">Click Play to start the demonstration</p>
+                </div>
+                
+                <div id="move-feedback" class="mt-4 text-center text-lg font-semibold"></div>
+            </div>
+            {% endif %}
+            
+            <!-- Lesson Content -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="fredoka text-xl font-bold text-gray-800 mb-4">Lesson Content</h2>
+                <div class="prose max-w-none">
+                    {{ lesson.content|linebreaks }}
+                </div>
+            </div>
+            
+            <!-- Quiz/Exercise Section -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="fredoka text-xl font-bold text-gray-800 mb-4">Exercise</h2>
+                <div id="exercise-container">
+                    <p class="text-gray-600 mb-4">Complete the exercise below to finish this lesson.</p>
+                    <div id="exercise-question" class="text-lg font-semibold mb-4"></div>
+                    <div id="exercise-options" class="space-y-2"></div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            
+            <!-- Lesson Info -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="fredoka text-lg font-bold text-gray-800 mb-4">Lesson Info</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Difficulty</span>
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">{{ lesson.difficulty|title }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Category</span>
+                        <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">{{ lesson.get_category_display }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Points</span>
+                        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">{{ lesson.points_reward }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Status</span>
+                        {% if player_lesson.completed %}
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">Completed</span>
+                        {% else %}
+                            <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">In Progress</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Progress -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="fredoka text-lg font-bold text-gray-800 mb-4">Your Progress</h3>
+                {% if player_lesson.completed %}
+                    <div class="text-center">
+                        <i class="fas fa-check-circle text-green-500 text-5xl mb-3"></i>
+                        <p class="text-green-600 font-semibold">Lesson Completed!</p>
+                        <p class="text-gray-600">Score: {{ player_lesson.score }}/100</p>
+                        <p class="text-sm text-gray-500">Completed on {{ player_lesson.completed_at|date:"M d, Y" }}</p>
+                    </div>
+                {% else %}
+                    <div class="text-center">
+                        <p class="text-gray-600 mb-4">Complete the exercise to finish this lesson.</p>
+                        <div class="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="progress-bar" class="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <p id="progress-text" class="text-sm text-gray-600 mt-2">0% Complete</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Complete Lesson Button -->
+            {% if not player_lesson.completed %}
+            <button id="complete-lesson-btn" class="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <i class="fas fa-check mr-2"></i>Complete Lesson
+            </button>
+            {% else %}
+            <a href="{% url 'lessons' %}" class="block w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition shadow-lg text-center">
+                <i class="fas fa-arrow-right mr-2"></i>Next Lesson
+            </a>
+            {% endif %}
+            
+        </div>
+    </div>
+</div>
+
+{% if lesson.is_interactive %}
+<style>
+.highlight-from {
+    background-color: rgba(255, 255, 0, 0.5) !important;
+}
+
+.highlight-to {
+    background-color: rgba(0, 255, 0, 0.5) !important;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing lesson board with Chessboard.js...');
+    
+    const lessonContainer = document.querySelector('[data-lesson-id]');
+    if (!lessonContainer) {
+        console.error('Lesson container not found');
+        return;
+    }
+    
+    const lessonId = parseInt(lessonContainer.getAttribute('data-lesson-id'));
+    const isGuest = lessonContainer.getAttribute('data-is-guest') === 'true';
+    let game = new Chess();
+    let board = null;
+    let currentMoveIndex = 0;
+    let lessonMoves = [];
+    let isPlaying = false;
+    let playInterval = null;
+    let playbackSpeed = 1;
+    let ttsEnabled = true;
+    let speechSynthesis = window.speechSynthesis;
+    let currentUtterance = null;
+    let highlightedSquares = [];
+    let isPracticeMode = false;
+    
+    console.log('Lesson ID:', lessonId, 'Is guest:', isGuest);
+    
+    // Lesson move sequences with descriptions
+    const lessonMoveSequences = {
+        1: [ // Chess Pieces and How They Move - Comprehensive piece demonstrations
+            { from: 'e2', to: 'e4', description: 'Pawn moves forward two squares from starting position' },
+            { from: 'e7', to: 'e5', description: 'Black pawn responds symmetrically' },
+            { from: 'g1', to: 'f3', description: 'Knight moves in L-shape: 2 squares forward, 1 square right' },
+            { from: 'b8', to: 'c6', description: 'Black knight develops with L-shape movement' },
+            { from: 'f1', to: 'c4', description: 'Bishop moves diagonally any number of squares' },
+            { from: 'd1', to: 'h5', description: 'Queen moves any number of squares diagonally (most powerful piece)' },
+            { from: 'a1', to: 'd1', description: 'Rook moves horizontally any number of squares' },
+            { from: 'e1', to: 'g1', description: 'King moves one square (preparing for castling)' },
+            { from: 'h1', to: 'f1', description: 'Rook completes castling - special king safety move' }
+        ],
+        2: [ // Piece Values and Trading - Trading example
+            { from: 'e2', to: 'e4', description: 'White opens with e4' },
+            { from: 'e7', to: 'e5', description: 'Black responds with e5' },
+            { from: 'g1', to: 'f3', description: 'White develops knight (3 points)' },
+            { from: 'b8', to: 'c6', description: 'Black develops knight (3 points)' },
+            { from: 'f1', to: 'c4', description: 'White develops bishop (3 points)' },
+            { from: 'f8', to: 'c5', description: 'Black develops bishop (3 points)' },
+            { from: 'f3', to: 'e5', description: 'White knight captures e5 pawn (1 point)' },
+            { from: 'c6', to: 'e5', description: 'Black knight recaptures (equal trade: 3 for 3)' }
+        ],
+        3: [ // Scholar's Mate
+            { from: 'e2', to: 'e4', description: 'White opens with e4, controlling the center' },
+            { from: 'e7', to: 'e5', description: 'Black responds with e5, contesting the center' },
+            { from: 'f1', to: 'c4', description: 'White develops bishop to c4, attacking f7' },
+            { from: 'b8', to: 'c6', description: 'Black develops knight to c6' },
+            { from: 'd1', to: 'h5', description: 'White brings queen to h5, threatening checkmate' },
+            { from: 'g8', to: 'f6', description: 'Black develops knight, attacking the queen' },
+            { from: 'h5', to: 'f7', description: 'White delivers checkmate!' }
+        ],
+        4: [ // Fork Tactics
+            { from: 'e2', to: 'e4', description: 'White opens with e4' },
+            { from: 'e7', to: 'e5', description: 'Black responds with e5' },
+            { from: 'g1', to: 'f3', description: 'White develops knight' },
+            { from: 'b8', to: 'c6', description: 'Black develops knight' },
+            { from: 'f1', to: 'c4', description: 'White develops bishop' },
+            { from: 'g8', to: 'f6', description: 'Black develops knight' },
+            { from: 'f3', to: 'g5', description: 'White moves knight to g5, setting up a fork' },
+            { from: 'd7', to: 'd6', description: 'Black plays d6' },
+            { from: 'g5', to: 'e6', description: 'Knight forks the queen on d8 and king on e8!' }
+        ],
+        5: [ // Pin and Skewer
+            { from: 'e2', to: 'e4', description: 'White opens with e4' },
+            { from: 'e7', to: 'e5', description: 'Black responds with e5' },
+            { from: 'g1', to: 'f3', description: 'White develops knight' },
+            { from: 'b8', to: 'c6', description: 'Black develops knight' },
+            { from: 'f1', to: 'c4', description: 'White develops bishop to c4' },
+            { from: 'g8', to: 'f6', description: 'Black develops knight' },
+            { from: 'c1', to: 'g5', description: 'White pins the knight on f6 to the king!' }
+        ],
+        6: [ // Italian Game Opening
+            { from: 'e2', to: 'e4', description: 'White opens with e4' },
+            { from: 'e7', to: 'e5', description: 'Black responds with e5' },
+            { from: 'g1', to: 'f3', description: 'White develops knight to f3' },
+            { from: 'b8', to: 'c6', description: 'Black develops knight to c6' },
+            { from: 'f1', to: 'c4', description: 'Italian Game: Bishop to c4' },
+            { from: 'f8', to: 'c5', description: 'Giuoco Piano: Black mirrors with bishop to c5' },
+            { from: 'c2', to: 'c3', description: 'White prepares d4 push' },
+            { from: 'g8', to: 'f6', description: 'Black develops knight' }
+        ],
+        7: [ // Sicilian Defense
+            { from: 'e2', to: 'e4', description: 'White opens with e4' },
+            { from: 'c7', to: 'c5', description: 'Sicilian Defense: Black plays c5' },
+            { from: 'g1', to: 'f3', description: 'White develops knight' },
+            { from: 'd7', to: 'd6', description: 'Black plays d6' },
+            { from: 'd2', to: 'd4', description: 'White pushes d4' },
+            { from: 'c5', to: 'd4', description: 'Black takes on d4' },
+            { from: 'f3', to: 'd4', description: 'White recaptures' },
+            { from: 'g8', to: 'f6', description: 'Black develops knight' }
+        ],
+        8: [ // King and Pawn Endgame - Pawn promotion
+            { from: 'e2', to: 'e4', description: 'White advances pawn' },
+            { from: 'e7', to: 'e5', description: 'Black responds' },
+            { from: 'e4', to: 'e5', description: 'White pawn advances' },
+            { from: 'e5', to: 'e6', description: 'Pawn continues advancing' },
+            { from: 'e6', to: 'e7', description: 'Pawn near promotion' },
+            { from: 'e7', to: 'e8', description: 'Pawn promotes to Queen!' }
+        ],
+        9: [ // Rook Endgames - Rook activity
+            { from: 'a1', to: 'd1', description: 'Rook moves to open file' },
+            { from: 'a8', to: 'd8', description: 'Black rook challenges' },
+            { from: 'd1', to: 'd7', description: 'White rook reaches 7th rank' },
+            { from: 'd8', to: 'd1', description: 'Black rook counterattacks' },
+            { from: 'd7', to: 'a7', description: 'White rook cuts off king' }
+        ],
+        10: [ // Positional Play - Knight outpost
+            { from: 'e2', to: 'e4', description: 'White controls center' },
+            { from: 'e7', to: 'e6', description: 'Black plays French Defense' },
+            { from: 'd2', to: 'd4', description: 'White strengthens center' },
+            { from: 'd7', to: 'd5', description: 'Black challenges center' },
+            { from: 'c2', to: 'c3', description: 'White supports d4' },
+            { from: 'g1', to: 'f3', description: 'White develops knight' },
+            { from: 'f3', to: 'e5', description: 'Knight establishes outpost on e5' },
+            { from: 'b1', to: 'c3', description: 'Second knight supports outpost' }
+        ]
+    };
+    
+    // Get moves for current lesson
+    lessonMoves = lessonMoveSequences[lessonId] || [];
+    
+    // Initialize Chessboard.js
+    function initBoard() {
+        console.log('Initializing Chessboard.js...');
+        
+        // Reset game to ensure starting position
+        game.reset();
+        console.log('Game reset. FEN:', game.fen());
+        
+        // Initialize Chessboard.js
+        const config = {
+            draggable: false,
+            position: 'start',
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+        };
+        
+        board = Chessboard('lesson-board', config);
+        updateMoveCounter();
+        console.log('Chessboard.js initialized successfully');
+    }
+    
+    // Text-to-Speech function with promise for synchronization
+    function speak(text) {
+        return new Promise((resolve, reject) => {
+            if (!ttsEnabled || !speechSynthesis) {
+                resolve();
+                return;
+            }
+            
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+            
+            currentUtterance = new SpeechSynthesisUtterance(text);
+            currentUtterance.rate = playbackSpeed;
+            currentUtterance.pitch = 1;
+            currentUtterance.volume = 1;
+            
+            // Select a good voice if available
+            const voices = speechSynthesis.getVoices();
+            const preferredVoice = voices.find(voice => 
+                voice.name.includes('Google US English') || 
+                voice.name.includes('Samantha') ||
+                voice.name.includes('Daniel')
+            );
+            if (preferredVoice) {
+                currentUtterance.voice = preferredVoice;
+            }
+            
+            // Resolve when speech ends
+            currentUtterance.onend = () => {
+                resolve();
+            };
+            
+            // Handle errors
+            currentUtterance.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
+                resolve(); // Resolve anyway to continue playback
+            };
+            
+            speechSynthesis.speak(currentUtterance);
+        });
+    }
+    
+    // Highlight squares for move
+    function highlightSquares(from, to) {
+        // Remove previous highlights
+        clearHighlights();
+        
+        // Add new highlights using CSS
+        highlightedSquares = [from, to];
+        const fromSquare = document.querySelector(`[data-square="${from}"]`);
+        const toSquare = document.querySelector(`[data-square="${to}"]`);
+        
+        if (fromSquare) {
+            fromSquare.classList.add('highlight-from');
+        }
+        if (toSquare) {
+            toSquare.classList.add('highlight-to');
+        }
+    }
+    
+    // Clear highlights
+    function clearHighlights() {
+        highlightedSquares.forEach(square => {
+            const squareEl = document.querySelector(`[data-square="${square}"]`);
+            if (squareEl) {
+                squareEl.classList.remove('highlight-from', 'highlight-to');
+            }
+        });
+        highlightedSquares = [];
+    }
+    
+    // Update move counter display
+    function updateMoveCounter() {
+        document.getElementById('move-counter').textContent = `${currentMoveIndex} / ${lessonMoves.length}`;
+    }
+    
+    // Update move description
+    async function updateMoveDescription() {
+        const descriptionEl = document.getElementById('move-description');
+        if (currentMoveIndex > 0 && currentMoveIndex <= lessonMoves.length) {
+            const move = lessonMoves[currentMoveIndex - 1];
+            descriptionEl.innerHTML = `<p class="text-gray-800 font-semibold text-lg">${move.description}</p>`;
+            // Speak the description and wait for completion
+            await speak(move.description);
+        } else if (currentMoveIndex === 0) {
+            descriptionEl.innerHTML = '<p class="text-gray-600">Click Play to start the demonstration</p>';
+        } else {
+            descriptionEl.innerHTML = '<p class="text-gray-600">End of demonstration</p>';
+        }
+    }
+    
+    // Make a move
+    async function makeMove(moveIndex) {
+        if (moveIndex < 0 || moveIndex > lessonMoves.length) return;
+        
+        // Reset game to start
+        game.reset();
+        clearHighlights();
+        
+        // Replay all moves up to the target index
+        for (let i = 0; i < moveIndex; i++) {
+            const move = lessonMoves[i];
+            game.move({
+                from: move.from,
+                to: move.to,
+                promotion: 'q'
+            });
+        }
+        
+        // Update Chessboard.js position
+        board.position(game.fen());
+        currentMoveIndex = moveIndex;
+        updateMoveCounter();
+        
+        // Highlight the last move if any
+        if (moveIndex > 0) {
+            const lastMove = lessonMoves[moveIndex - 1];
+            highlightSquares(lastMove.from, lastMove.to);
+        }
+        
+        // Update description and wait for speech
+        await updateMoveDescription();
+    }
+    
+    // Play/pause functionality
+    function togglePlay() {
+        if (isPlaying) {
+            pausePlayback();
+        } else {
+            startPlayback();
+        }
+    }
+    
+    async function startPlayback() {
+        if (currentMoveIndex >= lessonMoves.length) {
+            currentMoveIndex = 0;
+            game.reset();
+            board.position('start');
+            clearHighlights();
+        }
+        
+        isPlaying = true;
+        document.getElementById('play-icon').classList.remove('fa-play');
+        document.getElementById('play-icon').classList.add('fa-pause');
+        
+        // Play moves sequentially with TTS synchronization
+        while (isPlaying && currentMoveIndex < lessonMoves.length) {
+            const move = lessonMoves[currentMoveIndex];
+            
+            // Make the move
+            game.move({
+                from: move.from,
+                to: move.to,
+                promotion: 'q'
+            });
+            board.position(game.fen());
+            highlightSquares(move.from, move.to);
+            currentMoveIndex++;
+            updateMoveCounter();
+            
+            // Update description and wait for speech to complete
+            await updateMoveDescription();
+            
+            // Small pause between moves for visual clarity
+            await new Promise(resolve => setTimeout(resolve, 500 / playbackSpeed));
+        }
+        
+        if (isPlaying) {
+            pausePlayback();
+            showPracticeMode();
+        }
+    }
+    
+    function pausePlayback() {
+        isPlaying = false;
+        document.getElementById('play-icon').classList.remove('fa-pause');
+        document.getElementById('play-icon').classList.add('fa-play');
+        
+        // Cancel any ongoing speech
+        if (speechSynthesis) {
+            speechSynthesis.cancel();
+        }
+        
+        // Clear interval (no longer used but kept for compatibility)
+        if (playInterval) {
+            clearInterval(playInterval);
+            playInterval = null;
+        }
+    }
+    
+    // Replay current move
+    async function replayCurrentMove() {
+        if (currentMoveIndex > 0) {
+            const moveIndex = currentMoveIndex;
+            await makeMove(moveIndex - 1);
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await makeMove(moveIndex);
+        }
+    }
+    
+    // Event listeners for playback controls
+    document.getElementById('play-pause').addEventListener('click', togglePlay);
+    
+    document.getElementById('first-move').addEventListener('click', async function() {
+        pausePlayback();
+        await makeMove(0);
+    });
+    
+    document.getElementById('previous-move').addEventListener('click', async function() {
+        pausePlayback();
+        await makeMove(currentMoveIndex - 1);
+    });
+    
+    document.getElementById('next-move').addEventListener('click', async function() {
+        pausePlayback();
+        await makeMove(currentMoveIndex + 1);
+    });
+    
+    document.getElementById('last-move').addEventListener('click', async function() {
+        pausePlayback();
+        await makeMove(lessonMoves.length);
+    });
+    
+    document.getElementById('replay-move').addEventListener('click', async function() {
+        pausePlayback();
+        await replayCurrentMove();
+    });
+    
+    document.getElementById('reset-position').addEventListener('click', async function() {
+        pausePlayback();
+        game.reset();
+        board.position('start');
+        clearHighlights();
+        currentMoveIndex = 0;
+        updateMoveCounter();
+        await updateMoveDescription();
+    });
+    
+    // Speed control
+    document.getElementById('speed-slider').addEventListener('input', function(e) {
+        playbackSpeed = parseFloat(e.target.value);
+        document.getElementById('speed-value').textContent = playbackSpeed + 'x';
+    });
+    
+    // TTS toggle
+    document.getElementById('tts-toggle').addEventListener('change', function(e) {
+        ttsEnabled = e.target.checked;
+        if (!ttsEnabled && speechSynthesis) {
+            speechSynthesis.cancel();
+        }
+    });
+    
+    // Practice mode function
+    function showPracticeMode() {
+        isPracticeMode = true;
+        const exerciseContainer = document.getElementById('exercise-container');
+        const exerciseQuestion = document.getElementById('exercise-question');
+        const exerciseOptions = document.getElementById('exercise-options');
+        
+        // Generate a practice question based on the lesson
+        const practiceQuestions = {
+            1: [
+                { question: 'Which piece moves in an L-shape?', options: ['Bishop', 'Knight', 'Rook', 'Queen'], correct: 1 },
+                { question: 'Which is the most powerful piece?', options: ['King', 'Queen', 'Rook', 'Bishop'], correct: 1 },
+                { question: 'How many squares can a pawn move on its first move?', options: ['1', '2', '3', '4'], correct: 1 }
+            ],
+            2: [
+                { question: 'What is the approximate value of a knight?', options: ['1', '3', '5', '9'], correct: 1 },
+                { question: 'Which piece is worth 5 points?', options: ['Bishop', 'Knight', 'Rook', 'Queen'], correct: 2 }
+            ],
+            3: [
+                { question: 'What is the name of the four-move checkmate pattern?', options: ['Fool\'s Mate', 'Scholar\'s Mate', 'Back Rank Mate', 'Smothered Mate'], correct: 1 }
+            ]
+        };
+        
+        const questions = practiceQuestions[lessonId] || practiceQuestions[1];
+        const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
+        
+        exerciseQuestion.textContent = randomQuestion.question;
+        exerciseOptions.innerHTML = '';
+        
+        randomQuestion.options.forEach((option, index) => {
+            const button = document.createElement('button');
+            button.className = 'w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-left';
+            button.textContent = option;
+            button.addEventListener('click', function() {
+                if (index === randomQuestion.correct) {
+                    button.classList.remove('bg-gray-100', 'hover:bg-gray-200');
+                    button.classList.add('bg-green-100', 'text-green-800');
+                    button.textContent = '✓ ' + option;
+                    // Enable complete button
+                    const completeBtn = document.getElementById('complete-lesson-btn');
+                    if (completeBtn) {
+                        completeBtn.disabled = false;
+                    }
+                } else {
+                    button.classList.remove('bg-gray-100', 'hover:bg-gray-200');
+                    button.classList.add('bg-red-100', 'text-red-800');
+                    button.textContent = '✗ ' + option;
+                }
+            });
+            exerciseOptions.appendChild(button);
+        });
+        
+        exerciseContainer.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Enable complete button for demonstration lessons
+    if (lessonMoves.length > 0) {
+        const completeBtn = document.getElementById('complete-lesson-btn');
+        if (completeBtn) {
+            completeBtn.disabled = false;
+        }
+    }
+    
+    // Complete lesson
+    document.getElementById('complete-lesson-btn').addEventListener('click', function() {
+        const pointsReward = parseInt(lessonContainer.getAttribute('data-points-reward'));
+        const completeUrl = lessonContainer.getAttribute('data-complete-url');
+        const lessonsUrl = lessonContainer.getAttribute('data-lessons-url');
+        
+        if (isGuest) {
+            // For guests, save to localStorage
+            const guestData = JSON.parse(localStorage.getItem('guestData') || '{}');
+            if (!guestData.completed_lessons) {
+                guestData.completed_lessons = [];
+            }
+            if (!guestData.completed_lessons.includes(lessonId)) {
+                guestData.completed_lessons.push(lessonId);
+                guestData.coins = (guestData.coins || 100) + pointsReward;
+                localStorage.setItem('guestData', JSON.stringify(guestData));
+            }
+            window.location.href = lessonsUrl;
+        } else {
+            // For authenticated users, call API
+            fetch(completeUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'score=100'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = lessonsUrl;
+                } else {
+                    console.error('Error completing lesson:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    });
+    
+    // Get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Initialize
+    initBoard();
+});
+</script>
+{% endif %}
+{% endblock %}

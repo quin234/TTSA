@@ -1,0 +1,179 @@
+{% extends 'ttsa_app/base.html' %}
+
+{% block title %}Daily Puzzles - TTSA Academy{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-xl shadow-lg p-6 mb-6 text-white">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="fredoka text-3xl font-bold mb-2">Daily Chess Puzzles</h1>
+                <p class="text-blue-100">Improve your tactical skills with new puzzles every day</p>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold">{{ solved_puzzles|length }}</div>
+                <div class="text-sm text-blue-100">Puzzles Solved</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Daily Puzzle Section -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="fredoka text-2xl font-bold text-gray-800">
+                <i class="fas fa-calendar-day text-blue-500 mr-2"></i>
+                Today's Puzzle
+            </h2>
+            {% if daily_puzzle.id in solved_puzzles %}
+                <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                    <i class="fas fa-check-circle mr-1"></i>Solved
+                </span>
+            {% else %}
+                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                    <i class="fas fa-clock mr-1"></i>New
+                </span>
+            {% endif %}
+        </div>
+        
+        <div class="grid md:grid-cols-2 gap-6">
+            <!-- Puzzle Board -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <div class="chess-board mx-auto mb-4" style="max-width: 400px;">
+                    <!-- Simplified puzzle board representation -->
+                    <div class="text-center py-8">
+                        <i class="fas fa-chess-board text-6xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600">Puzzle board will be displayed here</p>
+                        <p class="text-sm text-gray-500 mt-2">FEN: {{ daily_puzzle.fen }}</p>
+                    </div>
+                </div>
+                
+                <div class="flex justify-center space-x-3">
+                    <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+                        <i class="fas fa-play mr-2"></i>Solve Puzzle
+                    </button>
+                    <button class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                        <i class="fas fa-lightbulb mr-2"></i>Hint
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Puzzle Info -->
+            <div class="space-y-4">
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <h3 class="font-semibold text-blue-800 mb-2">
+                        <i class="fas fa-info-circle mr-2"></i>Puzzle Details
+                    </h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Difficulty:</span>
+                            <span class="font-semibold capitalize">{{ daily_puzzle.difficulty }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Category:</span>
+                            <span class="font-semibold capitalize">{{ daily_puzzle.category }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Rating:</span>
+                            <span class="font-semibold">{{ daily_puzzle.rating }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-yellow-50 rounded-lg p-4">
+                    <h3 class="font-semibold text-yellow-800 mb-2">
+                        <i class="fas fa-trophy mr-2"></i>Rewards
+                    </h3>
+                    <div class="flex items-center space-x-4 text-sm">
+                        <div class="flex items-center space-x-1">
+                            <i class="fas fa-coins text-yellow-600"></i>
+                            <span class="font-semibold">5-10 coins</span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <i class="fas fa-star text-yellow-600"></i>
+                            <span class="font-semibold">10-20 XP</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if daily_puzzle.id not in solved_puzzles %}
+                <div class="bg-green-50 rounded-lg p-4">
+                    <h3 class="font-semibold text-green-800 mb-2">
+                        <i class="fas fa-crosshairs mr-2"></i>Your Task
+                    </h3>
+                    <p class="text-sm text-gray-700">Find the best move for White to gain an advantage or deliver checkmate.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- More Puzzles Section -->
+    <div class="bg-white rounded-xl shadow-lg p-6">
+        <h2 class="fredoka text-2xl font-bold text-gray-800 mb-6">
+            <i class="fas fa-puzzle-piece text-purple-500 mr-2"></i>
+            More Puzzles
+        </h2>
+        
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for puzzle in other_puzzles %}
+            <div class="border rounded-lg p-4 hover:shadow-md transition cursor-pointer {% if puzzle.id in solved_puzzles %}bg-green-50 border-green-200{% else %}bg-white{% endif %}">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                        {% if puzzle.id in solved_puzzles %}
+                            <i class="fas fa-check-circle text-green-500"></i>
+                        {% else %}
+                            <i class="fas fa-circle text-gray-300"></i>
+                        {% endif %}
+                        <span class="text-sm font-semibold capitalize">{{ puzzle.category }}</span>
+                    </div>
+                    <span class="px-2 py-1 bg-{{ puzzle.difficulty == 'beginner' and 'green' or puzzle.difficulty == 'easy' and 'blue' or puzzle.difficulty == 'intermediate' and 'yellow' or puzzle.difficulty == 'advanced' and 'orange' or 'red' }}-100 text-{{ puzzle.difficulty == 'beginner' and 'green' or puzzle.difficulty == 'easy' and 'blue' or puzzle.difficulty == 'intermediate' and 'yellow' or puzzle.difficulty == 'advanced' and 'orange' or 'red' }}-800 rounded text-xs">
+                        {{ puzzle.difficulty }}
+                    </span>
+                </div>
+                
+                <div class="text-center mb-3">
+                    <div class="w-16 h-16 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
+                        <i class="fas fa-chess text-gray-400 text-2xl"></i>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-gray-600">Rating: {{ puzzle.rating }}</span>
+                    <button class="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition">
+                        {% if puzzle.id in solved_puzzles %}Practice{% else %}Solve{% endif %}
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="text-center mt-6">
+            <button class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition">
+                <i class="fas fa-plus-circle mr-2"></i>Load More Puzzles
+            </button>
+        </div>
+    </div>
+    
+    <!-- Stats Section -->
+    <div class="grid md:grid-cols-4 gap-4 mt-6">
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ solved_puzzles|length }}</div>
+            <div class="text-sm text-gray-600">Total Solved</div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <div class="text-2xl font-bold text-green-600">7</div>
+            <div class="text-sm text-gray-600">Day Streak</div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <div class="text-2xl font-bold text-purple-600">85%</div>
+            <div class="text-sm text-gray-600">Accuracy</div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+            <div class="text-2xl font-bold text-yellow-600">1250</div>
+            <div class="text-sm text-gray-600">Puzzle Rating</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

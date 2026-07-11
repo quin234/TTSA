@@ -1,0 +1,617 @@
+/* TTSA Chess Academy Styles */
+:root {
+    --primary-color: #6366f1;
+    --secondary-color: #8b5cf6;
+    --accent-color: #ec4899;
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --error-color: #ef4444;
+    --chess-light: #f0d9b5;
+    --chess-dark: #b58863;
+    --chess-highlight: #fbbf24;
+    --chess-valid: #10b981;
+    --chess-capture: #ef4444;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.fredoka {
+    font-family: 'Fredoka', cursive;
+}
+
+/* Chess Board Styles */
+.chess-board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    width: 100%;
+    max-width: 600px;
+    aspect-ratio: 1;
+    border: 4px solid #4a5568;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    margin: 0 auto;
+    transition: transform 0.3s ease;
+}
+
+.chess-board.flipped {
+    transform: rotate(180deg);
+}
+
+.chess-board.flipped .chess-piece {
+    transform: rotate(180deg);
+}
+
+.chess-square {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1;
+}
+
+.chess-square.light {
+    background-color: var(--chess-light);
+}
+
+.chess-square.dark {
+    background-color: var(--chess-dark);
+}
+
+.chess-piece {
+    font-size: 2.5rem;
+    line-height: 1;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    transition: transform 0.2s ease;
+}
+
+.chess-square:hover .chess-piece {
+    transform: scale(1.1);
+}
+
+.chess-square:hover {
+    transform: scale(1.05);
+    z-index: 10;
+    filter: brightness(1.1);
+}
+
+.chess-square.selected {
+    background-color: var(--chess-highlight) !important;
+    box-shadow: inset 0 0 0 3px #f59e0b;
+}
+
+.chess-square.highlight {
+    background-color: rgba(16, 185, 129, 0.4) !important;
+    box-shadow: inset 0 0 0 2px #10b981;
+}
+
+.chess-square.valid-move::after {
+    content: '';
+    position: absolute;
+    width: 30%;
+    height: 30%;
+    background-color: rgba(16, 185, 129, 0.5);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+
+.chess-square.capture-move::after {
+    content: '';
+    position: absolute;
+    width: 90%;
+    height: 90%;
+    border: 3px solid rgba(239, 68, 68, 0.7);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+
+.chess-square.hint-square::before {
+    content: '💡';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    font-size: 1rem;
+    animation: bounce 1s infinite;
+    z-index: 20;
+}
+
+/* Animations */
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+}
+
+@keyframes pieceMove {
+    0% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(1.2) rotate(10deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Sidebar Styles */
+.sidebar {
+    background: white;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.sidebar-collapsed {
+    transform: translateX(-100%);
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        z-index: 50;
+        height: 100vh;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar.open {
+        transform: translateX(0);
+    }
+}
+
+/* Navigation Links */
+.sidebar nav ul li a {
+    display: flex;
+    align-items: center;
+    space-x: 3;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: #4b5563;
+    font-weight: 500;
+}
+
+.sidebar nav ul li a:hover {
+    background-color: #f3f4f6;
+    color: var(--primary-color);
+    transform: translateX(5px);
+}
+
+.sidebar nav ul li a.active {
+    background-color: #ede9fe;
+    color: var(--primary-color);
+}
+
+/* Card Styles */
+.card {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Achievement Badges */
+.achievement-badge {
+    animation: bounce 2s infinite;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffd700, #ffed4e);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-size: 1.5rem;
+}
+
+.achievement-badge.silver {
+    background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+}
+
+.achievement-badge.bronze {
+    background: linear-gradient(135deg, #cd7f32, #e4a853);
+}
+
+/* Button Styles */
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+}
+
+.btn-secondary {
+    background: white;
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+}
+
+.btn-secondary:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: white;
+}
+
+.btn-warning {
+    background: var(--warning-color);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--error-color);
+    color: white;
+}
+
+/* Progress Bars */
+.progress-bar {
+    width: 100%;
+    height: 0.5rem;
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success-color), var(--primary-color));
+    border-radius: 9999px;
+    transition: width 0.5s ease;
+}
+
+/* Learning Mode Styles */
+.learning-mode .chess-square {
+    position: relative;
+}
+
+.learning-mode .hint-square::before {
+    content: '💡';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    font-size: 1rem;
+    animation: bounce 1s infinite;
+}
+
+.learning-assistant {
+    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    border-left: 4px solid var(--primary-color);
+}
+
+/* Stats Display */
+.stat-card {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Notification Styles */
+.notification {
+    position: fixed;
+    top: 5rem;
+    right: 1rem;
+    z-index: 50;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease;
+}
+
+.notification.success {
+    background: var(--success-color);
+    color: white;
+}
+
+.notification.warning {
+    background: var(--warning-color);
+    color: white;
+}
+
+.notification.error {
+    background: var(--error-color);
+    color: white;
+}
+
+.notification.info {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    max-width: 28rem;
+    width: 90%;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    animation: slideIn 0.3s ease;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+    .chess-board {
+        max-width: 90vw;
+        font-size: 1.8rem;
+    }
+    
+    .chess-square {
+        font-size: 1.8rem;
+    }
+    
+    .sidebar {
+        width: 16rem;
+    }
+    
+    .card {
+        margin: 0.5rem;
+    }
+}
+
+/* Loading Animation */
+.loading {
+    display: inline-block;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Tooltip Styles */
+.tooltip {
+    position: relative;
+}
+
+.tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.tooltip:hover::after {
+    opacity: 1;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* Game Specific Styles */
+.game-header {
+    background: linear-gradient(135deg, white, #f9fafb);
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.player-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.player-card.active {
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+}
+
+.move-history {
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.control-button {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.control-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.control-button:active {
+    transform: translateY(0);
+}
+
+/* Difficulty Indicators */
+.difficulty-beginner { background: linear-gradient(135deg, #10b981, #34d399); }
+.difficulty-easy { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+.difficulty-intermediate { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+.difficulty-advanced { background: linear-gradient(135deg, #ef4444, #f87171); }
+.difficulty-expert { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
+.difficulty-master { background: linear-gradient(135deg, #1f2937, #374151); }
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    .game-header {
+        padding: 0.5rem;
+    }
+    
+    .control-button {
+        padding: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .modal-content {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Focus Styles */
+.btn:focus,
+.form-input:focus,
+.control-button:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .chess-square.light {
+        background-color: #ffffff;
+    }
+    
+    .chess-square.dark {
+        background-color: #000000;
+    }
+    
+    .card {
+        border: 2px solid #000000;
+    }
+}

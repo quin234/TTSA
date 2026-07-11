@@ -1,0 +1,100 @@
+{% extends 'ttsa_app/base.html' %}
+
+{% block title %}Achievements - TTSA Academy{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-yellow-500 to-orange-600 rounded-xl shadow-lg p-6 mb-6 text-white">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="fredoka text-3xl font-bold mb-2">Achievements</h1>
+                <p class="text-yellow-100">Track your chess journey milestones</p>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold">{{ player_achievements.count }}/{{ all_achievements.count }}</div>
+                <div class="text-sm text-yellow-100">Unlocked</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Progress Overview -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="fredoka text-xl font-bold text-gray-800">Overall Progress</h2>
+            <span class="text-sm text-gray-600">
+                {% if all_achievements.count > 0 %}
+                    {% widthratio player_achievements.count 1 all_achievements.count as progress %}
+                    {% widthratio progress 100 1 as percent %}
+                    {{ percent }}%
+                {% else %}
+                    0%
+                {% endif %}
+            </span>
+        </div>
+        <div class="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+            {% if all_achievements.count > 0 %}
+                {% widthratio player_achievements.count 1 all_achievements.count as progress %}
+                {% widthratio progress 100 1 as percent %}
+                <div class="h-full bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full transition-all duration-500" style="width: {{ percent }}%"></div>
+            {% else %}
+                <div class="h-full bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full transition-all duration-500" style="width: 0%"></div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Achievements Grid -->
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for item in achievements_with_progress %}
+        {% with achievement=item.achievement player_ach=item.player_achievement progress=item.progress completed=item.completed %}
+        <div class="bg-white rounded-xl shadow-lg p-6 {% if completed %}border-2 border-yellow-400{% else %}opacity-75{% endif %}">
+            <div class="flex items-center space-x-4 mb-4">
+                <div class="w-16 h-16 {% if completed %}bg-yellow-100{% else %}bg-gray-100{% endif %} rounded-full flex items-center justify-center">
+                    <i class="fas fa-trophy text-2xl {% if completed %}text-yellow-600{% else %}text-gray-400{% endif %}"></i>
+                </div>
+                <div>
+                    <h3 class="fredoka text-lg font-bold text-gray-800">{{ achievement.name }}</h3>
+                    <p class="text-sm text-gray-600">{{ achievement.description }}</p>
+                </div>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600">Progress</span>
+                    <span class="font-semibold {% if completed %}text-green-600{% else %}text-gray-600{% endif %}">
+                        {% if completed %}
+                            Completed!
+                        {% else %}
+                            {{ progress }}/{{ achievement.requirement }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    {% if completed %}
+                        <div class="h-full bg-green-500 rounded-full transition-all duration-500" style="width: 100%"></div>
+                    {% else %}
+                        {% if achievement.requirement > 0 %}
+                            {% widthratio progress 1 achievement.requirement as progress_pct %}
+                            <div class="h-full bg-yellow-500 rounded-full transition-all duration-500" style="width: {{ progress_pct }}%"></div>
+                        {% else %}
+                            <div class="h-full bg-yellow-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600">Reward</span>
+                    <span class="font-semibold text-orange-600">{{ achievement.points_reward }} points</span>
+                </div>
+            </div>
+        </div>
+        {% endwith %}
+        {% empty %}
+        <div class="col-span-3 text-center py-12">
+            <i class="fas fa-trophy text-6xl text-gray-300 mb-4"></i>
+            <p class="text-gray-600">No achievements available yet.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

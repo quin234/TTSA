@@ -1,0 +1,885 @@
+{% extends 'ttsa_app/base.html' %}
+
+{% block title %}Multiplayer Chess Game - TTSA Academy{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- Game Header -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div class="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
+            <!-- Game Info -->
+            <div class="flex items-center space-x-6">
+                <div class="text-center">
+                    <div class="text-sm text-gray-600">Game Type</div>
+                    <div class="text-lg font-bold text-purple-600">{{ game.get_game_type_display }}</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm text-gray-600">Moves</div>
+                    <div id="moveCount" class="text-2xl font-bold text-indigo-600">0</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm text-gray-600">Time</div>
+                    <div id="gameTimer" class="text-2xl font-bold text-green-600">00:00</div>
+                </div>
+            </div>
+            
+            <!-- Players -->
+            <div class="flex items-center space-x-8">
+                <div class="text-center">
+                    <div class="flex items-center space-x-2 mb-1">
+                        <div class="w-8 h-8 bg-white border-2 border-gray-800 rounded-full flex items-center justify-center">
+                            <i class="fas fa-chess-king text-gray-800"></i>
+                        </div>
+                        <span class="font-semibold text-gray-800">{{ game.white_player.username }}</span>
+                        {% if game.white_player.id == user.id %}
+                        <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">You</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-600">White</div>
+                </div>
+                <div class="text-2xl font-bold text-gray-400">VS</div>
+                <div class="text-center">
+                    <div class="flex items-center space-x-2 mb-1">
+                        <div class="w-8 h-8 bg-gray-800 border-2 border-gray-400 rounded-full flex items-center justify-center">
+                            <i class="fas fa-chess-king text-white"></i>
+                        </div>
+                        <span class="font-semibold text-gray-800">{{ game.black_player.username }}</span>
+                        {% if game.black_player.id == user.id %}
+                        <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">You</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-600">Black</div>
+                </div>
+            </div>
+            
+            <!-- Game Status -->
+            <div class="text-center">
+                <div id="gameStatus" class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg font-semibold">
+                    {% if game.status == 'waiting' %}
+                    Waiting for opponent...
+                    {% elif game.status == 'playing' %}
+                    Game in Progress
+                    {% elif game.status == 'completed' %}
+                    Game Completed
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-6">
+        <!-- Chess Board -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <!-- Opponent Profile (Above Board) -->
+                <div id="opponentProfile" class="mb-4 p-4 bg-gray-50 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div id="opponentAvatar" class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-gray-500 text-xl"></i>
+                            </div>
+                            <div>
+                                <div id="opponentName" class="font-bold text-gray-800"></div>
+                                <div id="opponentRating" class="text-sm text-gray-600"></div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">Time</div>
+                            <div id="opponentClock" class="text-2xl font-bold text-gray-800">10:00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Turn Indicator -->
+                <div class="mb-4 text-center">
+                    <div id="turnIndicator" class="inline-flex items-center space-x-2 px-4 py-2 bg-purple-100 rounded-full">
+                        <div id="turnColor" class="w-3 h-3 bg-white rounded-full border-2 border-gray-800"></div>
+                        <span id="turnText" class="font-semibold text-purple-700">White's Turn</span>
+                    </div>
+                </div>
+                
+                <!-- Chessboard.js Board -->
+                <div class="flex justify-center">
+                    <div id="multiplayerBoard" class="mx-auto" style="width: 400px;"></div>
+                </div>
+
+                <!-- Current Player Profile (Below Board) -->
+                <div id="myProfile" class="mt-4 p-4 bg-purple-50 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div id="myAvatar" class="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-purple-500 text-xl"></i>
+                            </div>
+                            <div>
+                                <div id="myName" class="font-bold text-gray-800"></div>
+                                <div id="myRating" class="text-sm text-gray-600"></div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">Time</div>
+                            <div id="myClock" class="text-2xl font-bold text-purple-600">10:00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Waiting Message -->
+                <div id="waitingMessage" class="mt-4 text-center hidden">
+                    <div class="inline-flex items-center space-x-2 px-4 py-2 bg-yellow-100 rounded-full">
+                        <i class="fas fa-clock text-yellow-600"></i>
+                        <span class="font-semibold text-yellow-700">Waiting for opponent to join...</span>
+                    </div>
+                </div>
+                
+                <!-- Game Controls -->
+                <div class="mt-6 flex justify-center space-x-3">
+                    <button onclick="resignGame()" class="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-semibold">
+                        <i class="fas fa-flag mr-2"></i>Resign
+                    </button>
+                    <button onclick="offerDraw()" class="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition font-semibold">
+                        <i class="fas fa-handshake mr-2"></i>Offer Draw
+                    </button>
+                    <button onclick="rematch()" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-semibold">
+                        <i class="fas fa-redo mr-2"></i>Rematch
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Move History -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
+                <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Move History</h3>
+                <div id="moveHistory" class="space-y-1 max-h-48 overflow-y-auto text-sm font-mono">
+                    <div class="text-gray-400 text-center">No moves yet</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Info Panel -->
+        <div class="space-y-6">
+            <!-- Captured Pieces -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Captured Pieces</h3>
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-sm text-gray-600 mb-2">White captured:</p>
+                        <div id="whiteCaptured" class="flex flex-wrap gap-1 text-2xl"></div>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 mb-2">Black captured:</p>
+                        <div id="blackCaptured" class="flex flex-wrap gap-1 text-2xl"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Game Chat -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Game Chat</h3>
+                <div id="chatMessages" class="space-y-2 max-h-48 overflow-y-auto mb-4">
+                    <div class="text-gray-400 text-center text-sm">No messages yet</div>
+                </div>
+                <div class="flex space-x-2">
+                    <input type="text" id="chatInput" placeholder="Type a message..." class="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none">
+                    <button onclick="sendMessage()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Game Settings -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Game ID:</span>
+                        <span class="font-mono">{{ game.game_code }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Rated:</span>
+                        <span class="font-semibold">{{ game.rated|yesno:"Yes,No" }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Visibility:</span>
+                        <span class="font-semibold capitalize">{{ game.visibility }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Created:</span>
+                        <span class="font-semibold">{{ game.created_at|date:"M d, Y H:i" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Game Over Modal -->
+<div id="gameOverModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all">
+        <div class="text-center">
+            <div id="gameResultIcon" class="text-6xl mb-4"></div>
+            <h2 id="gameResultTitle" class="fredoka text-3xl font-bold mb-2"></h2>
+            <p id="gameResultMessage" class="text-gray-600 mb-6"></p>
+            <div class="flex space-x-3 justify-center">
+                <button onclick="rematch()" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition">
+                    <i class="fas fa-redo mr-2"></i>Play Again
+                </button>
+                <button onclick="closeGameOverModal()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Draw Offer Modal -->
+<div id="drawModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4">
+        <div class="text-center">
+            <i class="fas fa-handshake text-6xl text-yellow-500 mb-4"></i>
+            <h2 class="fredoka text-2xl font-bold mb-2">Draw Offer</h2>
+            <p class="text-gray-600 mb-6">Your opponent has offered a draw. Do you accept?</p>
+            <div class="flex space-x-3 justify-center">
+                <button onclick="acceptDraw()" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
+                    <i class="fas fa-check mr-2"></i>Accept
+                </button>
+                <button onclick="declineDraw()" class="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+                    <i class="fas fa-times mr-2"></i>Decline
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chess.js for move validation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+<script>
+let game = null;
+let board = null; // Chessboard.js instance
+let websocket = null;
+let myColor = null;
+let gameEnded = false;
+let selectedSquare = null;
+let gameTimer = null;
+let secondsElapsed = 0;
+let firstMoveMade = false;
+
+// Chess clock variables
+let whiteTime = 600; // 10 minutes in seconds
+let blackTime = 600; // 10 minutes in seconds
+let clockInterval = null;
+let activeClock = 'white'; // 'white' or 'black'
+
+// Initialize game
+document.addEventListener('DOMContentLoaded', function() {
+    initializeGame();
+    connectWebSocket();
+});
+
+function initializeGame() {
+    // Determine my color
+    myColor = "{{ my_color|safe }}";
+    
+    // Initialize chess.js
+    game = new Chess();
+    
+    // Load existing moves if any
+    const fen = "{{ game.current_fen|default:'' }}";
+    if (fen) {
+        game.load(fen);
+    }
+    
+    // Initialize Chessboard.js
+    const config = {
+        draggable: true,
+        position: fen || 'start',
+        onDragStart: onDragStart,
+        onDrop: onDrop,
+        onSnapEnd: onSnapEnd,
+        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+        orientation: myColor === 'white' ? 'white' : 'black'
+    };
+    
+    board = Chessboard('multiplayerBoard', config);
+    
+    // Initialize player profiles
+    initializePlayerProfiles();
+    
+    // Initialize clocks
+    initializeClocks();
+    
+    // Update UI
+    updateTurnIndicator();
+    updateMoveHistory();
+    updateCapturedPieces();
+    
+    // Show waiting message if game is waiting for opponent
+    if ("{{ game.status }}" === 'waiting') {
+        document.getElementById('waitingMessage').classList.remove('hidden');
+        document.getElementById('gameStatus').textContent = 'Waiting for opponent...';
+    } else if ("{{ game.status }}" === 'playing') {
+        // Start clock if game is in progress
+        document.getElementById('gameStatus').textContent = 'Game in Progress';
+        document.getElementById('gameStatus').className = 'px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold';
+        startClock();
+    }
+    
+    // Check if game is already ended
+    if ("{{ game.status }}" === 'completed') {
+        gameEnded = true;
+        showGameOver("{{ game.result }}");
+    }
+}
+
+// Chessboard.js drag start handler
+function onDragStart(source, piece, position, orientation) {
+    // Do not pick up pieces if the game is over
+    if (game.game_over() || gameEnded) return false;
+    
+    // Only pick up pieces if it's my turn
+    if ((game.turn() === 'w' && myColor !== 'white') || 
+        (game.turn() === 'b' && myColor !== 'black')) {
+        return false;
+    }
+    
+    // Only pick up pieces for the side to move
+    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+        (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+        return false;
+    }
+}
+
+// Chessboard.js drop handler
+function onDrop(source, target) {
+    // See if the move is legal
+    const move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q' // Always promote to queen for simplicity
+    });
+    
+    // Illegal move
+    if (move === null) return 'snapback';
+    
+    // Send move to server
+    sendMove(source, target, move);
+}
+
+// Chessboard.js snap end handler
+function onSnapEnd() {
+    // Update the board position after the piece snap
+    board.position(game.fen());
+}
+
+function sendMove(from, to, move) {
+    if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket not connected');
+        return;
+    }
+    
+    websocket.send(JSON.stringify({
+        type: 'move',
+        move: {
+            from: from,
+            to: to,
+            piece: move.piece,
+            captured: move.captured,
+            promotion: move.promotion,
+            san: move.san,
+            flags: move.flags
+        }
+    }));
+    
+    // Switch clock after move
+    switchClock();
+    
+    // Update UI
+    updateTurnIndicator();
+    updateMoveHistory();
+    updateCapturedPieces();
+}
+
+function initializePlayerProfiles() {
+    const whitePlayer = {
+        name: "{{ game.white_player.username }}",
+        rating: "{{ white_profile.rating }}",
+        avatar: "{{ white_profile.avatar.url|default:'' }}"
+    };
+    
+    const blackPlayer = {
+        name: "{{ game.black_player.username }}",
+        rating: "{{ black_profile.rating }}",
+        avatar: "{{ black_profile.avatar.url|default:'' }}"
+    };
+    
+    if (myColor === 'white') {
+        // I'm white, so show black above (opponent) and white below (me)
+        document.getElementById('opponentName').textContent = blackPlayer.name;
+        document.getElementById('opponentRating').textContent = `Rating: ${blackPlayer.rating}`;
+        document.getElementById('myName').textContent = whitePlayer.name;
+        document.getElementById('myRating').textContent = `Rating: ${whitePlayer.rating}`;
+    } else {
+        // I'm black, so show white above (opponent) and black below (me)
+        document.getElementById('opponentName').textContent = whitePlayer.name;
+        document.getElementById('opponentRating').textContent = `Rating: ${whitePlayer.rating}`;
+        document.getElementById('myName').textContent = blackPlayer.name;
+        document.getElementById('myRating').textContent = `Rating: ${blackPlayer.rating}`;
+    }
+}
+
+function initializeClocks() {
+    updateClockDisplay();
+}
+
+function startClock() {
+    if (clockInterval) return;
+    
+    clockInterval = setInterval(() => {
+        if (gameEnded) {
+            stopClock();
+            return;
+        }
+        
+        if (activeClock === 'white') {
+            whiteTime--;
+            if (whiteTime <= 0) {
+                stopClock();
+                handleTimeOut('black');
+            }
+        } else {
+            blackTime--;
+            if (blackTime <= 0) {
+                stopClock();
+                handleTimeOut('white');
+            }
+        }
+        
+        updateClockDisplay();
+        
+        // Sync clock every 5 seconds
+        if (whiteTime % 5 === 0 || blackTime % 5 === 0) {
+            syncClock();
+        }
+    }, 1000);
+}
+
+function stopClock() {
+    if (clockInterval) {
+        clearInterval(clockInterval);
+        clockInterval = null;
+    }
+}
+
+function switchClock() {
+    activeClock = activeClock === 'white' ? 'black' : 'white';
+    updateClockDisplay();
+}
+
+function updateClockDisplay() {
+    const whiteClock = myColor === 'white' ? document.getElementById('myClock') : document.getElementById('opponentClock');
+    const blackClock = myColor === 'black' ? document.getElementById('myClock') : document.getElementById('opponentClock');
+    
+    if (whiteClock) {
+        whiteClock.textContent = formatTime(whiteTime);
+        whiteClock.className = `text-2xl font-bold ${activeClock === 'white' ? 'text-green-600' : 'text-gray-800'}`;
+    }
+    
+    if (blackClock) {
+        blackClock.textContent = formatTime(blackTime);
+        blackClock.className = `text-2xl font-bold ${activeClock === 'black' ? 'text-green-600' : 'text-gray-800'}`;
+    }
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function syncClock() {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify({
+            type: 'clock_sync',
+            white_time: whiteTime,
+            black_time: blackTime,
+            active_clock: activeClock
+        }));
+    }
+}
+
+function handleTimeOut(winner) {
+    gameEnded = true;
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify({
+            type: 'timeout',
+            winner: winner
+        }));
+    }
+    showGameOver(winner);
+}
+
+function connectWebSocket() {
+    const wsUrl = `ws://${window.location.host}/ws/multiplayer/{{ game.id }}/`;
+    websocket = new WebSocket(wsUrl);
+    
+    websocket.onopen = function() {
+        console.log('WebSocket connected');
+        // Request current game state on reconnection
+        if (game && game.fen()) {
+            websocket.send(JSON.stringify({
+                type: 'reconnect',
+                current_fen: game.fen()
+            }));
+        }
+    };
+    
+    websocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleWebSocketMessage(data);
+    };
+    
+    websocket.onclose = function() {
+        console.log('WebSocket disconnected, attempting to reconnect...');
+        // Attempt to reconnect after 3 seconds
+        setTimeout(connectWebSocket, 3000);
+    };
+    
+    websocket.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+}
+
+function handleWebSocketMessage(data) {
+    switch(data.type) {
+        case 'game_state':
+            // Handle reconnection - update game state from server
+            if (data.fen) {
+                game.load(data.fen);
+                board.position(game.fen());
+                updateTurnIndicator();
+                updateMoveHistory();
+                updateCapturedPieces();
+                
+                // Update game status
+                if (data.status === 'completed') {
+                    gameEnded = true;
+                    stopClock();
+                    if (data.result) {
+                        showGameOver(data.result);
+                    }
+                } else if (data.status === 'playing') {
+                    startClock();
+                }
+            }
+            break;
+            
+        case 'move':
+            // Apply the move to the chess.js instance
+            try {
+                game.move(data.move);
+                board.position(game.fen());
+                updateTurnIndicator();
+                updateMoveHistory();
+                updateCapturedPieces();
+                
+                // Switch clock when opponent moves
+                switchClock();
+                
+                // Start clock on first move
+                if (!firstMoveMade) {
+                    firstMoveMade = true;
+                    startClock();
+                }
+            } catch (error) {
+                console.error('Error applying move:', error);
+            }
+            break;
+            
+        case 'clock_sync':
+            // Sync clocks from server
+            if (data.white_time !== undefined) whiteTime = data.white_time;
+            if (data.black_time !== undefined) blackTime = data.black_time;
+            if (data.active_clock !== undefined) activeClock = data.active_clock;
+            updateClockDisplay();
+            break;
+            
+        case 'game_start':
+            document.getElementById('gameStatus').textContent = 'Game in Progress';
+            document.getElementById('gameStatus').className = 'px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold';
+            document.getElementById('waitingMessage').classList.add('hidden');
+            startClock();
+            break;
+            
+        case 'game_end':
+            gameEnded = true;
+            stopClock();
+            showGameOver(data.result);
+            break;
+            
+        case 'game_completed':
+            gameEnded = true;
+            stopClock();
+            showGameOver(data.result);
+            break;
+            
+        case 'draw_offer':
+            document.getElementById('drawModal').classList.remove('hidden');
+            break;
+            
+        case 'draw_response':
+            if (data.accepted) {
+                gameEnded = true;
+                stopClock();
+                showGameOver('draw');
+            } else {
+                alert('Draw offer declined');
+            }
+            break;
+            
+        case 'player_resigned':
+            gameEnded = true;
+            stopClock();
+            showGameOver('resignation');
+            break;
+            
+        case 'chat':
+            addChatMessage(data.username, data.message);
+            break;
+            
+        case 'opponent_joined':
+            updateGameStatus();
+            break;
+            
+        case 'opponent_left':
+            alert('Your opponent has left the game');
+            break;
+    }
+}
+
+function startTimer() {
+    if (gameTimer) return;
+    secondsElapsed = 0;
+    gameTimer = setInterval(() => {
+        secondsElapsed++;
+        updateTimerDisplay();
+    }, 1000);
+}
+
+function stopTimer() {
+    if (gameTimer) {
+        clearInterval(gameTimer);
+        gameTimer = null;
+    }
+}
+
+function updateTimerDisplay() {
+    const minutes = Math.floor(secondsElapsed / 60);
+    const seconds = secondsElapsed % 60;
+    const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    document.getElementById('gameTimer').textContent = display;
+}
+
+function isMyTurn() {
+    if (!myColor) return false;
+    return (myColor === 'white' && game.turn() === 'w') || 
+           (myColor === 'black' && game.turn() === 'b');
+}
+
+function updateTurnIndicator() {
+    const turn = game.turn();
+    const turnColor = document.getElementById('turnColor');
+    const turnText = document.getElementById('turnText');
+    
+    if (turn === 'w') {
+        turnColor.className = 'w-3 h-3 bg-white rounded-full border-2 border-gray-800';
+        turnText.textContent = "White's Turn";
+    } else {
+        turnColor.className = 'w-3 h-3 bg-gray-800 rounded-full border-2 border-gray-400';
+        turnText.textContent = "Black's Turn";
+    }
+}
+
+function updateMoveHistory() {
+    const historyElement = document.getElementById('moveHistory');
+    const moves = game.history();
+    
+    if (moves.length === 0) {
+        historyElement.innerHTML = '<div class="text-gray-400 text-center">No moves yet</div>';
+        return;
+    }
+    
+    let html = '';
+    for (let i = 0; i < moves.length; i += 2) {
+        const moveNum = Math.floor(i / 2) + 1;
+        const whiteMove = moves[i];
+        const blackMove = moves[i + 1];
+        
+        html += `<div class="flex justify-between text-sm">`;
+        html += `<span class="font-semibold">${moveNum}.</span>`;
+        html += `<span>${whiteMove}</span>`;
+        if (blackMove) {
+            html += `<span>${blackMove}</span>`;
+        } else {
+            html += `<span class="text-gray-400">...</span>`;
+        }
+        html += `</div>`;
+    }
+    
+    historyElement.innerHTML = html;
+    historyElement.scrollTop = historyElement.scrollHeight;
+    
+    document.getElementById('moveCount').textContent = moves.length;
+}
+
+function updateCapturedPieces() {
+    const history = game.history({ verbose: true });
+    const whiteCaptured = [];
+    const blackCaptured = [];
+    
+    const pieceSymbols = {
+        'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
+        'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔'
+    };
+    
+    history.forEach(move => {
+        if (move.captured) {
+            if (move.color === 'w') {
+                blackCaptured.push(pieceSymbols[move.captured]);
+            } else {
+                whiteCaptured.push(pieceSymbols[move.captured.toUpperCase()]);
+            }
+        }
+    });
+    
+    document.getElementById('whiteCaptured').innerHTML = whiteCaptured.map(p => `<span>${p}</span>`).join('');
+    document.getElementById('blackCaptured').innerHTML = blackCaptured.map(p => `<span>${p}</span>`).join('');
+}
+
+function handleGameEnd() {
+    // Game end is now handled by the server-side consumer
+    // This function is no longer needed as the consumer handles it
+}
+
+function showGameOver(result) {
+    const modal = document.getElementById('gameOverModal');
+    const icon = document.getElementById('gameResultIcon');
+    const title = document.getElementById('gameResultTitle');
+    const message = document.getElementById('gameResultMessage');
+    
+    if (result === 'white') {
+        icon.innerHTML = '♔';
+        title.textContent = 'White Wins!';
+        message.textContent = 'Checkmate! White player wins the game.';
+    } else if (result === 'black') {
+        icon.innerHTML = '♚';
+        title.textContent = 'Black Wins!';
+        message.textContent = 'Checkmate! Black player wins the game.';
+    } else if (result === 'draw') {
+        icon.innerHTML = '🤝';
+        title.textContent = 'Draw!';
+        message.textContent = 'The game ended in a draw.';
+    } else if (result === 'resign') {
+        icon.innerHTML = '🏳️';
+        title.textContent = 'Resignation';
+        message.textContent = 'Your opponent resigned.';
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function closeGameOverModal() {
+    document.getElementById('gameOverModal').classList.add('hidden');
+}
+
+function resignGame() {
+    if (confirm('Are you sure you want to resign?')) {
+        websocket.send(JSON.stringify({
+            type: 'resign'
+        }));
+        gameEnded = true;
+        board.draggable = false;
+        showGameOver('resign');
+    }
+}
+
+function offerDraw() {
+    websocket.send(JSON.stringify({
+        type: 'draw_offer'
+    }));
+    alert('Draw offer sent to opponent');
+}
+
+function acceptDraw() {
+    websocket.send(JSON.stringify({
+        type: 'draw_response',
+        accepted: true
+    }));
+    document.getElementById('drawModal').classList.add('hidden');
+}
+
+function declineDraw() {
+    websocket.send(JSON.stringify({
+        type: 'draw_response',
+        accepted: false
+    }));
+    document.getElementById('drawModal').classList.add('hidden');
+}
+
+function rematch() {
+    // Redirect to create game page
+    window.location.href = '{% url "multiplayer_create" %}';
+}
+
+function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (message) {
+        websocket.send(JSON.stringify({
+            type: 'chat',
+            message: message
+        }));
+        input.value = '';
+    }
+}
+
+function addChatMessage(username, message) {
+    const chatMessages = document.getElementById('chatMessages');
+    
+    // Remove placeholder if exists
+    if (chatMessages.querySelector('.text-gray-400')) {
+        chatMessages.innerHTML = '';
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'bg-gray-100 rounded-lg p-2';
+    messageDiv.innerHTML = `
+        <span class="font-semibold text-purple-600">${username}:</span>
+        <span class="text-gray-700">${message}</span>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function updateGameStatus() {
+    const statusElement = document.getElementById('gameStatus');
+    if ('{{ game.status }}' === 'playing') {
+        statusElement.textContent = 'Game in Progress';
+        statusElement.className = 'px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold';
+    }
+}
+
+// Handle chat input enter key
+document.getElementById('chatInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (websocket) {
+        websocket.close();
+    }
+});
+</script>
+{% endblock %}

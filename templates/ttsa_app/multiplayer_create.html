@@ -1,0 +1,283 @@
+{% extends 'ttsa_app/base.html' %}
+
+{% block title %}Create Multiplayer Game - TTSA Academy{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl shadow-lg p-6 mb-6 text-white">
+        <div class="text-center">
+            <h1 class="fredoka text-3xl font-bold mb-2">Create Multiplayer Game</h1>
+            <p class="text-purple-100">Create a game and share the link with a friend to play chess together</p>
+        </div>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+        <!-- Create Game Form -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="fredoka text-2xl font-bold text-gray-800 mb-6">Game Settings</h2>
+            
+            <form id="createGameForm" class="space-y-6">
+                <!-- Game Type -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-gamepad mr-2 text-purple-500"></i>Game Type.
+                    </label>
+                    <select id="gameType" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition">
+                        <option value="standard">Standard Chess</option>
+                        <option value="blitz">Blitz (5+0)</option>
+                        <option value="rapid">Rapid (10+0)</option>
+                        <option value="classical">Classical (30+0)</option>
+                    </select>
+                </div>
+
+                <!-- Color Preference -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-chess-pawn mr-2 text-purple-500"></i>Your Color Preference
+                    </label>
+                    <div class="grid grid-cols-3 gap-3">
+                        <label class="relative">
+                            <input type="radio" name="color" value="random" checked class="sr-only peer">
+                            <div class="p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-300 peer-checked:border-purple-500 peer-checked:bg-purple-50 transition text-center">
+                                <i class="fas fa-random text-gray-600 text-xl mb-1"></i>
+                                <p class="text-sm font-medium text-gray-700">Random</p>
+                            </div>
+                        </label>
+                        <label class="relative">
+                            <input type="radio" name="color" value="white" class="sr-only peer">
+                            <div class="p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-300 peer-checked:border-purple-500 peer-checked:bg-purple-50 transition text-center">
+                                <i class="fas fa-chess-king text-gray-800 text-xl mb-1"></i>
+                                <p class="text-sm font-medium text-gray-700">White</p>
+                            </div>
+                        </label>
+                        <label class="relative">
+                            <input type="radio" name="color" value="black" class="sr-only peer">
+                            <div class="p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-300 peer-checked:border-purple-500 peer-checked:bg-purple-50 transition text-center">
+                                <i class="fas fa-chess-king text-gray-400 text-xl mb-1"></i>
+                                <p class="text-sm font-medium text-gray-700">Black</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Public/Private -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-2 text-purple-500"></i>Game Visibility
+                    </label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="relative">
+                            <input type="radio" name="visibility" value="private" checked class="sr-only peer">
+                            <div class="p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-300 peer-checked:border-purple-500 peer-checked:bg-purple-50 transition text-center">
+                                <i class="fas fa-lock text-purple-600 text-xl mb-1"></i>
+                                <p class="text-sm font-medium text-gray-700">Private</p>
+                                <p class="text-xs text-gray-500">Share link only</p>
+                            </div>
+                        </label>
+                        <label class="relative">
+                            <input type="radio" name="visibility" value="public" class="sr-only peer">
+                            <div class="p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-300 peer-checked:border-purple-500 peer-checked:bg-purple-50 transition text-center">
+                                <i class="fas fa-globe text-green-600 text-xl mb-1"></i>
+                                <p class="text-sm font-medium text-gray-700">Public</p>
+                                <p class="text-xs text-gray-500">Anyone can join</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Rated Game -->
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-semibold text-gray-800">Rated Game</p>
+                        <p class="text-sm text-gray-600">Affects player ratings</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="ratedGame" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                </div>
+
+                <!-- Create Button -->
+                <button type="submit" class="w-full py-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg font-bold text-lg hover:from-purple-600 hover:to-indigo-700 transition transform hover:scale-105">
+                    <i class="fas fa-plus-circle mr-2"></i>Create Game
+                </button>
+            </form>
+        </div>
+
+        <!-- Game Link Section -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="fredoka text-2xl font-bold text-gray-800 mb-6">Share Game Link</h2>
+            
+            <div id="linkSection" class="hidden">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <i class="fas fa-check-circle text-green-500"></i>
+                        <span class="font-semibold text-green-800">Game Created Successfully!</span>
+                    </div>
+                    <p class="text-sm text-green-700">Share this link with your friend to start playing:</p>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Game Link</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="gameLink" readonly class="flex-1 px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-lg focus:outline-none">
+                        <button onclick="copyLink()" class="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Game Code</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="gameCode" readonly class="flex-1 px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-lg focus:outline-none text-center font-mono text-lg">
+                        <button onclick="copyCode()" class="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <i class="fas fa-info-circle text-blue-500"></i>
+                        <span class="font-semibold text-blue-800">Waiting for opponent...</span>
+                    </div>
+                    <p class="text-sm text-blue-700">The game will start automatically when your friend joins using the link.</p>
+                </div>
+
+                <div class="mt-4 flex space-x-3">
+                    <button onclick="joinGame()" class="flex-1 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition">
+                        <i class="fas fa-play mr-2"></i>Join Game
+                    </button>
+                    <button onclick="cancelGame()" class="flex-1 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition">
+                        <i class="fas fa-times mr-2"></i>Cancel
+                    </button>
+                </div>
+            </div>
+
+            <div id="placeholderSection">
+                <div class="text-center py-12">
+                    <i class="fas fa-link text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-600">Create a game to generate a shareable link</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Games -->
+    <div class="mt-6 bg-white rounded-xl shadow-lg p-6">
+        <h2 class="fredoka text-2xl font-bold text-gray-800 mb-6">Your Active Games</h2>
+        
+        <div id="activeGames" class="space-y-4">
+            <div class="text-center py-8">
+                <i class="fas fa-chess-board text-6xl text-gray-300 mb-4"></i>
+                <p class="text-gray-600">No active games</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let createdGameId = null;
+
+document.getElementById('createGameForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        game_type: document.getElementById('gameType').value,
+        color_preference: document.querySelector('input[name="color"]:checked').value,
+        visibility: document.querySelector('input[name="visibility"]:checked').value,
+        rated: document.getElementById('ratedGame').checked
+    };
+
+    try {
+        const response = await fetch('{% url "multiplayer_create_api" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            createdGameId = data.game_id;
+            const gameLink = window.location.origin + '{% url "multiplayer_game" 0 %}'.replace('0', data.game_id);
+            
+            document.getElementById('gameLink').value = gameLink;
+            document.getElementById('gameCode').value = data.game_code;
+            
+            document.getElementById('linkSection').classList.remove('hidden');
+            document.getElementById('placeholderSection').classList.add('hidden');
+            
+            // Start polling for opponent
+            pollForOpponent(data.game_id);
+        } else {
+            alert('Error creating game: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error creating game. Please try again.');
+    }
+});
+
+function copyLink() {
+    const linkInput = document.getElementById('gameLink');
+    linkInput.select();
+    document.execCommand('copy');
+    alert('Link copied to clipboard!');
+}
+
+function copyCode() {
+    const codeInput = document.getElementById('gameCode');
+    codeInput.select();
+    document.execCommand('copy');
+    alert('Game code copied to clipboard!');
+}
+
+function joinGame() {
+    if (createdGameId) {
+        window.location.href = '{% url "multiplayer_game" 0 %}'.replace('0', createdGameId);
+    }
+}
+
+function cancelGame() {
+    if (confirm('Are you sure you want to cancel this game?')) {
+        // Call cancel API
+        fetch(`{% url "multiplayer_cancel_api" 0 %}`.replace('0', createdGameId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        }).then(() => {
+            window.location.reload();
+        });
+    }
+}
+
+function pollForOpponent(gameId) {
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`{% url "multiplayer_status_api" 0 %}`.replace('0', gameId));
+            const data = await response.json();
+            
+            if (data.opponent_joined) {
+                clearInterval(pollInterval);
+                window.location.href = '{% url "multiplayer_game" 0 %}'.replace('0', gameId);
+            }
+        } catch (error) {
+            console.error('Polling error:', error);
+        }
+    }, 3000);
+}
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+}
+</script>
+{% endblock %}
