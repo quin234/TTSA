@@ -1,16 +1,19 @@
 import json
 import chess
+import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
 from django.utils import timezone
+from django.db import transaction
+from datetime import timedelta
 from .models import MultiplayerGame, GameMove
 
 
 class MultiplayerGameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.game_id = self.scope['url_route']['kwargs']['game_id']
-        self.game_group_name = f'game_{self.game_id}'
+        self.game_code = self.scope['url_route']['kwargs']['game_code']
+        self.game_group_name = f'game_{self.game_code}'
         
         # Get user in async-safe way
         self.user = await sync_to_async(lambda: self.scope['user'])()
@@ -28,6 +31,13 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         # Join game group
         await self.channel_layer.group_add(self.game_group_name, self.channel_name)
         await self.accept()
+
+        # Send current clock state to connecting player
+        await self.send_clock_state(game)
+
+        # Start periodic clock sync if game is playing (run in background)
+        if game.status == 'playing':
+            asyncio.create_task(self.start_clock_sync())
 
         # Notify others that user joined
         await self.channel_layer.group_send(
@@ -56,6 +66,7 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         message_type = data.get('type')
+        print(f"Received message type: {message_type}, data: {data}")
 
         if message_type == 'move':
             await self.handle_move(data)
@@ -77,8 +88,10 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             await self.handle_timeout(data)
 
     async def handle_move(self, data):
+        print(f"handle_move called by user: {self.user.username}")
         game = await self.get_game()
         if not game or game.status != 'playing':
+            print(f"Game not found or not playing: {game}")
             return
 
         # Verify it's the user's turn
@@ -86,50 +99,77 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         current_turn = 'white' if chess_game.turn == chess.WHITE else 'black'
         
         user_color = 'white' if game.white_player == self.user else 'black'
+        print(f"Current turn: {current_turn}, User color: {user_color}")
         if current_turn != user_color:
+            print("Not user's turn, returning")
             return
 
         # Validate move using chess-python
         move_data = data.get('move')
+        print(f"Move data received: {move_data}")
         move_from = move_data.get('from')
         move_to = move_data.get('to')
-        promotion = move_data.get('promotion', 'q')
+        promotion = move_data.get('promotion')
         
         try:
-            # Create the move object
-            move = chess.Move.from_uci(f"{move_from}{move_to}{promotion if promotion else ''}")
+            # Create the move object - only add promotion if it's actually a promotion move
+            uci_move = f"{move_from}{move_to}"
+            if promotion:
+                uci_move += promotion
+            move = chess.Move.from_uci(uci_move)
             
             # Validate the move is legal
             if move not in chess_game.legal_moves:
+                print(f"Move not legal: {move}")
                 return
             
             # Apply the move
             chess_game.push(move)
+            print(f"Move applied successfully: {move}")
             
-        except ValueError:
+        except ValueError as e:
+            print(f"ValueError creating move: {e}")
             return
 
-        # Save move to database
-        await self.save_move(game, move_data, chess_game.fen())
+        # Initialize clock on first move if not already started
+        if game.last_move_timestamp is None:
+            await self.initialize_clock(game)
+
+        # Update clock before saving - calculate elapsed time for current player
+        await self.update_clock_on_move(game, current_turn)
 
         # Update game state
         game.current_fen = chess_game.fen()
         await self.update_game(game)
+        print(f"Game FEN updated: {game.current_fen}")
 
-        # Broadcast move to other player
+        # Save move to database
+        try:
+            await self.save_move(game, move_data, chess_game.fen())
+            print(f"Move saved successfully: {move_data}")
+        except Exception as e:
+            print(f"Error saving move: {e}")
+
+        # Broadcast move and clock state to both players
         await self.channel_layer.group_send(
             self.game_group_name,
             {
                 'type': 'broadcast_move',
                 'move': move_data,
                 'fen': chess_game.fen(),
-                'player': self.user.username
+                'player': self.user.username,
+                'white_time': game.white_time,
+                'black_time': game.black_time,
+                'active_clock': game.active_clock
             }
         )
 
         # Check for game end
         if chess_game.is_game_over():
             await self.handle_game_over(chess_game)
+        else:
+            # Check for timeout after move
+            await self.check_timeout(game)
 
     async def handle_game_end(self, data):
         game = await self.get_game()
@@ -141,6 +181,9 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         game.result = result
         game.completed_at = timezone.now()
         await self.update_game(game)
+        
+        # Ensure PGN is updated on game end
+        await self.update_pgn(game)
 
         await self.channel_layer.group_send(
             self.game_group_name,
@@ -177,6 +220,9 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             game.result = 'draw'
             game.completed_at = timezone.now()
             await self.update_game(game)
+            
+            # Ensure PGN is updated on draw
+            await self.update_pgn(game)
 
         await self.channel_layer.group_send(
             self.game_group_name,
@@ -197,6 +243,9 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         game.result = 'resignation'
         game.completed_at = timezone.now()
         await self.update_game(game)
+        
+        # Ensure PGN is updated on resignation
+        await self.update_pgn(game)
 
         await self.channel_layer.group_send(
             self.game_group_name,
@@ -227,12 +276,18 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         if not game:
             return
         
+        # Calculate current clock times based on elapsed time
+        current_times = await self.calculate_current_times(game)
+        
         # Send current game state to the reconnecting player
         await self.send(text_data=json.dumps({
             'type': 'game_state',
             'fen': game.current_fen,
             'status': game.status,
-            'result': game.result
+            'result': game.result,
+            'white_time': current_times['white_time'],
+            'black_time': current_times['black_time'],
+            'active_clock': current_times['active_clock']
         }))
 
     async def handle_game_over(self, chess_game):
@@ -255,6 +310,9 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             game.result = result
             game.completed_at = timezone.now()
             await self.update_game(game)
+            
+            # Ensure PGN is updated on game completion
+            await self.update_pgn(game)
 
             await self.channel_layer.group_send(
                 self.game_group_name,
@@ -270,7 +328,10 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             'type': 'move',
             'move': event['move'],
             'fen': event['fen'],
-            'player': event['player']
+            'player': event['player'],
+            'white_time': event.get('white_time'),
+            'black_time': event.get('black_time'),
+            'active_clock': event.get('active_clock')
         }))
 
     async def player_joined(self, event):
@@ -344,6 +405,15 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
                 'active_clock': event['active_clock']
             }))
 
+    async def clock_state_broadcast(self, event):
+        # Send clock state to all connected clients
+        await self.send(text_data=json.dumps({
+            'type': 'clock_state',
+            'white_time': event['white_time'],
+            'black_time': event['black_time'],
+            'active_clock': event['active_clock']
+        }))
+
     async def handle_timeout(self, data):
         game = await self.get_game()
         if not game:
@@ -354,6 +424,9 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         game.result = winner
         game.completed_at = timezone.now()
         await self.update_game(game)
+        
+        # Ensure PGN is updated on timeout
+        await self.update_pgn(game)
 
         await self.channel_layer.group_send(
             self.game_group_name,
@@ -367,12 +440,48 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_game(self):
         try:
-            return MultiplayerGame.objects.select_related('white_player', 'black_player').get(id=self.game_id)
+            return MultiplayerGame.objects.select_related('white_player', 'black_player').get(game_code=self.game_code)
         except MultiplayerGame.DoesNotExist:
             return None
 
     @database_sync_to_async
     def update_game(self, game):
+        game.save()
+
+    @database_sync_to_async
+    def update_pgn(self, game):
+        """Build and update PGN from all moves in the game"""
+        moves = game.moves.all().order_by('move_number')
+        pgn_moves = []
+        
+        for move in moves:
+            # Use SAN (Standard Algebraic Notation) if available, otherwise build from move data
+            if move.castling and move.castling in ['O-O', 'O-O-O']:
+                pgn_moves.append(move.castling)
+            else:
+                # Build simple notation from move data
+                notation = move.piece.upper() if move.piece else ''
+                if move.captured_piece:
+                    notation += 'x'
+                notation += move.move_to
+                if move.promotion:
+                    notation += f'={move.promotion.upper()}'
+                if move.is_checkmate:
+                    notation += '#'
+                elif move.is_check:
+                    notation += '+'
+                pgn_moves.append(notation)
+        
+        # Format PGN with move numbers
+        formatted_pgn = ''
+        for i, move in enumerate(pgn_moves):
+            move_num = (i // 2) + 1
+            if i % 2 == 0:  # White's move
+                formatted_pgn += f'{move_num}. {move} '
+            else:  # Black's move
+                formatted_pgn += f'{move} '
+        
+        game.pgn = formatted_pgn.strip()
         game.save()
 
     @database_sync_to_async
@@ -393,3 +502,163 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             fen_after=fen_after,
             move_number=move_number
         )
+        
+        # Update PGN after saving the move
+        self.update_pgn(game)
+
+    def save_move_sync(self, game, move_data, fen_after):
+        """Synchronous version of save_move for use in transactions"""
+        move_number = game.moves.count() + 1
+        GameMove.objects.create(
+            game=game,
+            player=self.user,
+            move_from=move_data.get('from', ''),
+            move_to=move_data.get('to', ''),
+            piece=move_data.get('piece', ''),
+            captured_piece=move_data.get('captured'),
+            promotion=move_data.get('promotion'),
+            castling=move_data.get('san'),
+            en_passant=move_data.get('flags', '') == 'e',
+            is_check=move_data.get('san', '').endswith('+'),
+            is_checkmate=move_data.get('san', '').endswith('#'),
+            fen_after=fen_after,
+            move_number=move_number
+        )
+
+    # Clock management methods
+    @database_sync_to_async
+    def initialize_clock(self, game):
+        """Initialize clock on first move"""
+        # Set initial time based on game type
+        if game.game_type == 'blitz':
+            game.white_time = 300  # 5 minutes
+            game.black_time = 300
+        elif game.game_type == 'rapid':
+            game.white_time = 600  # 10 minutes
+            game.black_time = 600
+        elif game.game_type == 'classical':
+            game.white_time = 1800  # 30 minutes
+            game.black_time = 1800
+        else:  # standard
+            game.white_time = 600  # 10 minutes
+            game.black_time = 600
+        
+        game.active_clock = 'white'
+        game.last_move_timestamp = timezone.now()
+        game.save()
+
+    @database_sync_to_async
+    def update_clock_on_move(self, game, current_turn):
+        """Update clock times when a move is made"""
+        now = timezone.now()
+        
+        if game.last_move_timestamp:
+            # Calculate elapsed time since last move
+            elapsed = (now - game.last_move_timestamp).total_seconds()
+            
+            # Deduct elapsed time from the active player's clock
+            if game.active_clock == 'white':
+                game.white_time = max(0, game.white_time - int(elapsed))
+            else:
+                game.black_time = max(0, game.black_time - int(elapsed))
+        
+        # Switch active clock
+        game.active_clock = 'black' if current_turn == 'white' else 'white'
+        game.last_move_timestamp = now
+        game.save()
+
+    @database_sync_to_async
+    def calculate_current_times(self, game):
+        """Calculate current clock times based on elapsed time since last move"""
+        if game.status != 'playing' or not game.last_move_timestamp:
+            return {
+                'white_time': game.white_time,
+                'black_time': game.black_time,
+                'active_clock': game.active_clock
+            }
+        
+        now = timezone.now()
+        elapsed = (now - game.last_move_timestamp).total_seconds()
+        
+        # Calculate current times
+        white_time = game.white_time
+        black_time = game.black_time
+        
+        if game.active_clock == 'white':
+            white_time = max(0, game.white_time - int(elapsed))
+        else:
+            black_time = max(0, game.black_time - int(elapsed))
+        
+        return {
+            'white_time': white_time,
+            'black_time': black_time,
+            'active_clock': game.active_clock
+        }
+
+    async def send_clock_state(self, game):
+        """Send current clock state to client"""
+        current_times = await self.calculate_current_times(game)
+        await self.send(text_data=json.dumps({
+            'type': 'clock_state',
+            'white_time': current_times['white_time'],
+            'black_time': current_times['black_time'],
+            'active_clock': current_times['active_clock']
+        }))
+
+    async def check_timeout(self, game):
+        """Check if either player has run out of time"""
+        current_times = await self.calculate_current_times(game)
+        
+        if current_times['white_time'] <= 0:
+            await self.handle_timeout_loss('black')
+        elif current_times['black_time'] <= 0:
+            await self.handle_timeout_loss('white')
+
+    async def handle_timeout_loss(self, winner):
+        """Handle game loss due to timeout"""
+        game = await self.get_game()
+        if not game:
+            return
+        
+        game.status = 'completed'
+        game.result = 'timeout'
+        game.completed_at = timezone.now()
+        
+        # Update clock times to reflect timeout
+        if winner == 'white':
+            game.white_time = max(0, game.white_time)
+            game.black_time = 0
+        else:
+            game.white_time = 0
+            game.black_time = max(0, game.black_time)
+        
+        await self.update_game(game)
+        
+        await self.channel_layer.group_send(
+            self.game_group_name,
+            {
+                'type': 'game_completed',
+                'result': winner,
+                'reason': 'timeout'
+            }
+        )
+
+    async def start_clock_sync(self):
+        """Start periodic clock synchronization"""
+        while True:
+            await asyncio.sleep(1)  # Sync every second
+            game = await self.get_game()
+            if not game or game.status != 'playing':
+                break
+            
+            # Broadcast clock state to all connected clients
+            current_times = await self.calculate_current_times(game)
+            await self.channel_layer.group_send(
+                self.game_group_name,
+                {
+                    'type': 'clock_state_broadcast',
+                    'white_time': current_times['white_time'],
+                    'black_time': current_times['black_time'],
+                    'active_clock': current_times['active_clock']
+                }
+            )

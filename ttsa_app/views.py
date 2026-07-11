@@ -847,9 +847,9 @@ def multiplayer_create_api(request):
 
 
 @login_required
-def multiplayer_game(request, game_id):
+def multiplayer_game(request, game_code):
     """Render the multiplayer game page"""
-    game = get_object_or_404(MultiplayerGame, id=game_id)
+    game = get_object_or_404(MultiplayerGame, game_code=game_code)
     
     # Check if user is part of this game
     if game.white_player != request.user and game.black_player != request.user:
@@ -858,6 +858,7 @@ def multiplayer_game(request, game_id):
             game.black_player = request.user
             game.status = 'playing'
             game.started_at = timezone.now()
+            # Clock will start on first move, not here
             game.save()
         else:
             return render(request, 'ttsa_app/error.html', {
@@ -878,10 +879,15 @@ def multiplayer_game(request, game_id):
     except PlayerProfile.DoesNotExist:
         white_profile = PlayerProfile.objects.create(user=game.white_player)
     
-    try:
-        black_profile = game.black_player.playerprofile
-    except PlayerProfile.DoesNotExist:
-        black_profile = PlayerProfile.objects.create(user=game.black_player)
+    # Handle case where black_player is None (game waiting for opponent)
+    if game.black_player:
+        try:
+            black_profile = game.black_player.playerprofile
+        except PlayerProfile.DoesNotExist:
+            black_profile = PlayerProfile.objects.create(user=game.black_player)
+    else:
+        # Create a placeholder profile for display
+        black_profile = type('obj', (object,), {'rating': 0, 'avatar': type('obj', (object,), {'url': ''})()})
     
     return render(request, 'ttsa_app/multiplayer_game.html', {
         'game': game,
@@ -893,9 +899,9 @@ def multiplayer_game(request, game_id):
 
 @login_required
 @csrf_exempt
-def multiplayer_status_api(request, game_id):
+def multiplayer_status_api(request, game_code):
     """API endpoint to check game status"""
-    game = get_object_or_404(MultiplayerGame, id=game_id)
+    game = get_object_or_404(MultiplayerGame, game_code=game_code)
     
     return JsonResponse({
         'opponent_joined': game.black_player is not None,
@@ -905,12 +911,12 @@ def multiplayer_status_api(request, game_id):
 
 @login_required
 @csrf_exempt
-def multiplayer_cancel_api(request, game_id):
+def multiplayer_cancel_api(request, game_code):
     """API endpoint to cancel a waiting game"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)
     
-    game = get_object_or_404(MultiplayerGame, id=game_id)
+    game = get_object_or_404(MultiplayerGame, game_code=game_code)
     
     # Only allow creator to cancel
     if game.white_player != request.user:

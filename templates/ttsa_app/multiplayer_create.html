@@ -204,8 +204,8 @@ document.getElementById('createGameForm').addEventListener('submit', async funct
         const data = await response.json();
         
         if (data.success) {
-            createdGameId = data.game_id;
-            const gameLink = window.location.origin + '{% url "multiplayer_game" 0 %}'.replace('0', data.game_id);
+            createdGameId = data.game_code;
+            const gameLink = window.location.origin + '{% url "multiplayer_game" game_code="PLACEHOLDER" %}'.replace('PLACEHOLDER', data.game_code);
             
             document.getElementById('gameLink').value = gameLink;
             document.getElementById('gameCode').value = data.game_code;
@@ -214,7 +214,7 @@ document.getElementById('createGameForm').addEventListener('submit', async funct
             document.getElementById('placeholderSection').classList.add('hidden');
             
             // Start polling for opponent
-            pollForOpponent(data.game_id);
+            pollForOpponent(data.game_code);
         } else {
             alert('Error creating game: ' + data.error);
         }
@@ -228,26 +228,24 @@ function copyLink() {
     const linkInput = document.getElementById('gameLink');
     linkInput.select();
     document.execCommand('copy');
-    alert('Link copied to clipboard!');
 }
 
 function copyCode() {
     const codeInput = document.getElementById('gameCode');
     codeInput.select();
     document.execCommand('copy');
-    alert('Game code copied to clipboard!');
 }
 
 function joinGame() {
     if (createdGameId) {
-        window.location.href = '{% url "multiplayer_game" 0 %}'.replace('0', createdGameId);
+        window.location.href = '{% url "multiplayer_game" game_code="PLACEHOLDER" %}'.replace('PLACEHOLDER', createdGameId);
     }
 }
 
 function cancelGame() {
     if (confirm('Are you sure you want to cancel this game?')) {
         // Call cancel API
-        fetch(`{% url "multiplayer_cancel_api" 0 %}`.replace('0', createdGameId), {
+        fetch(`{% url "multiplayer_cancel_api" game_code="PLACEHOLDER" %}`.replace('PLACEHOLDER', createdGameId), {
             method: 'POST',
             headers: {
                 'X-CSRFToken': getCookie('csrftoken')
@@ -258,15 +256,15 @@ function cancelGame() {
     }
 }
 
-function pollForOpponent(gameId) {
+function pollForOpponent(gameCode) {
     const pollInterval = setInterval(async () => {
         try {
-            const response = await fetch(`{% url "multiplayer_status_api" 0 %}`.replace('0', gameId));
+            const response = await fetch(`{% url "multiplayer_status_api" game_code="PLACEHOLDER" %}`.replace('PLACEHOLDER', gameCode));
             const data = await response.json();
             
             if (data.opponent_joined) {
                 clearInterval(pollInterval);
-                window.location.href = '{% url "multiplayer_game" 0 %}'.replace('0', gameId);
+                window.location.href = '{% url "multiplayer_game" game_code="PLACEHOLDER" %}'.replace('PLACEHOLDER', gameCode);
             }
         } catch (error) {
             console.error('Polling error:', error);

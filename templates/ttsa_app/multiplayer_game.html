@@ -7,22 +7,6 @@
     <!-- Game Header -->
     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
         <div class="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
-            <!-- Game Info -->
-            <div class="flex items-center space-x-6">
-                <div class="text-center">
-                    <div class="text-sm text-gray-600">Game Type</div>
-                    <div class="text-lg font-bold text-purple-600">{{ game.get_game_type_display }}</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-sm text-gray-600">Moves</div>
-                    <div id="moveCount" class="text-2xl font-bold text-indigo-600">0</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-sm text-gray-600">Time</div>
-                    <div id="gameTimer" class="text-2xl font-bold text-green-600">00:00</div>
-                </div>
-            </div>
-            
             <!-- Players -->
             <div class="flex items-center space-x-8">
                 <div class="text-center">
@@ -100,7 +84,7 @@
                 
                 <!-- Chessboard.js Board -->
                 <div class="flex justify-center">
-                    <div id="multiplayerBoard" class="mx-auto" style="width: 400px;"></div>
+                    <div id="multiplayerBoard" class="mx-auto" style="width: 400px; max-width: 90vw;"></div>
                 </div>
 
                 <!-- Current Player Profile (Below Board) -->
@@ -131,15 +115,15 @@
                 </div>
                 
                 <!-- Game Controls -->
-                <div class="mt-6 flex justify-center space-x-3">
-                    <button onclick="resignGame()" class="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-semibold">
-                        <i class="fas fa-flag mr-2"></i>Resign
+                <div class="mt-6 flex flex-wrap justify-center gap-2 sm:gap-3">
+                    <button onclick="resignGame()" class="px-4 py-2 sm:px-6 sm:py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-semibold text-sm sm:text-base">
+                        <i class="fas fa-flag mr-1 sm:mr-2"></i>Resign
                     </button>
-                    <button onclick="offerDraw()" class="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition font-semibold">
-                        <i class="fas fa-handshake mr-2"></i>Offer Draw
+                    <button onclick="offerDraw()" class="px-4 py-2 sm:px-6 sm:py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition font-semibold text-sm sm:text-base">
+                        <i class="fas fa-handshake mr-1 sm:mr-2"></i>Offer Draw
                     </button>
-                    <button onclick="rematch()" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-semibold">
-                        <i class="fas fa-redo mr-2"></i>Rematch
+                    <button onclick="rematch()" class="px-4 py-2 sm:px-6 sm:py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-semibold text-sm sm:text-base">
+                        <i class="fas fa-redo mr-1 sm:mr-2"></i>Rematch
                     </button>
                 </div>
             </div>
@@ -155,21 +139,6 @@
         
         <!-- Game Info Panel -->
         <div class="space-y-6">
-            <!-- Captured Pieces -->
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Captured Pieces</h3>
-                <div class="space-y-4">
-                    <div>
-                        <p class="text-sm text-gray-600 mb-2">White captured:</p>
-                        <div id="whiteCaptured" class="flex flex-wrap gap-1 text-2xl"></div>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-600 mb-2">Black captured:</p>
-                        <div id="blackCaptured" class="flex flex-wrap gap-1 text-2xl"></div>
-                    </div>
-                </div>
-            </div>
-            
             <!-- Game Chat -->
             <div class="bg-white rounded-xl shadow-lg p-6">
                 <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Game Chat</h3>
@@ -181,29 +150,6 @@
                     <button onclick="sendMessage()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
                         <i class="fas fa-paper-plane"></i>
                     </button>
-                </div>
-            </div>
-            
-            <!-- Game Settings -->
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
-                <div class="space-y-3 text-sm">
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Game ID:</span>
-                        <span class="font-mono">{{ game.game_code }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Rated:</span>
-                        <span class="font-semibold">{{ game.rated|yesno:"Yes,No" }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Visibility:</span>
-                        <span class="font-semibold capitalize">{{ game.visibility }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Created:</span>
-                        <span class="font-semibold">{{ game.created_at|date:"M d, Y H:i" }}</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -262,11 +208,13 @@ let gameTimer = null;
 let secondsElapsed = 0;
 let firstMoveMade = false;
 
-// Chess clock variables
-let whiteTime = 600; // 10 minutes in seconds
-let blackTime = 600; // 10 minutes in seconds
+// Chess clock variables - will be synchronized with server
+let whiteTime = 600; // 10 minutes in seconds (default, will be updated based on game type)
+let blackTime = 600; // 10 minutes in seconds (default, will be updated based on game type)
 let clockInterval = null;
 let activeClock = 'white'; // 'white' or 'black'
+let lastServerSync = null; // Timestamp of last server sync
+let clockStarted = false; // Whether clock has started (after first move)
 
 // Initialize game
 document.addEventListener('DOMContentLoaded', function() {
@@ -294,6 +242,7 @@ function initializeGame() {
         onDragStart: onDragStart,
         onDrop: onDrop,
         onSnapEnd: onSnapEnd,
+        onSquareClick: onSquareClick,
         pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
         orientation: myColor === 'white' ? 'white' : 'black'
     };
@@ -309,7 +258,6 @@ function initializeGame() {
     // Update UI
     updateTurnIndicator();
     updateMoveHistory();
-    updateCapturedPieces();
     
     // Show waiting message if game is waiting for opponent
     if ("{{ game.status }}" === 'waiting') {
@@ -360,22 +308,124 @@ function onDrop(source, target) {
     if (move === null) return 'snapback';
     
     // Send move to server
-    sendMove(source, target, move);
+    sendMoveToServer(source, target, move);
+    
+    // Keep the move locally - server will broadcast confirmation to both players
+    // If server rejects, it will send an error and we can handle it then
 }
 
 // Chessboard.js snap end handler
 function onSnapEnd() {
-    // Update the board position after the piece snap
-    board.position(game.fen());
+    // Don't update board position here - it's handled by the move confirmation from server
+    // This prevents the board from snapping back when we undo local moves
 }
 
-function sendMove(from, to, move) {
+// Tap-to-move functionality
+function onSquareClick(square) {
+    // Do not allow moves if game is over
+    if (gameEnded || game.game_over()) return;
+    
+    // Only allow moves during player's turn
+    if (!isMyTurn()) return;
+    
+    // Get the piece on the clicked square
+    const piece = game.get(square);
+    
+    // If no square is selected
+    if (!selectedSquare) {
+        // If clicked on own piece, select it
+        if (piece) {
+            const pieceColor = piece[0]; // 'w' or 'b'
+            const currentTurn = game.turn();
+            
+            if (pieceColor === currentTurn) {
+                selectedSquare = square;
+                highlightSquare(square);
+                highlightLegalMoves(square);
+            }
+        }
+    } else {
+        // If a square is already selected
+        if (square === selectedSquare) {
+            // Deselect if clicking the same square
+            clearHighlights();
+            selectedSquare = null;
+        } else if (piece && piece[0] === game.turn()) {
+            // If clicking another own piece, change selection
+            clearHighlights();
+            selectedSquare = square;
+            highlightSquare(square);
+            highlightLegalMoves(square);
+        } else {
+            // Try to move to the clicked square
+            const move = game.move({
+                from: selectedSquare,
+                to: square,
+                promotion: 'q'
+            });
+            
+            if (move) {
+                // Move successful
+                const fromSquare = selectedSquare;
+                clearHighlights();
+                selectedSquare = null;
+                
+                // Send move to server
+                sendMoveToServer(fromSquare, square, move);
+                
+                // Keep the move locally - server will broadcast confirmation to both players
+            } else {
+                // Invalid move, deselect
+                clearHighlights();
+                selectedSquare = null;
+            }
+        }
+    }
+}
+
+function highlightSquare(square) {
+    // Remove existing selection highlight
+    document.querySelectorAll('.square-55d63').forEach(el => {
+        el.classList.remove('selected-square');
+    });
+    
+    // Add highlight to selected square
+    const squareElement = document.querySelector(`.square-${square}`);
+    if (squareElement) {
+        squareElement.classList.add('selected-square');
+    }
+}
+
+function highlightLegalMoves(square) {
+    // Get legal moves for the selected piece
+    const moves = game.moves({ square: square, verbose: true });
+    
+    // Highlight valid move squares
+    moves.forEach(move => {
+        const targetSquare = document.querySelector(`.square-${move.to}`);
+        if (targetSquare) {
+            if (move.captured) {
+                targetSquare.classList.add('capture-move');
+            } else {
+                targetSquare.classList.add('valid-move');
+            }
+        }
+    });
+}
+
+function clearHighlights() {
+    document.querySelectorAll('.square-55d63').forEach(el => {
+        el.classList.remove('selected-square', 'valid-move', 'capture-move');
+    });
+}
+
+function sendMoveToServer(from, to, move) {
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-        console.error('WebSocket not connected');
+        console.error('WebSocket not connected', websocket);
         return;
     }
     
-    websocket.send(JSON.stringify({
+    const message = {
         type: 'move',
         move: {
             from: from,
@@ -386,15 +436,10 @@ function sendMove(from, to, move) {
             san: move.san,
             flags: move.flags
         }
-    }));
+    };
     
-    // Switch clock after move
-    switchClock();
-    
-    // Update UI
-    updateTurnIndicator();
-    updateMoveHistory();
-    updateCapturedPieces();
+    console.log('Sending move to server:', message);
+    websocket.send(JSON.stringify(message));
 }
 
 function initializePlayerProfiles() {
@@ -426,39 +471,32 @@ function initializePlayerProfiles() {
 }
 
 function initializeClocks() {
+    // Clock will be synchronized from server
+    // Before first move, show initial time (not counting down)
+    if (!clockStarted) {
+        // Show initial time based on game type
+        const gameType = "{{ game.game_type|safe }}";
+        if (gameType === 'blitz') {
+            whiteTime = 300;
+            blackTime = 300;
+        } else if (gameType === 'rapid') {
+            whiteTime = 600;
+            blackTime = 600;
+        } else if (gameType === 'classical') {
+            whiteTime = 1800;
+            blackTime = 1800;
+        } else {
+            whiteTime = 600;
+            blackTime = 600;
+        }
+    }
     updateClockDisplay();
 }
 
 function startClock() {
-    if (clockInterval) return;
-    
-    clockInterval = setInterval(() => {
-        if (gameEnded) {
-            stopClock();
-            return;
-        }
-        
-        if (activeClock === 'white') {
-            whiteTime--;
-            if (whiteTime <= 0) {
-                stopClock();
-                handleTimeOut('black');
-            }
-        } else {
-            blackTime--;
-            if (blackTime <= 0) {
-                stopClock();
-                handleTimeOut('white');
-            }
-        }
-        
-        updateClockDisplay();
-        
-        // Sync clock every 5 seconds
-        if (whiteTime % 5 === 0 || blackTime % 5 === 0) {
-            syncClock();
-        }
-    }, 1000);
+    // Clock is now server-controlled, no local countdown needed
+    // We just display the server-synchronized times
+    updateClockDisplay();
 }
 
 function stopClock() {
@@ -517,7 +555,8 @@ function handleTimeOut(winner) {
 }
 
 function connectWebSocket() {
-    const wsUrl = `ws://${window.location.host}/ws/multiplayer/{{ game.id }}/`;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/multiplayer/{{ game.game_code }}/`;
     websocket = new WebSocket(wsUrl);
     
     websocket.onopen = function() {
@@ -556,7 +595,6 @@ function handleWebSocketMessage(data) {
                 board.position(game.fen());
                 updateTurnIndicator();
                 updateMoveHistory();
-                updateCapturedPieces();
                 
                 // Update game status
                 if (data.status === 'completed') {
@@ -572,16 +610,20 @@ function handleWebSocketMessage(data) {
             break;
             
         case 'move':
-            // Apply the move to the chess.js instance
+            // Apply the move to the chess.js instance using the FEN from server
             try {
-                game.move(data.move);
-                board.position(game.fen());
+                game.load(data.fen);
+                board.position(data.fen);
                 updateTurnIndicator();
                 updateMoveHistory();
-                updateCapturedPieces();
                 
-                // Switch clock when opponent moves
-                switchClock();
+                // Update clock from server
+                if (data.white_time !== undefined) whiteTime = data.white_time;
+                if (data.black_time !== undefined) blackTime = data.black_time;
+                if (data.active_clock !== undefined) activeClock = data.active_clock;
+                lastServerSync = Date.now();
+                clockStarted = true; // Clock has started after first move
+                updateClockDisplay();
                 
                 // Start clock on first move
                 if (!firstMoveMade) {
@@ -593,11 +635,21 @@ function handleWebSocketMessage(data) {
             }
             break;
             
-        case 'clock_sync':
+        case 'clock_state':
             // Sync clocks from server
             if (data.white_time !== undefined) whiteTime = data.white_time;
             if (data.black_time !== undefined) blackTime = data.black_time;
             if (data.active_clock !== undefined) activeClock = data.active_clock;
+            lastServerSync = Date.now();
+            updateClockDisplay();
+            break;
+            
+        case 'clock_sync':
+            // Sync clocks from server (legacy)
+            if (data.white_time !== undefined) whiteTime = data.white_time;
+            if (data.black_time !== undefined) blackTime = data.black_time;
+            if (data.active_clock !== undefined) activeClock = data.active_clock;
+            lastServerSync = Date.now();
             updateClockDisplay();
             break;
             
@@ -617,7 +669,7 @@ function handleWebSocketMessage(data) {
         case 'game_completed':
             gameEnded = true;
             stopClock();
-            showGameOver(data.result);
+            showGameOver(data.result, data.reason);
             break;
             
         case 'draw_offer':
@@ -649,7 +701,7 @@ function handleWebSocketMessage(data) {
             break;
             
         case 'opponent_left':
-            alert('Your opponent has left the game');
+            // Opponent left - no alert needed
             break;
     }
 }
@@ -729,36 +781,11 @@ function updateMoveHistory() {
     document.getElementById('moveCount').textContent = moves.length;
 }
 
-function updateCapturedPieces() {
-    const history = game.history({ verbose: true });
-    const whiteCaptured = [];
-    const blackCaptured = [];
-    
-    const pieceSymbols = {
-        'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
-        'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔'
-    };
-    
-    history.forEach(move => {
-        if (move.captured) {
-            if (move.color === 'w') {
-                blackCaptured.push(pieceSymbols[move.captured]);
-            } else {
-                whiteCaptured.push(pieceSymbols[move.captured.toUpperCase()]);
-            }
-        }
-    });
-    
-    document.getElementById('whiteCaptured').innerHTML = whiteCaptured.map(p => `<span>${p}</span>`).join('');
-    document.getElementById('blackCaptured').innerHTML = blackCaptured.map(p => `<span>${p}</span>`).join('');
-}
-
 function handleGameEnd() {
     // Game end is now handled by the server-side consumer
-    // This function is no longer needed as the consumer handles it
 }
 
-function showGameOver(result) {
+function showGameOver(result, reason) {
     const modal = document.getElementById('gameOverModal');
     const icon = document.getElementById('gameResultIcon');
     const title = document.getElementById('gameResultTitle');
@@ -767,11 +794,19 @@ function showGameOver(result) {
     if (result === 'white') {
         icon.innerHTML = '♔';
         title.textContent = 'White Wins!';
-        message.textContent = 'Checkmate! White player wins the game.';
+        if (reason === 'timeout') {
+            message.textContent = 'Time out! Black player ran out of time.';
+        } else {
+            message.textContent = 'Checkmate! White player wins the game.';
+        }
     } else if (result === 'black') {
         icon.innerHTML = '♚';
         title.textContent = 'Black Wins!';
-        message.textContent = 'Checkmate! Black player wins the game.';
+        if (reason === 'timeout') {
+            message.textContent = 'Time out! White player ran out of time.';
+        } else {
+            message.textContent = 'Checkmate! Black player wins the game.';
+        }
     } else if (result === 'draw') {
         icon.innerHTML = '🤝';
         title.textContent = 'Draw!';

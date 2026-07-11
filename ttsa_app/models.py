@@ -50,8 +50,8 @@ class ChessGame(models.Model):
     BLACK = 'black'
     COLORS = [(WHITE, 'White'), (BLACK, 'Black')]
     
-    player = models.ForeignKey(PlayerProfile, on_delete=models.CASCADE)
-    player_color = models.CharField(max_length=5, choices=COLORS)
+    player = models.ForeignKey(PlayerProfile, on_delete=models.CASCADE, db_index=True)
+    player_color = models.CharField(max_length=5, choices=COLORS, db_index=True)
     difficulty_level = models.CharField(max_length=20, choices=[
         ('beginner', 'Beginner'),
         ('easy', 'Easy'),
@@ -59,18 +59,24 @@ class ChessGame(models.Model):
         ('advanced', 'Advanced'),
         ('expert', 'Expert'),
         ('master', 'Master')
-    ])
+    ], db_index=True)
     pgn = models.TextField(blank=True)  # Portable Game Notation
     result = models.CharField(max_length=20, choices=[
         ('win', 'Win'),
         ('loss', 'Loss'),
         ('draw', 'Draw'),
         ('ongoing', 'Ongoing')
-    ], default='ongoing')
+    ], default='ongoing', db_index=True)
     moves_count = models.IntegerField(default=0)
     time_elapsed = models.DurationField(default=timezone.timedelta)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['player', '-created_at']),
+            models.Index(fields=['result', 'created_at']),
+        ]
     
     def __str__(self):
         return f"Game {self.id} - {self.player.user.username} vs AI ({self.difficulty_level})"
@@ -85,17 +91,23 @@ class Lesson(models.Model):
         ('easy', 'Easy'),
         ('intermediate', 'Intermediate'),
         ('advanced', 'Advanced')
-    ])
+    ], db_index=True)
     category = models.CharField(max_length=50, choices=[
         ('basics', 'Chess Basics'),
         ('openings', 'Openings'),
         ('tactics', 'Tactics'),
         ('endgames', 'Endgames'),
         ('strategy', 'Strategy')
-    ])
+    ], db_index=True)
     order = models.IntegerField(default=0)
     is_interactive = models.BooleanField(default=True)
     points_reward = models.IntegerField(default=10)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['category', 'order']),
+            models.Index(fields=['difficulty', 'order']),
+        ]
     
     def __str__(self):
         return self.title
@@ -121,14 +133,20 @@ class Puzzle(models.Model):
         ('intermediate', 'Intermediate'),
         ('advanced', 'Advanced'),
         ('expert', 'Expert')
-    ])
+    ], db_index=True)
     category = models.CharField(max_length=50, choices=[
         ('tactics', 'Tactics'),
         ('checkmate', 'Checkmate'),
         ('endgame', 'Endgame')
-    ])
+    ], db_index=True)
     rating = models.IntegerField(default=1200)
-    daily = models.BooleanField(default=False)
+    daily = models.BooleanField(default=False, db_index=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['daily', 'difficulty']),
+            models.Index(fields=['category', 'difficulty']),
+        ]
     
     def __str__(self):
         return f"Puzzle {self.id} - {self.category}"
@@ -169,11 +187,18 @@ class Friend(models.Model):
 
 
 class Message(models.Model):
-    sender = models.ForeignKey(PlayerProfile, related_name='sent_messages', on_delete=models.CASCADE)
-    receiver = models.ForeignKey(PlayerProfile, related_name='received_messages', on_delete=models.CASCADE)
+    sender = models.ForeignKey(PlayerProfile, related_name='sent_messages', on_delete=models.CASCADE, db_index=True)
+    receiver = models.ForeignKey(PlayerProfile, related_name='received_messages', on_delete=models.CASCADE, db_index=True)
     content = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    read = models.BooleanField(default=False, db_index=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['receiver', '-created_at']),
+            models.Index(fields=['sender', '-created_at']),
+            models.Index(fields=['receiver', 'read', '-created_at']),
+        ]
     
     def __str__(self):
         return f"Message from {self.sender.user.username} to {self.receiver.user.username}"
@@ -183,8 +208,14 @@ class AcademyNews(models.Model):
     title = models.CharField(max_length=200)
     content = models.TextField()
     image = models.ImageField(upload_to='news/', blank=True, null=True)
-    published_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(auto_now_add=True, db_index=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    class Meta:
+        ordering = ['-published_at']
+        indexes = [
+            models.Index(fields=['-published_at']),
+        ]
     
     def __str__(self):
         return self.title
@@ -220,22 +251,33 @@ class MultiplayerGame(models.Model):
     ]
     
     game_code = models.CharField(max_length=8, unique=True, db_index=True)
-    white_player = models.ForeignKey(User, related_name='white_games', on_delete=models.CASCADE)
-    black_player = models.ForeignKey(User, related_name='black_games', on_delete=models.CASCADE, null=True, blank=True)
+    white_player = models.ForeignKey(User, related_name='white_games', on_delete=models.CASCADE, db_index=True)
+    black_player = models.ForeignKey(User, related_name='black_games', on_delete=models.CASCADE, null=True, blank=True, db_index=True)
     game_type = models.CharField(max_length=20, choices=GAME_TYPE_CHOICES, default='standard')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting', db_index=True)
     result = models.CharField(max_length=20, choices=RESULT_CHOICES, null=True, blank=True)
     current_fen = models.TextField(default='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
     pgn = models.TextField(blank=True)
     visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='private')
     rated = models.BooleanField(default=False)
     color_preference = models.CharField(max_length=10, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     
+    # Chess clock fields
+    white_time = models.IntegerField(default=600)  # Remaining time in seconds for white (default 10 minutes)
+    black_time = models.IntegerField(default=600)  # Remaining time in seconds for black (default 10 minutes)
+    last_move_timestamp = models.DateTimeField(null=True, blank=True)  # Timestamp of last move
+    active_clock = models.CharField(max_length=10, default='white', choices=[('white', 'White'), ('black', 'Black')])  # Whose clock is running
+    
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['white_player', 'status']),
+            models.Index(fields=['black_player', 'status']),
+        ]
     
     def __str__(self):
         return f"Game {self.game_code} - {self.white_player.username} vs {self.black_player.username if self.black_player else 'Waiting'}"
@@ -245,8 +287,8 @@ class MultiplayerGame(models.Model):
 
 
 class GameMove(models.Model):
-    game = models.ForeignKey(MultiplayerGame, related_name='moves', on_delete=models.CASCADE)
-    player = models.ForeignKey(User, on_delete=models.CASCADE)
+    game = models.ForeignKey(MultiplayerGame, related_name='moves', on_delete=models.CASCADE, db_index=True)
+    player = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     move_from = models.CharField(max_length=2)
     move_to = models.CharField(max_length=2)
     piece = models.CharField(max_length=1)
@@ -262,13 +304,16 @@ class GameMove(models.Model):
     
     class Meta:
         ordering = ['move_number']
+        indexes = [
+            models.Index(fields=['game', 'move_number']),
+        ]
     
     def __str__(self):
         return f"Move {self.move_number}: {self.move_from} -> {self.move_to}"
 
 
 class VideoLesson(models.Model):
-    title = models.CharField(max_length=200)
+    title = models.CharField(max_length=200, db_index=True)
     description = models.TextField()
     youtube_id = models.CharField(max_length=20, unique=True)  # YouTube video ID
     thumbnail_url = models.URLField(max_length=500)
@@ -280,18 +325,22 @@ class VideoLesson(models.Model):
         ('endgames', 'Endgames'),
         ('tactics', 'Tactics'),
         ('strategy', 'Strategy'),
-    ])
+    ], db_index=True)
     difficulty = models.CharField(max_length=20, choices=[
         ('beginner', 'Beginner'),
         ('intermediate', 'Intermediate'),
         ('advanced', 'Advanced'),
-    ])
+    ], db_index=True)
     views = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     order = models.IntegerField(default=0)
     
     class Meta:
         ordering = ['order', '-created_at']
+        indexes = [
+            models.Index(fields=['category', 'difficulty', 'order']),
+            models.Index(fields=['title']),
+        ]
     
     def __str__(self):
         return self.title

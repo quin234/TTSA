@@ -28,12 +28,12 @@ urlpatterns = [
     
     # Multiplayer game URLs
     path('multiplayer/create/', views.multiplayer_create, name='multiplayer_create'),
-    path('multiplayer/game/<int:game_id>/', views.multiplayer_game, name='multiplayer_game'),
+    path('multiplayer/game/<str:game_code>/', views.multiplayer_game, name='multiplayer_game'),
     
     # Multiplayer API endpoints
     path('api/multiplayer/create/', views.multiplayer_create_api, name='multiplayer_create_api'),
-    path('api/multiplayer/status/<int:game_id>/', views.multiplayer_status_api, name='multiplayer_status_api'),
-    path('api/multiplayer/cancel/<int:game_id>/', views.multiplayer_cancel_api, name='multiplayer_cancel_api'),
+    path('api/multiplayer/status/<str:game_code>/', views.multiplayer_status_api, name='multiplayer_status_api'),
+    path('api/multiplayer/cancel/<str:game_code>/', views.multiplayer_cancel_api, name='multiplayer_cancel_api'),
     
     # API endpoints
     path('api/save-game/', views.save_game, name='save_game'),

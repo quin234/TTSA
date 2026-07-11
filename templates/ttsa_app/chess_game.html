@@ -49,7 +49,7 @@
         <div class="lg:col-span-1">
             <div class="bg-white rounded-xl shadow-lg p-6">
                 <!-- Chessboard.js Board -->
-                <div id="myBoard" class="mx-auto" style="width: 400px;"></div>
+                <div id="myBoard" class="mx-auto" style="width: 400px; max-width: 90vw;"></div>
                 
                 <!-- Turn Indicator -->
                 <div class="mt-4 text-center">
@@ -69,21 +69,21 @@
             <!-- Game Controls -->
             <div class="bg-white rounded-xl shadow-lg p-6">
                 <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Game Controls</h3>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="undoMove()" class="px-4 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition transform hover:scale-105 flex items-center justify-center">
-                        <i class="fas fa-undo mr-2"></i>Undo
+                <div class="grid grid-cols-2 gap-2 sm:gap-3">
+                    <button onclick="undoMove()" class="px-3 py-2 sm:px-4 sm:py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition transform hover:scale-105 flex items-center justify-center text-sm sm:text-base">
+                        <i class="fas fa-undo mr-1 sm:mr-2"></i>Undo
                     </button>
-                    <button onclick="getHint()" class="px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition transform hover:scale-105 flex items-center justify-center">
-                        <i class="fas fa-lightbulb mr-2"></i>Hint
+                    <button onclick="getHint()" class="px-3 py-2 sm:px-4 sm:py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition transform hover:scale-105 flex items-center justify-center text-sm sm:text-base">
+                        <i class="fas fa-lightbulb mr-1 sm:mr-2"></i>Hint
                     </button>
-                    <button onclick="analyzePosition()" class="px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition transform hover:scale-105 flex items-center justify-center">
-                        <i class="fas fa-chart-line mr-2"></i>Analyze
+                    <button onclick="analyzePosition()" class="px-3 py-2 sm:px-4 sm:py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition transform hover:scale-105 flex items-center justify-center text-sm sm:text-base">
+                        <i class="fas fa-chart-line mr-1 sm:mr-2"></i>Analyze
                     </button>
-                    <button onclick="flipBoard()" class="px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition transform hover:scale-105 flex items-center justify-center">
-                        <i class="fas fa-sync-alt mr-2"></i>Flip
+                    <button onclick="flipBoard()" class="px-3 py-2 sm:px-4 sm:py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition transform hover:scale-105 flex items-center justify-center text-sm sm:text-base">
+                        <i class="fas fa-sync-alt mr-1 sm:mr-2"></i>Flip
                     </button>
-                    <button onclick="learnMove()" class="px-4 py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition transform hover:scale-105 flex items-center justify-center col-span-2">
-                        <i class="fas fa-graduation-cap mr-2"></i>Learn Move
+                    <button onclick="learnMove()" class="px-3 py-2 sm:px-4 sm:py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition transform hover:scale-105 flex items-center justify-center col-span-2 text-sm sm:text-base">
+                        <i class="fas fa-graduation-cap mr-1 sm:mr-2"></i>Learn Move
                     </button>
                 </div>
             </div>
@@ -256,6 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
         onDragStart: onDragStart,
         onDrop: onDrop,
         onSnapEnd: onSnapEnd,
+        onSquareClick: onSquareClick,
         pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
     };
     
@@ -330,6 +331,117 @@ function onDrop(source, target) {
 function onSnapEnd() {
     // Update the board position after the piece snap
     board.position(game.fen());
+}
+
+// Tap-to-move functionality
+let selectedSquare = null;
+
+function onSquareClick(square) {
+    // Do not allow moves if game is over
+    if (game.game_over()) return;
+    
+    // Get the piece on the clicked square
+    const piece = game.get(square);
+    
+    // If no square is selected
+    if (!selectedSquare) {
+        // If clicked on own piece, select it
+        if (piece) {
+            const pieceColor = piece[0]; // 'w' or 'b'
+            const currentTurn = game.turn();
+            
+            if (pieceColor === currentTurn) {
+                selectedSquare = square;
+                highlightSquare(square);
+                highlightLegalMoves(square);
+            }
+        }
+    } else {
+        // If a square is already selected
+        if (square === selectedSquare) {
+            // Deselect if clicking the same square
+            clearHighlights();
+            selectedSquare = null;
+        } else if (piece && piece[0] === game.turn()) {
+            // If clicking another own piece, change selection
+            clearHighlights();
+            selectedSquare = square;
+            highlightSquare(square);
+            highlightLegalMoves(square);
+        } else {
+            // Try to move to the clicked square
+            const move = game.move({
+                from: selectedSquare,
+                to: square,
+                promotion: 'q'
+            });
+            
+            if (move) {
+                // Move successful
+                clearHighlights();
+                selectedSquare = null;
+                
+                // Play appropriate sound
+                console.log('Move successful:', move);
+                chessSounds.playMoveSound(move, game);
+                
+                // Update game state
+                moveHistory.push(move);
+                updateTurnIndicator();
+                updateMoveCount();
+                updateMoveHistory();
+                updateProgress();
+                
+                // Check for game over
+                if (game.game_over()) {
+                    endGame();
+                } else {
+                    // AI move (Stockfish)
+                    setTimeout(makeAIMove, 500);
+                }
+            } else {
+                // Invalid move, deselect
+                clearHighlights();
+                selectedSquare = null;
+            }
+        }
+    }
+}
+
+function highlightSquare(square) {
+    // Remove existing selection highlight
+    document.querySelectorAll('.square-55d63').forEach(el => {
+        el.classList.remove('selected-square');
+    });
+    
+    // Add highlight to selected square
+    const squareElement = document.querySelector(`.square-${square}`);
+    if (squareElement) {
+        squareElement.classList.add('selected-square');
+    }
+}
+
+function highlightLegalMoves(square) {
+    // Get legal moves for the selected piece
+    const moves = game.moves({ square: square, verbose: true });
+    
+    // Highlight valid move squares
+    moves.forEach(move => {
+        const targetSquare = document.querySelector(`.square-${move.to}`);
+        if (targetSquare) {
+            if (move.captured) {
+                targetSquare.classList.add('capture-move');
+            } else {
+                targetSquare.classList.add('valid-move');
+            }
+        }
+    });
+}
+
+function clearHighlights() {
+    document.querySelectorAll('.square-55d63').forEach(el => {
+        el.classList.remove('selected-square', 'valid-move', 'capture-move');
+    });
 }
 
 function setupEventListeners() {
