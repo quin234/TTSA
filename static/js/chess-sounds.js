@@ -72,26 +72,19 @@ class ChessSoundManager {
      */
     playTone(frequency, duration, type = 'sine', volume = 1.0) {
         if (!this.enabled) {
-            console.log('Sounds are disabled');
             return;
         }
         
         if (!this.audioContext) {
-            console.log('Audio context not initialized, initializing now...');
             this.init();
             if (!this.audioContext) {
-                console.error('Failed to initialize audio context');
                 return;
             }
         }
 
         // Resume audio context if suspended
         if (this.audioContext.state === 'suspended') {
-            this.audioContext.resume().then(() => {
-                console.log('Audio context resumed');
-            }).catch(err => {
-                console.error('Failed to resume audio context:', err);
-            });
+            this.audioContext.resume();
         }
 
         const oscillator = this.audioContext.createOscillator();
@@ -109,26 +102,19 @@ class ChessSoundManager {
 
         oscillator.start(this.audioContext.currentTime);
         oscillator.stop(this.audioContext.currentTime + duration);
-        
-        console.log(`Playing tone: ${frequency}Hz, ${type}, volume: ${actualVolume}`);
     }
 
     /**
      * Play move sound (short, crisp click)
      */
     playMove() {
-        console.log('playMove called, enabled:', this.enabled, 'audioContext:', !!this.audioContext);
-        
         if (!this.enabled) {
-            console.log('Sounds are disabled, not playing move sound');
             return;
         }
         
         if (!this.audioContext) {
-            console.log('Audio context not initialized, initializing now...');
             this.init();
             if (!this.audioContext) {
-                console.error('Failed to initialize audio context for move sound');
                 return;
             }
         }
@@ -253,38 +239,28 @@ class ChessSoundManager {
      * Play sound based on move type
      */
     playMoveSound(move, gameState) {
-        console.log('playMoveSound called with move:', move, 'enabled:', this.enabled);
-        
         if (!this.enabled) {
-            console.log('Sounds disabled, not playing move sound');
             return;
         }
         
         // Initialize audio context on first interaction
         this.init();
         
-        console.log('Determining sound type for move:', move);
-        
         // Determine sound type based on move
         if (move.captured) {
-            console.log('Playing capture sound');
             this.playCapture();
         } else if (move.flags && (move.flags.includes('k') || move.flags.includes('q'))) {
             // Castling
-            console.log('Playing castle sound');
             this.playCastle();
         } else if (move.promotion) {
-            console.log('Playing promotion sound');
             this.playPromotion();
         } else {
             // Normal move
-            console.log('Playing normal move sound');
             this.playMove();
         }
         
         // Check for check
         if (gameState && gameState.in_check) {
-            console.log('Playing check sound');
             setTimeout(() => this.playCheck(), 200);
         }
     }

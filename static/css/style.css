@@ -216,6 +216,52 @@ td:before {
     animation: pulse 1.5s infinite;
 }
 
+/* Chessboard.js Click-to-Move Highlighting */
+.square-55d63.selected-square {
+    background-color: rgba(251, 191, 36, 0.6) !important;
+    box-shadow: inset 0 0 0 3px #f59e0b;
+}
+
+.square-55d63.valid-move {
+    position: relative;
+}
+
+.square-55d63.valid-move::after {
+    content: '';
+    position: absolute;
+    width: 30%;
+    height: 30%;
+    background-color: rgba(16, 185, 129, 0.6);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.square-55d63.capture-move {
+    position: relative;
+}
+
+.square-55d63.capture-move::after {
+    content: '';
+    position: absolute;
+    width: 90%;
+    height: 90%;
+    border: 3px solid rgba(239, 68, 68, 0.8);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.square-55d63.move-from {
+    background-color: rgba(251, 191, 36, 0.4) !important;
+}
+
+.square-55d63.move-to {
+    background-color: rgba(16, 185, 129, 0.4) !important;
+}
+
 .chess-square.hint-square::before {
     content: '💡';
     position: absolute;

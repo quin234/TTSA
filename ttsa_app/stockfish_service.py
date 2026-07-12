@@ -256,6 +256,7 @@ class StockfishService:
                 "stockfish",      # Linux/Mac
                 "/usr/bin/stockfish",
                 "/usr/local/bin/stockfish",
+                "/usr/games/stockfish",  # Ubuntu/Debian
             ]
             
             self.engine_path = None

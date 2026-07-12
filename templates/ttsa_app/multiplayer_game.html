@@ -2,6 +2,100 @@
 
 {% block title %}Multiplayer Chess Game - TTSA Academy{% endblock %}
 
+{% block extra_css %}
+<style>
+/* Chessboard highlighting styles */
+#multiplayerBoard {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.square-55d63 {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    overflow: hidden !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.square-55d63 img {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+.square-55d63.selected-square {
+    background-color: #bbcb2b !important;
+}
+
+.square-55d63.valid-move {
+    position: relative;
+}
+
+.square-55d63.valid-move::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30%;
+    height: 30%;
+    background-color: rgba(16, 185, 129, 0.7);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+    z-index: 1 !important;
+    pointer-events: none !important;
+}
+
+.square-55d63.capture-move {
+    position: relative;
+}
+
+.square-55d63.capture-move::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    height: 90%;
+    border: 4px solid rgba(239, 68, 68, 0.8);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+    z-index: 1 !important;
+    pointer-events: none !important;
+}
+
+.square-55d63.check-square {
+    background-color: #ff0000 !important;
+    background: #ff0000 !important;
+    box-shadow: 0 0 15px 5px rgba(255, 0, 0, 0.7) !important;
+    animation: checkPulse 0.8s infinite;
+    border: 3px solid #ff0000 !important;
+}
+
+@keyframes checkPulse {
+    0%, 100% { background-color: #ff4444; }
+    50% { background-color: #ff6666; }
+}
+
+.square-55d63.move-path-from {
+    background-color: rgba(187, 203, 43, 0.4) !important;
+}
+
+.square-55d63.move-path-to {
+    background-color: rgba(187, 203, 43, 0.4) !important;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-6">
     <!-- Game Header -->
@@ -194,8 +288,7 @@
     </div>
 </div>
 
-<!-- Chess.js for move validation -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<!-- Chess.js is already loaded in base.html -->
 
 <script>
 let game = null;
@@ -223,31 +316,66 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeGame() {
+    console.log('Initializing game...');
+    
     // Determine my color
     myColor = "{{ my_color|safe }}";
+    console.log('My color:', myColor);
+    
+    // Check if Chessboard.js is loaded
+    if (typeof Chessboard === 'undefined') {
+        console.error('Chessboard.js is not loaded!');
+        alert('Chessboard library failed to load. Please refresh the page.');
+        return;
+    }
     
     // Initialize chess.js
     game = new Chess();
+    console.log('Chess.js initialized');
     
     // Load existing moves if any
     const fen = "{{ game.current_fen|default:'' }}";
     if (fen) {
         game.load(fen);
+        console.log('Loaded FEN:', fen);
     }
     
     // Initialize Chessboard.js
     const config = {
-        draggable: true,
+        draggable: false,
         position: fen || 'start',
-        onDragStart: onDragStart,
-        onDrop: onDrop,
-        onSnapEnd: onSnapEnd,
         onSquareClick: onSquareClick,
         pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
         orientation: myColor === 'white' ? 'white' : 'black'
     };
     
+    console.log('Chessboard config:', config);
+    
+    // Check if board element exists
+    const boardElement = document.getElementById('multiplayerBoard');
+    console.log('Board element exists:', !!boardElement);
+    if (!boardElement) {
+        console.error('Board element with id "multiplayerBoard" not found!');
+        return;
+    }
+    
     board = Chessboard('multiplayerBoard', config);
+    console.log('Chessboard initialized:', board);
+    
+    // Add fallback click handler in case chessboard.js click handler doesn't work
+    setTimeout(() => {
+        console.log('Adding fallback click handlers...');
+        document.querySelectorAll('.square-55d63').forEach(square => {
+            square.addEventListener('click', function(e) {
+                const squareId = this.getAttribute('data-square');
+                console.log('Fallback click handler triggered for square:', squareId);
+                if (squareId && typeof onSquareClick === 'function') {
+                    onSquareClick(squareId);
+                }
+            });
+        });
+        console.log('Fallback click handlers added');
+    }, 1000);
     
     // Initialize player profiles
     initializePlayerProfiles();
@@ -258,6 +386,9 @@ function initializeGame() {
     // Update UI
     updateTurnIndicator();
     updateMoveHistory();
+    
+    // Highlight check if applicable on initial load
+    highlightCheck();
     
     // Show waiting message if game is waiting for opponent
     if ("{{ game.status }}" === 'waiting') {
@@ -277,92 +408,76 @@ function initializeGame() {
     }
 }
 
-// Chessboard.js drag start handler
-function onDragStart(source, piece, position, orientation) {
-    // Do not pick up pieces if the game is over
-    if (game.game_over() || gameEnded) return false;
-    
-    // Only pick up pieces if it's my turn
-    if ((game.turn() === 'w' && myColor !== 'white') || 
-        (game.turn() === 'b' && myColor !== 'black')) {
-        return false;
-    }
-    
-    // Only pick up pieces for the side to move
-    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
-        (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
-        return false;
-    }
-}
-
-// Chessboard.js drop handler
-function onDrop(source, target) {
-    // See if the move is legal
-    const move = game.move({
-        from: source,
-        to: target,
-        promotion: 'q' // Always promote to queen for simplicity
-    });
-    
-    // Illegal move
-    if (move === null) return 'snapback';
-    
-    // Send move to server
-    sendMoveToServer(source, target, move);
-    
-    // Keep the move locally - server will broadcast confirmation to both players
-    // If server rejects, it will send an error and we can handle it then
-}
-
-// Chessboard.js snap end handler
-function onSnapEnd() {
-    // Don't update board position here - it's handled by the move confirmation from server
-    // This prevents the board from snapping back when we undo local moves
-}
-
-// Tap-to-move functionality
+// Click-to-move functionality
 function onSquareClick(square) {
+    console.log('Square clicked:', square);
+    console.log('Game ended:', gameEnded);
+    console.log('Game over:', game.game_over());
+    console.log('Is my turn:', isMyTurn());
+    
     // Do not allow moves if game is over
-    if (gameEnded || game.game_over()) return;
+    if (gameEnded || game.game_over()) {
+        console.log('Move not allowed: game is over');
+        return;
+    }
     
     // Only allow moves during player's turn
-    if (!isMyTurn()) return;
+    if (!isMyTurn()) {
+        console.log('Move not allowed: not my turn');
+        return;
+    }
     
     // Get the piece on the clicked square
     const piece = game.get(square);
+    console.log('Piece on square:', piece);
     
     // If no square is selected
     if (!selectedSquare) {
+        console.log('No square currently selected');
         // If clicked on own piece, select it
         if (piece) {
-            const pieceColor = piece[0]; // 'w' or 'b'
+            const pieceColor = piece.color; // 'w' or 'b'
             const currentTurn = game.turn();
+            console.log('Piece color:', pieceColor, 'Current turn:', currentTurn);
             
             if (pieceColor === currentTurn) {
                 selectedSquare = square;
+                console.log('Selected square:', selectedSquare);
                 highlightSquare(square);
                 highlightLegalMoves(square);
+                highlightCheck();
+            } else {
+                console.log('Cannot select piece: wrong color');
             }
+        } else {
+            console.log('No piece on clicked square');
         }
     } else {
+        console.log('Square already selected:', selectedSquare);
         // If a square is already selected
         if (square === selectedSquare) {
             // Deselect if clicking the same square
+            console.log('Deselecting square');
             clearHighlights();
             selectedSquare = null;
-        } else if (piece && piece[0] === game.turn()) {
+        } else if (piece && piece.color === game.turn()) {
             // If clicking another own piece, change selection
+            console.log('Changing selection to different piece');
             clearHighlights();
             selectedSquare = square;
             highlightSquare(square);
             highlightLegalMoves(square);
+            highlightCheck();
         } else {
             // Try to move to the clicked square
+            console.log('Attempting move from', selectedSquare, 'to', square);
             const move = game.move({
                 from: selectedSquare,
                 to: square,
                 promotion: 'q'
             });
+            
+            console.log('Move result:', move);
             
             if (move) {
                 // Move successful
@@ -370,12 +485,19 @@ function onSquareClick(square) {
                 clearHighlights();
                 selectedSquare = null;
                 
+                // Highlight the move path
+                highlightMovePath(fromSquare, square);
+                
+                // Highlight check if applicable
+                highlightCheck();
+                
                 // Send move to server
                 sendMoveToServer(fromSquare, square, move);
                 
                 // Keep the move locally - server will broadcast confirmation to both players
             } else {
                 // Invalid move, deselect
+                console.log('Invalid move, deselecting');
                 clearHighlights();
                 selectedSquare = null;
             }
@@ -384,6 +506,7 @@ function onSquareClick(square) {
 }
 
 function highlightSquare(square) {
+    console.log('Highlighting square:', square);
     // Remove existing selection highlight
     document.querySelectorAll('.square-55d63').forEach(el => {
         el.classList.remove('selected-square');
@@ -391,31 +514,123 @@ function highlightSquare(square) {
     
     // Add highlight to selected square
     const squareElement = document.querySelector(`.square-${square}`);
+    console.log('Square element:', squareElement);
     if (squareElement) {
         squareElement.classList.add('selected-square');
+        console.log('Added selected-square class');
+    } else {
+        console.error('Square element not found for:', square);
     }
 }
 
 function highlightLegalMoves(square) {
+    console.log('Highlighting legal moves for:', square);
     // Get legal moves for the selected piece
     const moves = game.moves({ square: square, verbose: true });
+    console.log('Legal moves:', moves);
     
     // Highlight valid move squares
     moves.forEach(move => {
         const targetSquare = document.querySelector(`.square-${move.to}`);
+        console.log('Target square for', move.to, ':', targetSquare);
         if (targetSquare) {
             if (move.captured) {
                 targetSquare.classList.add('capture-move');
+                console.log('Added capture-move to', move.to);
             } else {
                 targetSquare.classList.add('valid-move');
+                console.log('Added valid-move to', move.to);
             }
+        } else {
+            console.error('Square element not found for move to:', move.to);
         }
     });
 }
 
+function highlightCheck() {
+    console.log('Checking for check...');
+    // Check if current player's king is in check
+    if (game.in_check()) {
+        console.log('King is in check!');
+        const turn = game.turn();
+        const fen = game.fen();
+        
+        // Find the king's position
+        const kingSquare = findKingSquare(turn);
+        console.log('King square:', kingSquare);
+        if (kingSquare) {
+            const kingElement = document.querySelector(`.square-${kingSquare}`);
+            console.log('King element:', kingElement);
+            if (kingElement) {
+                kingElement.classList.add('check-square');
+                // Force inline style to override chessboard.js styles
+                kingElement.style.backgroundColor = '#ff0000';
+                kingElement.style.background = '#ff0000';
+                kingElement.style.boxShadow = '0 0 15px 5px rgba(255, 0, 0, 0.7)';
+                kingElement.style.border = '3px solid #ff0000';
+                console.log('Added check-square class to', kingSquare);
+            } else {
+                console.error('King element not found for:', kingSquare);
+            }
+        }
+    } else {
+        console.log('King is not in check');
+    }
+}
+
+function findKingSquare(color) {
+    const fen = game.fen();
+    const rows = fen.split(' ')[0].split('/');
+    
+    for (let row = 0; row < 8; row++) {
+        const rowStr = rows[row];
+        let col = 0;
+        
+        for (let i = 0; i < rowStr.length; i++) {
+            const char = rowStr[i];
+            if (!isNaN(char)) {
+                col += parseInt(char);
+            } else {
+                const pieceColor = char === char.toUpperCase() ? 'w' : 'b';
+                const pieceType = char.toLowerCase();
+                
+                if (pieceType === 'k' && pieceColor === color) {
+                    const files = 'abcdefgh';
+                    return files[col] + (8 - row);
+                }
+                col++;
+            }
+        }
+    }
+    return null;
+}
+
+function highlightMovePath(from, to) {
+    // Clear previous move path highlights
+    document.querySelectorAll('.square-55d63').forEach(el => {
+        el.classList.remove('move-path-from', 'move-path-to');
+    });
+    
+    // Highlight origin and destination squares
+    const fromElement = document.querySelector(`.square-${from}`);
+    const toElement = document.querySelector(`.square-${to}`);
+    
+    if (fromElement) {
+        fromElement.classList.add('move-path-from');
+    }
+    if (toElement) {
+        toElement.classList.add('move-path-to');
+    }
+}
+
 function clearHighlights() {
     document.querySelectorAll('.square-55d63').forEach(el => {
-        el.classList.remove('selected-square', 'valid-move', 'capture-move');
+        el.classList.remove('selected-square', 'valid-move', 'capture-move', 'check-square');
+        // Clear inline styles for check highlight
+        el.style.backgroundColor = '';
+        el.style.background = '';
+        el.style.boxShadow = '';
+        el.style.border = '';
     });
 }
 
@@ -596,6 +811,12 @@ function handleWebSocketMessage(data) {
                 updateTurnIndicator();
                 updateMoveHistory();
                 
+                // Clear any existing highlights
+                clearHighlights();
+                
+                // Highlight check if applicable
+                highlightCheck();
+                
                 // Update game status
                 if (data.status === 'completed') {
                     gameEnded = true;
@@ -616,6 +837,17 @@ function handleWebSocketMessage(data) {
                 board.position(data.fen);
                 updateTurnIndicator();
                 updateMoveHistory();
+                
+                // Clear any existing highlights
+                clearHighlights();
+                
+                // Highlight the move path
+                if (data.move && data.move.from && data.move.to) {
+                    highlightMovePath(data.move.from, data.move.to);
+                }
+                
+                // Highlight check if applicable
+                highlightCheck();
                 
                 // Update clock from server
                 if (data.white_time !== undefined) whiteTime = data.white_time;
@@ -690,6 +922,31 @@ function handleWebSocketMessage(data) {
             gameEnded = true;
             stopClock();
             showGameOver('resignation');
+            break;
+            
+        case 'rematch_started':
+            // Reset game state for rematch
+            gameEnded = false;
+            board.position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+            board.draggable = true;
+            closeGameOverModal();
+            document.getElementById('gameStatus').textContent = 'Game in Progress';
+            document.getElementById('gameStatus').className = 'px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold';
+            
+            // Reset clocks
+            whiteTime = 600;
+            blackTime = 600;
+            activeClock = 'white';
+            lastServerSync = Date.now();
+            clockStarted = false;
+            firstMoveMade = false;
+            updateClockDisplay();
+            
+            // Update player info if colors swapped
+            if (data.white_player && data.black_player) {
+                // Refresh page to update player colors
+                setTimeout(() => location.reload(), 100);
+            }
             break;
             
         case 'chat':
@@ -859,8 +1116,9 @@ function declineDraw() {
 }
 
 function rematch() {
-    // Redirect to create game page
-    window.location.href = '{% url "multiplayer_create" %}';
+    websocket.send(JSON.stringify({
+        type: 'rematch'
+    }));
 }
 
 function sendMessage() {

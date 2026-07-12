@@ -12,6 +12,7 @@ STOCKFISH_PATHS = [
     "stockfish",      # Linux/Mac
     "/usr/bin/stockfish",
     "/usr/local/bin/stockfish",
+    "/usr/games/stockfish",  # Ubuntu/Debian
     "/opt/homebrew/bin/stockfish",  # macOS Homebrew
     "C:\\Program Files\\Stockfish\\stockfish.exe",
     "C:\\Program Files (x86)\\Stockfish\\stockfish.exe",

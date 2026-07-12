@@ -7,133 +7,108 @@
 <div class="container mx-auto px-4 py-6">
     
     <!-- Game Header -->
-    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <div class="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
-            <!-- Difficulty Selection -->
-            <div class="flex items-center space-x-4">
-                <label class="font-semibold text-gray-700">Difficulty:</label>
-                <select id="difficultySelect" class="px-4 py-2 border-2 border-purple-300 rounded-lg focus:border-purple-500 focus:outline-none">
-                    {% for key, value in difficulty_levels.items %}
-                    <option value="{{ key }}" {% if difficulty == key %}selected{% endif %}>{{ value.name }}</option>
-                    {% endfor %}
-                </select>
-                <button onclick="startNewGame()" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition transform hover:scale-105">
-                    <i class="fas fa-play mr-2"></i>New Game
-                </button>
-            </div>
-            
-            <!-- Game Info -->
-            <div class="flex items-center space-x-6">
-                <div class="text-center">
-                    <div class="text-sm text-gray-600">Moves</div>
-                    <div id="moveCount" class="text-2xl font-bold text-purple-600">0</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-sm text-gray-600">Progress</div>
-                    <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div id="progressBar" class="h-full bg-gradient-to-r from-green-400 to-blue-500 rounded-full transition-all duration-500" style="width: 0%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Difficulty Description -->
-        <div id="difficultyDescription" class="mt-4 p-3 bg-purple-50 rounded-lg text-purple-700 text-sm">
-            {{ current_difficulty_description }}
+    <div class="bg-white rounded-xl shadow-lg p-4 mb-6">
+        <div class="flex items-center justify-center space-x-3">
+            <label class="text-sm font-medium text-gray-600">Difficulty:</label>
+            <select id="difficultySelect" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none">
+                {% for key, value in difficulty_levels.items %}
+                <option value="{{ key }}" {% if difficulty == key %}selected{% endif %}>{{ value.name }}</option>
+                {% endfor %}
+            </select>
+            <button onclick="startNewGame()" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition">
+                <i class="fas fa-play mr-1"></i>New Game
+            </button>
         </div>
     </div>
     
     <!-- Main Game Area -->
-    <div class="grid lg:grid-cols-2 gap-6">
-        <!-- Center - Chess Board -->
-        <div class="lg:col-span-1">
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <!-- Chessboard.js Board -->
-                <div id="myBoard" class="mx-auto" style="width: 400px; max-width: 90vw;"></div>
-                
-                <!-- Turn Indicator -->
-                <div class="mt-4 text-center">
-                    <div id="turnIndicator" class="inline-flex items-center space-x-2 px-4 py-2 bg-purple-100 rounded-full">
-                        <div class="w-3 h-3 bg-white rounded-full border-2 border-purple-500"></div>
-                        <span class="font-semibold text-purple-700">White's Turn</span>
+    <div class="flex flex-col items-center w-full">
+        <!-- Chess Board -->
+        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 w-full max-w-2xl">
+            <!-- Chessboard.js Board with external notation -->
+            <div class="flex justify-center">
+                <div class="relative" style="width: 100%; max-width: 400px;">
+                    <!-- Column letters (top) -->
+                    <div class="flex justify-around mb-1">
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">a</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">b</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">c</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">d</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">e</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">f</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">g</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">h</span>
+                    </div>
+                    <div class="flex">
+                        <!-- Row numbers (left) -->
+                        <div class="flex flex-col justify-around mr-1">
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">8</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">7</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">6</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">5</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">4</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">3</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">2</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">1</span>
+                        </div>
+                        <!-- Chessboard -->
+                        <div id="myBoard" class="flex-1"></div>
+                        <!-- Row numbers (right) -->
+                        <div class="flex flex-col justify-around ml-1">
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">8</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">7</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">6</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">5</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">4</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">3</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">2</span>
+                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">1</span>
+                        </div>
+                    </div>
+                    <!-- Column letters (bottom) -->
+                    <div class="flex justify-around mt-1">
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">a</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">b</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">c</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">d</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">e</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">f</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">g</span>
+                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">h</span>
                     </div>
                 </div>
-                
-                <!-- Game Status -->
-                <div id="gameStatus" class="mt-4 text-center text-lg font-semibold text-gray-700"></div>
             </div>
+            
+            <!-- Turn Indicator -->
+            <div class="mt-4 text-center">
+                <div id="turnIndicator" class="inline-flex items-center space-x-2 px-4 py-2 bg-purple-100 rounded-full">
+                    <div class="w-3 h-3 bg-white rounded-full border-2 border-purple-500"></div>
+                    <span class="font-semibold text-purple-700">White's Turn</span>
+                </div>
+            </div>
+            
+            <!-- Game Status -->
+            <div id="gameStatus" class="mt-4 text-center text-lg font-semibold text-gray-700"></div>
         </div>
         
-        <!-- Right Panel - Controls -->
-        <div class="lg:col-span-1 space-y-4">
-            <!-- Game Controls -->
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Game Controls</h3>
-                <div class="grid grid-cols-2 gap-2 sm:gap-3">
-                    <button onclick="undoMove()" class="px-3 py-2 sm:px-4 sm:py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition transform hover:scale-105 flex items-center justify-center text-sm sm:text-base">
-                        <i class="fas fa-undo mr-1 sm:mr-2"></i>Undo
-                    </button>
-                    <button onclick="getHint()" class="px-3 py-2 sm:px-4 sm:py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition transform hover:scale-105 flex items-center justify-center text-sm sm:text-base">
-                        <i class="fas fa-lightbulb mr-1 sm:mr-2"></i>Hint
-                    </button>
-                    <button onclick="analyzePosition()" class="px-3 py-2 sm:px-4 sm:py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition transform hover:scale-105 flex items-center justify-center text-sm sm:text-base">
-                        <i class="fas fa-chart-line mr-1 sm:mr-2"></i>Analyze
-                    </button>
-                    <button onclick="flipBoard()" class="px-3 py-2 sm:px-4 sm:py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition transform hover:scale-105 flex items-center justify-center text-sm sm:text-base">
-                        <i class="fas fa-sync-alt mr-1 sm:mr-2"></i>Flip
-                    </button>
-                    <button onclick="learnMove()" class="px-3 py-2 sm:px-4 sm:py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition transform hover:scale-105 flex items-center justify-center col-span-2 text-sm sm:text-base">
-                        <i class="fas fa-graduation-cap mr-1 sm:mr-2"></i>Learn Move
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Sound Settings -->
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Sound Settings</h3>
-                <div class="space-y-4">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-volume-up text-gray-600"></i>
-                            <span class="text-gray-700">Enable Sounds</span>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="soundToggle" class="sr-only peer" onchange="toggleSounds()">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                        </label>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center space-x-3">
-                                <i class="fas fa-sliders-h text-gray-600"></i>
-                                <span class="text-gray-700">Volume</span>
-                            </div>
-                            <span id="volumeValue" class="text-sm text-gray-600">50%</span>
-                        </div>
-                        <input type="range" id="volumeSlider" min="0" max="100" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" onchange="adjustVolume(this.value)" oninput="document.getElementById('volumeValue').textContent = this.value + '%'">
-                    </div>
-                    <button onclick="testSound()" class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center justify-center">
-                        <i class="fas fa-volume-up mr-2"></i>Test Sound
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Move History -->
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <h3 class="fredoka text-xl font-bold text-gray-800 mb-4">Move History</h3>
-                <div id="moveHistory" class="space-y-1 max-h-48 overflow-y-auto text-sm font-mono">
-                    <div class="text-gray-400 text-center">No moves yet</div>
-                </div>
-            </div>
-            
-            <!-- Tips & Tricks -->
-            <div class="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
-                <h3 class="fredoka text-xl font-bold mb-3">
-                    <i class="fas fa-magic mr-2"></i>Tip of the Day
-                </h3>
-                <p id="dailyTip" class="text-sm">
-                    Control the center of the board! Pieces in the center have more mobility and can influence more squares.
-                </p>
+        <!-- Game Controls -->
+        <div class="bg-white rounded-xl shadow-lg p-4">
+            <div class="flex justify-center gap-2">
+                <button onclick="undoMove()" class="w-10 h-10 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center justify-center" title="Undo">
+                    <i class="fas fa-undo"></i>
+                </button>
+                <button onclick="getHint()" class="w-10 h-10 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center justify-center" title="Hint">
+                    <i class="fas fa-lightbulb"></i>
+                </button>
+                <button onclick="analyzePosition()" class="w-10 h-10 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center justify-center" title="Analyze">
+                    <i class="fas fa-chart-line"></i>
+                </button>
+                <button onclick="flipBoard()" class="w-10 h-10 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition flex items-center justify-center" title="Flip Board">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button onclick="learnMove()" class="w-10 h-10 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition flex items-center justify-center" title="Learn Move">
+                    <i class="fas fa-graduation-cap"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -167,79 +142,181 @@ let currentDifficulty = 'intermediate';
 let gameTimer = null;
 let secondsElapsed = 0;
 
-// Sound Settings Functions - must be defined before HTML elements use them
-function toggleSounds() {
-    const soundToggle = document.getElementById('soundToggle');
-    chessSounds.setEnabled(soundToggle.checked);
-    console.log('Sounds toggled to:', soundToggle.checked);
+// Click-to-move functionality
+let selectedSquare = null;
+let lastMove = null; // Track last move for highlighting
+
+// Chessboard.js snap end handler
+function onSnapEnd() {
+    // Update the board position after the piece snap
+    board.position(game.fen());
+}
+
+
+function onSquareClick(square) {
+    console.log('onSquareClick called with:', square);
     
-    // Play a test sound if enabling
-    if (soundToggle.checked) {
-        chessSounds.init();
-        setTimeout(() => chessSounds.playMove(), 100);
+    // Do not allow moves if game is over
+    if (game.game_over()) {
+        console.log('Game over, returning');
+        return;
     }
-}
-
-function adjustVolume(value) {
-    const volume = value / 100;
-    chessSounds.setVolume(volume);
-    console.log('Volume adjusted to:', volume);
     
-    // Play a test sound to demonstrate new volume
-    if (chessSounds.enabled) {
-        chessSounds.init();
-        setTimeout(() => chessSounds.playMove(), 100);
-    }
-}
-
-function testSound() {
-    console.log('Testing sound...');
-    chessSounds.init();
-    chessSounds.playMove();
-}
-
-// Sound Settings Functions
-function initializeSoundSettings() {
-    console.log('Initializing sound settings...');
+    // Get the piece on the clicked square
+    const piece = game.get(square);
+    console.log('Piece:', piece, 'Selected square:', selectedSquare);
     
-    // Initialize audio context immediately on page load
-    if (typeof chessSounds !== 'undefined') {
-        chessSounds.init();
-        
-        // Also initialize on first user interaction (backup)
-        document.addEventListener('click', function initAudio() {
-            console.log('Click detected, initializing audio context');
-            chessSounds.init();
-            document.removeEventListener('click', initAudio);
-        }, { once: true });
-        
-        // Load saved settings
-        const soundToggle = document.getElementById('soundToggle');
-        const volumeSlider = document.getElementById('volumeSlider');
-        
-        if (soundToggle) {
-            soundToggle.checked = chessSounds.enabled;
-            console.log('Sound toggle set to:', chessSounds.enabled);
-        }
-        
-        if (volumeSlider) {
-            volumeSlider.value = chessSounds.volume * 100;
-            const volumeValue = document.getElementById('volumeValue');
-            if (volumeValue) {
-                volumeValue.textContent = Math.round(chessSounds.volume * 100) + '%';
+    // If no square is selected
+    if (!selectedSquare) {
+        console.log('No square selected');
+        // If clicked on own piece, select it
+        if (piece) {
+            const pieceColor = piece.color; // 'w' or 'b'
+            const currentTurn = game.turn();
+            
+            console.log('Piece color:', pieceColor, 'Turn:', currentTurn);
+            
+            if (pieceColor === currentTurn) {
+                console.log('Selecting square');
+                selectedSquare = square;
+                highlightSquare(square);
+                highlightLegalMoves(square);
             }
-            console.log('Volume set to:', chessSounds.volume);
         }
-        
-        // Test sound on initialization
-        setTimeout(() => {
-            console.log('Testing sound on initialization...');
-            chessSounds.init();
-            chessSounds.playMove();
-        }, 500);
     } else {
-        console.log('Chess sounds not available yet');
+        console.log('Square already selected:', selectedSquare);
+        // If a square is already selected
+        if (square === selectedSquare) {
+            // Deselect if clicking the same square
+            console.log('Deselecting');
+            clearHighlights();
+            selectedSquare = null;
+        } else if (piece && piece.color === game.turn()) {
+            // If clicking another own piece, change selection
+            console.log('Changing selection');
+            clearHighlights();
+            selectedSquare = square;
+            highlightSquare(square);
+            highlightLegalMoves(square);
+        } else {
+            // Try to move to the clicked square
+            console.log('Attempting move');
+            const move = game.move({
+                from: selectedSquare,
+                to: square,
+                promotion: 'q'
+            });
+            
+            console.log('Move result:', move);
+            
+            if (move) {
+                // Move successful
+                console.log('Move successful');
+                clearHighlights();
+                selectedSquare = null;
+                
+                // Update board position
+                const newFen = game.fen();
+                console.log('Updating board to FEN:', newFen);
+                console.log('Board object:', board);
+                board.position(newFen);
+                console.log('Board position updated');
+                
+                // Highlight move path (origin and destination)
+                lastMove = { from: move.from, to: move.to };
+                highlightMovePath(move.from, move.to);
+                
+                // Play approprate sound
+                chessSounds.playMoveSound(move, game);
+                
+                // Update game state
+                moveHistory.push(move);
+                updateTurnIndicator();
+                
+                // Check for game over
+                if (game.game_over()) {
+                    endGame();
+                } else {
+                    // AI move (Stockfish)
+                    setTimeout(makeAIMove, 500);
+                }
+            } else {
+                // Invalid move, deselect
+                console.log('Invalid move');
+                clearHighlights();
+                selectedSquare = null;
+            }
+        }
     }
+    console.log('onSquareClick finished');
+}
+
+function highlightSquare(square) {
+    // Remove existing selection highlight
+    document.querySelectorAll('.square-55d63').forEach(el => {
+        el.classList.remove('selected-square');
+    });
+    
+    // Add highlight to selected square using data-square attribute
+    const squareElement = document.querySelector(`.square-55d63[data-square="${square}"]`);
+    if (squareElement) {
+        squareElement.classList.add('selected-square');
+    } else {
+        console.log('Could not find square element for:', square);
+    }
+}
+
+function highlightLegalMoves(square) {
+    // Get legal moves for the selected piece
+    const moves = game.moves({ square: square, verbose: true });
+    
+    // Highlight valid move squares using data-square attribute
+    moves.forEach(move => {
+        const targetSquare = document.querySelector(`.square-55d63[data-square="${move.to}"]`);
+        if (targetSquare) {
+            if (move.captured) {
+                targetSquare.classList.add('capture-move');
+            } else {
+                targetSquare.classList.add('valid-move');
+            }
+        } else {
+            console.log('Could not find target square for:', move.to);
+        }
+    });
+}
+
+function clearHighlights() {
+    console.log('clearHighlights called');
+    document.querySelectorAll('.square-55d63').forEach(el => {
+        el.classList.remove('selected-square', 'valid-move', 'capture-move', 'move-from', 'move-to');
+    });
+    console.log('clearHighlights finished');
+}
+
+function highlightMovePath(from, to) {
+    console.log('highlightMovePath called with:', from, to);
+    // Clear previous move highlights
+    document.querySelectorAll('.square-55d63').forEach(el => {
+        el.classList.remove('move-from', 'move-to');
+    });
+    
+    // Highlight origin and destination squares using data-square attribute
+    const fromSquare = document.querySelector(`.square-55d63[data-square="${from}"]`);
+    const toSquare = document.querySelector(`.square-55d63[data-square="${to}"]`);
+    
+    console.log('fromSquare:', fromSquare, 'toSquare:', toSquare);
+    
+    if (fromSquare) {
+        fromSquare.classList.add('move-from');
+    } else {
+        console.log('Could not find from square for:', from);
+    }
+    if (toSquare) {
+        toSquare.classList.add('move-to');
+    } else {
+        console.log('Could not find to square for:', to);
+    }
+    console.log('highlightMovePath finished');
 }
 
 // Initialize the game with Chessboard.js and Chess.js
@@ -251,19 +328,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize Chessboard.js
     const config = {
-        draggable: true,
+        draggable: false,
         position: 'start',
-        onDragStart: onDragStart,
-        onDrop: onDrop,
-        onSnapEnd: onSnapEnd,
         onSquareClick: onSquareClick,
-        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+        onSnapEnd: onSnapEnd,
+        moveSpeed: 'slow',
+        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+        showNotation: false
     };
     
     board = Chessboard('myBoard', config);
     
-    // Initialize sound settings
-    initializeSoundSettings();
     setupEventListeners();
     
     // Get difficulty from URL parameter
@@ -277,172 +352,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('Difficulty set to:', currentDifficulty);
-    updateDifficultyDescription();
     updateTurnIndicator();
-    updateMoveCount();
-    updateMoveHistory();
-});
-
-// Chessboard.js drag start handler
-function onDragStart(source, piece, position, orientation) {
-    // Do not pick up pieces if the game is over
-    if (game.game_over()) return false;
     
-    // Only pick up pieces for the side to move
-    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
-        (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
-        return false;
-    }
-}
-
-// Chessboard.js drop handler
-function onDrop(source, target) {
-    // See if the move is legal
-    const move = game.move({
-        from: source,
-        to: target,
-        promotion: 'q' // NOTE: always promote to a queen for simplicity
-    });
-    
-    // Illegal move
-    if (move === null) return 'snapback';
-    
-    // Play appropriate sound
-    console.log('Move successful:', move);
-    chessSounds.playMoveSound(move, game);
-    
-    // Update game state
-    moveHistory.push(move);
-    updateTurnIndicator();
-    updateMoveCount();
-    updateMoveHistory();
-    updateProgress();
-    
-    // Check for game over
-    if (game.game_over()) {
-        endGame();
-    } else {
-        // AI move (Stockfish)
-        setTimeout(makeAIMove, 500);
-    }
-}
-
-// Chessboard.js snap end handler
-function onSnapEnd() {
-    // Update the board position after the piece snap
-    board.position(game.fen());
-}
-
-// Tap-to-move functionality
-let selectedSquare = null;
-
-function onSquareClick(square) {
-    // Do not allow moves if game is over
-    if (game.game_over()) return;
-    
-    // Get the piece on the clicked square
-    const piece = game.get(square);
-    
-    // If no square is selected
-    if (!selectedSquare) {
-        // If clicked on own piece, select it
-        if (piece) {
-            const pieceColor = piece[0]; // 'w' or 'b'
-            const currentTurn = game.turn();
-            
-            if (pieceColor === currentTurn) {
-                selectedSquare = square;
-                highlightSquare(square);
-                highlightLegalMoves(square);
-            }
-        }
-    } else {
-        // If a square is already selected
-        if (square === selectedSquare) {
-            // Deselect if clicking the same square
-            clearHighlights();
-            selectedSquare = null;
-        } else if (piece && piece[0] === game.turn()) {
-            // If clicking another own piece, change selection
-            clearHighlights();
-            selectedSquare = square;
-            highlightSquare(square);
-            highlightLegalMoves(square);
-        } else {
-            // Try to move to the clicked square
-            const move = game.move({
-                from: selectedSquare,
-                to: square,
-                promotion: 'q'
-            });
-            
-            if (move) {
-                // Move successful
-                clearHighlights();
-                selectedSquare = null;
-                
-                // Play appropriate sound
-                console.log('Move successful:', move);
-                chessSounds.playMoveSound(move, game);
-                
-                // Update game state
-                moveHistory.push(move);
-                updateTurnIndicator();
-                updateMoveCount();
-                updateMoveHistory();
-                updateProgress();
-                
-                // Check for game over
-                if (game.game_over()) {
-                    endGame();
+    // Add fallback click handler in case chessboard.js click handler doesn't work
+    setTimeout(() => {
+        console.log('=== ADDING FALLBACK CLICK HANDLERS ===');
+        const squares = document.querySelectorAll('.square-55d63');
+        console.log('Found squares:', squares.length);
+        squares.forEach((square, index) => {
+            const squareId = square.getAttribute('data-square');
+            console.log(`Square ${index}: data-square="${squareId}"`);
+            square.addEventListener('click', function(e) {
+                const squareId = this.getAttribute('data-square');
+                console.log('=== FALLBACK CLICK HANDLER TRIGGERED ===');
+                console.log('Square:', squareId);
+                console.log('Event:', e);
+                console.log('onSquareClick exists:', typeof onSquareClick);
+                console.log('squareId exists:', !!squareId);
+                if (squareId && typeof onSquareClick === 'function') {
+                    console.log('Calling onSquareClick with:', squareId);
+                    onSquareClick(squareId);
+                    console.log('onSquareClick returned');
                 } else {
-                    // AI move (Stockfish)
-                    setTimeout(makeAIMove, 500);
+                    console.log('Cannot call onSquareClick - squareId:', squareId, 'function exists:', typeof onSquareClick);
                 }
-            } else {
-                // Invalid move, deselect
-                clearHighlights();
-                selectedSquare = null;
-            }
-        }
-    }
-}
-
-function highlightSquare(square) {
-    // Remove existing selection highlight
-    document.querySelectorAll('.square-55d63').forEach(el => {
-        el.classList.remove('selected-square');
-    });
-    
-    // Add highlight to selected square
-    const squareElement = document.querySelector(`.square-${square}`);
-    if (squareElement) {
-        squareElement.classList.add('selected-square');
-    }
-}
-
-function highlightLegalMoves(square) {
-    // Get legal moves for the selected piece
-    const moves = game.moves({ square: square, verbose: true });
-    
-    // Highlight valid move squares
-    moves.forEach(move => {
-        const targetSquare = document.querySelector(`.square-${move.to}`);
-        if (targetSquare) {
-            if (move.captured) {
-                targetSquare.classList.add('capture-move');
-            } else {
-                targetSquare.classList.add('valid-move');
-            }
-        }
-    });
-}
-
-function clearHighlights() {
-    document.querySelectorAll('.square-55d63').forEach(el => {
-        el.classList.remove('selected-square', 'valid-move', 'capture-move');
-    });
-}
+            });
+        });
+        console.log('Fallback click handlers added');
+    }, 1000);
+});
 
 function setupEventListeners() {
     // Difficulty selector
@@ -451,21 +389,7 @@ function setupEventListeners() {
         difficultySelect.addEventListener('change', function(e) {
             currentDifficulty = e.target.value;
             console.log('Difficulty changed to:', currentDifficulty);
-            updateDifficultyDescription();
         });
-    }
-}
-
-function updateDifficultyDescription() {
-    const descriptions = {
-        'beginner': 'Perfect for learning the basics - Stockfish skill level 0 with 100ms thinking time',
-        'intermediate': 'Challenging gameplay - Stockfish skill level 10 with 500ms thinking time',
-        'master': 'Test your skills against the best - Stockfish maximum strength with 5s thinking time and multi-threaded analysis'
-    };
-    
-    const descriptionElement = document.getElementById('difficultyDescription');
-    if (descriptionElement) {
-        descriptionElement.textContent = descriptions[currentDifficulty] || descriptions['intermediate'];
     }
 }
 
@@ -479,8 +403,6 @@ function initializeGame() {
     console.log('Current turn:', game.turn());
     
     updateTurnIndicator();
-    updateMoveCount();
-    updateMoveHistory();
 }
 
 function updateTurnIndicator() {
@@ -494,56 +416,6 @@ function updateTurnIndicator() {
         if (span) {
             span.textContent = turnText;
         }
-    }
-}
-
-function updateMoveCount() {
-    if (!game) return;
-    
-    const moveCount = game.history().length;
-    const moveCountElement = document.getElementById('moveCount');
-    if (moveCountElement) {
-        moveCountElement.textContent = moveCount;
-    }
-}
-
-function updateMoveHistory() {
-    const historyElement = document.getElementById('moveHistory');
-    if (!historyElement || !game) return;
-    
-    const moves = game.history();
-    if (moves.length === 0) {
-        historyElement.innerHTML = '<div class="text-gray-400 text-center">No moves yet</div>';
-        return;
-    }
-    
-    let html = '';
-    for (let i = 0; i < moves.length; i += 2) {
-        const moveNum = Math.floor(i / 2) + 1;
-        const whiteMove = moves[i];
-        const blackMove = moves[i + 1];
-        
-        html += `<div class="flex justify-between text-sm">`;
-        html += `<span class="font-semibold">${moveNum}.</span>`;
-        html += `<span>${whiteMove}</span>`;
-        if (blackMove) {
-            html += `<span>${blackMove}</span>`;
-        } else {
-            html += `<span class="text-gray-400">...</span>`;
-        }
-        html += `</div>`;
-    }
-    
-    historyElement.innerHTML = html;
-    historyElement.scrollTop = historyElement.scrollHeight;
-}
-
-function updateProgress() {
-    const progressBar = document.getElementById('progressBar');
-    if (progressBar && game) {
-        const moveCount = game.history().length;
-        const progress = Math.min((moveCount / 40) * 100, 100);
-        progressBar.style.width = progress + '%';
     }
 }
 
@@ -568,13 +440,6 @@ function stopGameTimer() {
     if (gameTimer) {
         clearInterval(gameTimer);
         gameTimer = null;
-    }
-}
-
-function updateProgress() {
-    // Update guest progress if applicable
-    if (typeof updateGuestProgress === 'function') {
-        updateGuestProgress();
     }
 }
 
@@ -1681,6 +1546,9 @@ async function makeAIMove() {
     
     console.log('AI is making a move at difficulty:', currentDifficulty);
     
+    // Use random move immediately if no AI is available
+    const randomMove = moves[Math.floor(Math.random() * moves.length)];
+    
     try {
         // Try to use Stockfish backend first
         const formData = new FormData();
@@ -1692,32 +1560,38 @@ async function makeAIMove() {
             body: formData
         });
         
+        if (!response.ok) {
+            console.log('Stockfish API returned error status:', response.status);
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success && result.move) {
             console.log('Stockfish move:', result.move);
-            executeAIMove(result.move);
-        } else {
-            console.log('Stockfish not available, falling back to custom engine');
-            // Fallback to custom engine
-            const bestMove = chessEngine.findBestMove(game, currentDifficulty);
-            if (bestMove) {
-                executeAIMove(bestMove);
+            // Validate the move before executing
+            if (typeof result.move === 'string' && result.move.length >= 4) {
+                executeAIMove(result.move);
+                return;
             } else {
-                // Final fallback to random move
-                const randomMove = moves[Math.floor(Math.random() * moves.length)];
+                console.log('Invalid move format from Stockfish, using random move');
                 executeAIMove(randomMove);
+                return;
             }
+        } else {
+            console.log('Stockfish not available or no move returned, using random move');
+            executeAIMove(randomMove);
+            return;
         }
     } catch (error) {
-        console.log('Error calling Stockfish API, falling back to custom engine:', error);
+        console.log('Error calling Stockfish API, using random move:', error);
         // Fallback to custom engine
         const bestMove = chessEngine.findBestMove(game, currentDifficulty);
-        if (bestMove) {
+        if (bestMove && typeof bestMove === 'string' && bestMove.length >= 4) {
+            console.log('Using custom engine move:', bestMove);
             executeAIMove(bestMove);
         } else {
-            // Final fallback to random move
-            const randomMove = moves[Math.floor(Math.random() * moves.length)];
+            console.log('Custom engine failed, using random move');
             executeAIMove(randomMove);
         }
     }
@@ -1726,31 +1600,48 @@ async function makeAIMove() {
 function executeAIMove(moveString) {
     if (!game || !board) return;
     
-    const move = game.move(moveString);
+    console.log('Executing AI move:', moveString, 'Type:', typeof moveString);
+    
+    // Handle if move is an object instead of string
+    let actualMoveString = moveString;
+    if (typeof moveString === 'object' && moveString !== null) {
+        console.log('Move is an object, converting to string');
+        if (moveString.from && moveString.to) {
+            actualMoveString = moveString.from + moveString.to;
+            if (moveString.promotion) {
+                actualMoveString += moveString.promotion;
+            }
+        } else if (moveString.san) {
+            actualMoveString = moveString.san;
+        }
+    }
+    
+    const move = game.move(actualMoveString);
     if (move) {
         moveHistory.push(move);
         
         // Update board position
         board.position(game.fen());
         
+        // Highlight move path for AI moves too
+        highlightMovePath(move.from, move.to);
+        
         // Play appropriate sound for AI move
         console.log('AI move successful, playing sound for move:', move);
         chessSounds.playMoveSound(move, game);
         
         updateTurnIndicator();
-        updateMoveCount();
-        updateMoveHistory();
-        updateProgress();
         
         if (game.game_over()) {
             endGame();
         }
     } else {
-        console.log('Failed to execute move:', moveString);
+        console.log('Failed to execute move:', actualMoveString, 'Original:', moveString);
         // Try alternative move if available
         const moves = game.moves();
         if (moves.length > 0) {
             const fallbackMove = moves[Math.floor(Math.random() * moves.length)];
+            console.log('Using fallback move:', fallbackMove);
             executeAIMove(fallbackMove);
         }
     }
@@ -1835,9 +1726,6 @@ function startNewGame() {
     
     // Update UI
     updateTurnIndicator();
-    updateMoveCount();
-    updateMoveHistory();
-    updateProgress();
     
     // Hide game over modal if visible
     const modal = document.getElementById('gameOverModal');
@@ -1864,9 +1752,6 @@ function undoMove() {
     
     // Update UI
     updateTurnIndicator();
-    updateMoveCount();
-    updateMoveHistory();
-    updateProgress();
 }
 
 function flipBoard() {
@@ -1937,11 +1822,6 @@ function analyzePosition() {
     showNotification(message + ' (Score: ' + evaluation + ')', evaluation > 0 ? 'success' : 'warning');
 }
 
-function clearHighlights() {
-    if (board) {
-        board.clearHighlights();
-    }
-}
 
 function showNotification(message, type = 'info') {
     // Create notification element

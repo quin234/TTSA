@@ -78,6 +78,8 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             await self.handle_draw_response(data)
         elif message_type == 'resign':
             await self.handle_resign()
+        elif message_type == 'rematch':
+            await self.handle_rematch()
         elif message_type == 'chat':
             await self.handle_chat(data)
         elif message_type == 'reconnect':
@@ -256,6 +258,51 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             }
         )
 
+    async def handle_rematch(self):
+        game = await self.get_game()
+        if not game:
+            return
+
+        # Only allow rematch if game is completed
+        if game.status != 'completed':
+            return
+
+        # Reset game state for rematch
+        game.status = 'playing'
+        game.result = None
+        game.completed_at = None
+        game.current_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+        game.pgn = ''
+        
+        # Swap colors
+        old_white = game.white_player
+        game.white_player = game.black_player
+        game.black_player = old_white
+        
+        # Reset clocks based on game type
+        time_limits = {
+            'standard': 600,
+            'blitz': 300,
+            'rapid': 600,
+            'classical': 1800
+        }
+        game.white_time = time_limits.get(game.game_type, 600)
+        game.black_time = time_limits.get(game.game_type, 600)
+        
+        await self.update_game(game)
+
+        # Clear old moves
+        await database_sync_to_async(GameMove.objects.filter(game=game).delete)()
+
+        await self.channel_layer.group_send(
+            self.game_group_name,
+            {
+                'type': 'rematch_started',
+                'white_player': game.white_player.username,
+                'black_player': game.black_player.username
+            }
+        )
+
     async def handle_chat(self, data):
         message = data.get('message', '')
         if not message:
@@ -367,6 +414,13 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             'result': 'resignation',
             'winner': event['winner'],
             'resigned_player': event['resigned_player']
+        }))
+
+    async def rematch_started(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'rematch_started',
+            'white_player': event['white_player'],
+            'black_player': event['black_player']
         }))
 
     async def game_completed(self, event):
