@@ -21,6 +21,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('ttsa-admin/', include('ttsaadmin.urls')),
     path('', include('ttsa_app.urls')),
 ]
 

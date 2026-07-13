@@ -13,6 +13,7 @@ class PlayerProfile(models.Model):
     learning_streak = models.IntegerField(default=0)
     last_played = models.DateField(default=timezone.now)
     bio = models.TextField(max_length=500, blank=True)
+    ttsa_admin = models.BooleanField(default=False, db_index=True)
     
     def __str__(self):
         return f"{self.user.username}'s Profile"

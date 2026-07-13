@@ -8,3 +8,5 @@ channels==4.0.0
 daphne==4.0.0
 mysqlclient==2.2.0
 python-chess==1.999
+requests==2.31.0
+feedparser==6.0.10

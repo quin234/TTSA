@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'channels',
     'ttsa_app',
+    'ttsaadmin',
 ]
 
 # Additional middleware for static files
@@ -186,3 +187,6 @@ CHANNEL_LAYERS = {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',
     },
 }
+
+# YouTube API configuration
+YOUTUBE_API_KEY = 'AIzaSyCq_w_oLWbf2pBDmS2edy2dMdGrGT_Yq8g'

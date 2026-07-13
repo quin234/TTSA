@@ -419,6 +419,15 @@ def login_view(request):
         if user is not None:
             login(request, user)
             messages.success(request, f'Welcome back, {username}!')
+            
+            # Check if user is a TTSA admin and redirect accordingly
+            try:
+                profile = user.playerprofile
+                if profile.ttsa_admin:
+                    return redirect('admin_dashboard')
+            except PlayerProfile.DoesNotExist:
+                pass
+            
             return redirect('dashboard')
         else:
             messages.error(request, 'Invalid username or password.')
