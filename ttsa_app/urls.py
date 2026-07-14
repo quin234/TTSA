@@ -18,6 +18,7 @@ urlpatterns = [
     
     path('puzzles/', views.puzzles, name='puzzles'),
     path('achievements/', views.achievements, name='achievements'),
+    path('tournaments/', views.tournaments_view, name='tournaments'),
     path('leaderboard/', views.leaderboard, name='leaderboard'),
     path('friends/', views.friends, name='friends'),
     path('messages/', views.messages_view, name='messages'),
@@ -34,6 +35,12 @@ urlpatterns = [
     path('api/multiplayer/create/', views.multiplayer_create_api, name='multiplayer_create_api'),
     path('api/multiplayer/status/<str:game_code>/', views.multiplayer_status_api, name='multiplayer_status_api'),
     path('api/multiplayer/cancel/<str:game_code>/', views.multiplayer_cancel_api, name='multiplayer_cancel_api'),
+    
+    # Tournament API endpoints
+    path('api/tournaments/', views.tournaments_api, name='tournaments_api'),
+    path('api/tournaments/<int:tournament_id>/register/', views.tournament_register_api, name='tournament_register_api'),
+    path('api/tournaments/<int:tournament_id>/unregister/', views.tournament_unregister_api, name='tournament_unregister_api'),
+    path('api/my-tournaments/', views.my_tournaments_api, name='my_tournaments_api'),
     
     # API endpoints
     path('api/save-game/', views.save_game, name='save_game'),

@@ -345,3 +345,47 @@ class VideoLesson(models.Model):
     
     def __str__(self):
         return self.title
+
+
+class TournamentRegistration(models.Model):
+    """Model for user tournament registrations"""
+    
+    STATUS_CHOICES = [
+        ('registered', 'Registered'),
+        ('confirmed', 'Confirmed'),
+        ('withdrawn', 'Withdrawn'),
+        ('disqualified', 'Disqualified'),
+    ]
+    
+    player = models.ForeignKey(PlayerProfile, on_delete=models.CASCADE, db_index=True)
+    tournament = models.ForeignKey('ttsaadmin.Tournament', on_delete=models.CASCADE, db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='registered', db_index=True)
+    registered_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    
+    # Tournament statistics (filled when tournament is active/complete)
+    points = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    wins = models.PositiveIntegerField(default=0)
+    losses = models.PositiveIntegerField(default=0)
+    draws = models.PositiveIntegerField(default=0)
+    rank = models.PositiveIntegerField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-registered_at']
+        indexes = [
+            models.Index(fields=['player', '-registered_at']),
+            models.Index(fields=['tournament', 'status']),
+            models.Index(fields=['tournament', '-points']),
+            models.Index(fields=['status', '-registered_at']),
+        ]
+        unique_together = ['player', 'tournament']
+    
+    def __str__(self):
+        return f"{self.player.user.username} - {self.tournament.name}"
+    
+    @property
+    def games_played(self):
+        """Calculate total games played"""
+        return self.wins + self.losses + self.draws

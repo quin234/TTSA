@@ -14,4 +14,17 @@ urlpatterns = [
     path('video-lessons/', views.video_library, name='video_library'),
     path('video-lessons/<int:video_id>/delete/', views.delete_video_lesson, name='delete_video_lesson'),
     path('api/validate-video/', views.validate_video_api, name='validate_video_api'),
+    
+    # Tournament URLs
+    path('tournaments/', views.tournament_list, name='tournament_list'),
+    path('tournaments/create/', views.tournament_create, name='tournament_create'),
+    path('tournaments/<int:tournament_id>/', views.tournament_detail, name='tournament_detail'),
+    path('tournaments/<int:tournament_id>/edit/', views.tournament_edit, name='tournament_edit'),
+    path('tournaments/<int:tournament_id>/delete/', views.tournament_delete, name='tournament_delete'),
+    path('tournaments/<int:tournament_id>/players/', views.tournament_players, name='tournament_players'),
+    path('tournaments/<int:tournament_id>/players/<int:player_id>/remove/', views.tournament_remove_player, name='tournament_remove_player'),
+    path('tournaments/<int:tournament_id>/games/', views.tournament_games, name='tournament_games'),
+    path('tournaments/<int:tournament_id>/games/<int:game_id>/result/', views.tournament_update_game_result, name='tournament_update_game_result'),
+    path('api/tournaments/', views.tournament_api_data, name='tournament_api_data'),
+    path('api/tournaments/<int:tournament_id>/', views.tournament_api_data, name='tournament_api_detail'),
 ]

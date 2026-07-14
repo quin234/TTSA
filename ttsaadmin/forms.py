@@ -1,7 +1,8 @@
-"""Forms for YouTube channel management"""
+"""Forms for YouTube channel management and tournament management"""
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import YouTubeChannel
+from django.utils import timezone
+from .models import YouTubeChannel, Tournament, TournamentPlayer, TournamentGame
 from .youtube_utils import validate_and_fetch_channel_metadata, YouTubeChannelError
 from ttsa_app.models import VideoLesson
 from .youtube_utils import validate_and_fetch_video_metadata, YouTubeVideoError
@@ -198,3 +199,233 @@ class VideoLessonForm(forms.ModelForm):
             video.save()
         
         return video
+
+
+class TournamentForm(forms.ModelForm):
+    """Form for creating and editing tournaments"""
+    
+    class Meta:
+        model = Tournament
+        fields = [
+            'name', 'description', 'venue', 'category', 'format', 'rounds',
+            'time_control', 'start_date', 'end_date', 'registration_deadline',
+            'entry_fee', 'max_players', 'status', 'is_active', 'is_featured'
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter tournament name',
+                'required': True
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter tournament description',
+                'rows': 4
+            }),
+            'venue': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter venue',
+                'required': True
+            }),
+            'category': forms.Select(attrs={
+                'class': 'form-select',
+                'required': True
+            }),
+            'format': forms.Select(attrs={
+                'class': 'form-select',
+                'required': True
+            }),
+            'rounds': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 1,
+                'max': 15,
+                'required': True
+            }),
+            'time_control': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g., 90+30, 15+10',
+                'required': True
+            }),
+            'start_date': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local',
+                'required': True
+            }),
+            'end_date': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local',
+                'required': True
+            }),
+            'registration_deadline': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local',
+                'required': True
+            }),
+            'entry_fee': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'step': '0.01',
+                'required': True
+            }),
+            'max_players': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 2,
+                'max': 1000,
+                'required': True
+            }),
+            'status': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'is_featured': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            })
+        }
+    
+    def clean(self):
+        """Validate tournament data"""
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+        registration_deadline = cleaned_data.get('registration_deadline')
+        max_players = cleaned_data.get('max_players')
+        rounds = cleaned_data.get('rounds')
+        
+        if start_date and end_date and start_date >= end_date:
+            raise ValidationError('End date must be after start date')
+        
+        if start_date and registration_deadline and registration_deadline >= start_date:
+            raise ValidationError('Registration deadline must be before tournament start date')
+        
+        if max_players and max_players < 2:
+            raise ValidationError('Maximum players must be at least 2')
+        
+        if rounds and rounds < 1:
+            raise ValidationError('Number of rounds must be at least 1')
+        
+        return cleaned_data
+
+
+class TournamentPlayerForm(forms.ModelForm):
+    """Form for adding players to tournaments"""
+    
+    class Meta:
+        model = TournamentPlayer
+        fields = ['player_name', 'rating', 'email', 'phone', 'category']
+        widgets = {
+            'player_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter player name',
+                'required': True
+            }),
+            'rating': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 1000,
+                'max': 3000,
+                'placeholder': 'Enter rating',
+                'required': True
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter email (optional)'
+            }),
+            'phone': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter phone (optional)'
+            }),
+            'category': forms.Select(attrs={
+                'class': 'form-select',
+                'required': True
+            })
+        }
+    
+    def clean_rating(self):
+        """Validate rating"""
+        rating = self.cleaned_data.get('rating')
+        if rating and (rating < 1000 or rating > 3000):
+            raise ValidationError('Rating must be between 1000 and 3000')
+        return rating
+
+
+class TournamentGameForm(forms.ModelForm):
+    """Form for updating game results"""
+    
+    class Meta:
+        model = TournamentGame
+        fields = ['result', 'status', 'pgn']
+        widgets = {
+            'result': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'status': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'pgn': forms.Textarea(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter PGN notation (optional)',
+                'rows': 5
+            })
+        }
+
+
+class TournamentSearchForm(forms.Form):
+    """Form for searching tournaments"""
+    
+    search = forms.CharField(
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Search tournaments...'
+        })
+    )
+    
+    category = forms.ChoiceField(
+        choices=[('', 'All Categories')] + Tournament.CATEGORY_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-select'
+        })
+    )
+    
+    status = forms.ChoiceField(
+        choices=[('', 'All Status')] + Tournament.STATUS_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-select'
+        })
+    )
+    
+    date_from = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    
+    date_to = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    
+    sort_by = forms.ChoiceField(
+        choices=[
+            ('-created_at', 'Newest First'),
+            ('created_at', 'Oldest First'),
+            ('start_date', 'Start Date (Earliest)'),
+            ('-start_date', 'Start Date (Latest)'),
+            ('name', 'Name (A-Z)'),
+            ('-name', 'Name (Z-A)'),
+        ],
+        initial='-created_at',
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-select'
+        })
+    )

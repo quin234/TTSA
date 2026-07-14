@@ -12,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import (
     PlayerProfile, Achievement, PlayerAchievement, ChessGame,
     Lesson, PlayerLesson, Puzzle,	PlayerPuzzle, Leaderboard,
-    Friend, Message, AcademyNews, MultiplayerGame, GameMove, VideoLesson
+    Friend, Message, AcademyNews, MultiplayerGame, GameMove, VideoLesson, TournamentRegistration
 )
 from .stockfish_service import stockfish_service, DifficultyLevel
 import random
@@ -224,6 +224,15 @@ def achievements(request):
         'achievements_with_progress': achievements_with_progress,
     }
     return render(request, 'ttsa_app/achievements.html', context)
+
+
+@login_required_with_message
+def tournaments(request):
+    profile = request.user.playerprofile
+    context = {
+        'profile': profile,
+    }
+    return render(request, 'ttsa_app/tournaments.html', context)
 
 
 def video_lessons(request):
@@ -939,3 +948,266 @@ def multiplayer_cancel_api(request, game_code):
     game.save()
     
     return JsonResponse({'success': True})
+
+
+# Tournament Views for TTSA App
+
+def tournaments_view(request):
+    """View for tournaments page"""
+    return render(request, 'ttsa_app/tournaments.html')
+
+
+@csrf_exempt
+def tournaments_api(request):
+    """API endpoint for tournaments data - public access for viewing tournaments"""
+    
+    if request.method == 'GET':
+        from ttsaadmin.models import Tournament
+        from django.db.models import Q
+        
+        # Get only published/registration tournaments for public view
+        tournaments = Tournament.objects.filter(
+            status__in=['published', 'registration'],
+            is_active=True
+        ).select_related('created_by').prefetch_related('players')
+        
+        # Apply filters from GET params
+        search = request.GET.get('search')
+        if search:
+            tournaments = tournaments.filter(
+                Q(name__icontains=search) |
+                Q(venue__icontains=search) |
+                Q(description__icontains=search)
+            )
+        
+        category = request.GET.get('category')
+        if category:
+            tournaments = tournaments.filter(category=category)
+        
+        # Order by start date (upcoming first)
+        tournaments = tournaments.order_by('start_date')
+        
+        tournaments_list = []
+        for tournament in tournaments:
+            # Check if current user is registered
+            is_registered = False
+            if request.user.is_authenticated:
+                try:
+                    profile = request.user.playerprofile
+                    is_registered = TournamentRegistration.objects.filter(
+                        player=profile, 
+                        tournament=tournament
+                    ).exists()
+                except PlayerProfile.DoesNotExist:
+                    pass
+            
+            tournaments_list.append({
+                'id': tournament.id,
+                'name': tournament.name,
+                'venue': tournament.venue,
+                'category': tournament.category,
+                'format': tournament.format,
+                'rounds': tournament.rounds,
+                'time_control': tournament.time_control,
+                'start_date': tournament.start_date.isoformat(),
+                'end_date': tournament.end_date.isoformat(),
+                'registration_deadline': tournament.registration_deadline.isoformat(),
+                'entry_fee': float(tournament.entry_fee),
+                'max_players': tournament.max_players,
+                'current_players': tournament.current_players,
+                'available_slots': tournament.available_slots,
+                'status': tournament.status,
+                'is_active': tournament.is_active,
+                'is_featured': tournament.is_featured,
+                'created_by': tournament.created_by.username,
+                'created_at': tournament.created_at.isoformat(),
+                'updated_at': tournament.updated_at.isoformat(),
+                'is_registration_open': tournament.is_registration_open,
+                'is_full': tournament.is_full,
+                'is_registered': is_registered,
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'tournaments': tournaments_list,
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@login_required
+def tournament_register_api(request, tournament_id):
+    """API endpoint for tournament registration"""
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        from ttsaadmin.models import Tournament
+        
+        # Get tournament
+        tournament = get_object_or_404(Tournament, id=tournament_id)
+        
+        # Get player profile
+        profile = get_object_or_404(PlayerProfile, user=request.user)
+        
+        # Check if registration is still open
+        if not tournament.is_registration_open:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Registration is closed for this tournament'
+            }, status=400)
+        
+        # Check if tournament is full
+        if tournament.is_full:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Tournament is full'
+            }, status=400)
+        
+        # Check if already registered
+        existing_registration = TournamentRegistration.objects.filter(
+            player=profile, 
+            tournament=tournament
+        ).first()
+        
+        if existing_registration:
+            return JsonResponse({
+                'success': False, 
+                'error': 'You are already registered for this tournament'
+            }, status=400)
+        
+        # Create registration
+        registration = TournamentRegistration.objects.create(
+            player=profile,
+            tournament=tournament,
+            status='registered'
+        )
+        
+        # Update tournament current players count
+        tournament.current_players += 1
+        tournament.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully registered for {tournament.name}',
+            'registration_id': registration.id
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False, 
+            'error': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@login_required
+def tournament_unregister_api(request, tournament_id):
+    """API endpoint for tournament withdrawal"""
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        from ttsaadmin.models import Tournament
+        
+        # Get tournament
+        tournament = get_object_or_404(Tournament, id=tournament_id)
+        
+        # Get player profile
+        profile = get_object_or_404(PlayerProfile, user=request.user)
+        
+        # Find registration
+        registration = TournamentRegistration.objects.filter(
+            player=profile, 
+            tournament=tournament
+        ).first()
+        
+        if not registration:
+            return JsonResponse({
+                'success': False, 
+                'error': 'You are not registered for this tournament'
+            }, status=400)
+        
+        # Check if tournament has already started
+        if tournament.start_date <= timezone.now():
+            return JsonResponse({
+                'success': False, 
+                'error': 'Cannot withdraw after tournament has started'
+            }, status=400)
+        
+        # Update registration status
+        registration.status = 'withdrawn'
+        registration.withdrawn_at = timezone.now()
+        registration.save()
+        
+        # Update tournament current players count
+        tournament.current_players = max(0, tournament.current_players - 1)
+        tournament.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully withdrawn from {tournament.name}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False, 
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+def my_tournaments_api(request):
+    """API endpoint for user's tournament registrations"""
+    
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        profile = get_object_or_404(PlayerProfile, user=request.user)
+        
+        registrations = TournamentRegistration.objects.filter(
+            player=profile
+        ).select_related('tournament').order_by('-registered_at')
+        
+        registrations_list = []
+        for registration in registrations:
+            tournament = registration.tournament
+            registrations_list.append({
+                'id': registration.id,
+                'tournament_id': tournament.id,
+                'tournament_name': tournament.name,
+                'venue': tournament.venue,
+                'category': tournament.category,
+                'format': tournament.format,
+                'start_date': tournament.start_date.isoformat(),
+                'end_date': tournament.end_date.isoformat(),
+                'registration_deadline': tournament.registration_deadline.isoformat(),
+                'entry_fee': float(tournament.entry_fee),
+                'status': registration.status,
+                'registered_at': registration.registered_at.isoformat(),
+                'confirmed_at': registration.confirmed_at.isoformat() if registration.confirmed_at else None,
+                'withdrawn_at': registration.withdrawn_at.isoformat() if registration.withdrawn_at else None,
+                'points': float(registration.points),
+                'wins': registration.wins,
+                'losses': registration.losses,
+                'draws': registration.draws,
+                'rank': registration.rank,
+                'tournament_status': tournament.status,
+                'is_registration_open': tournament.is_registration_open,
+                'is_full': tournament.is_full,
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'registrations': registrations_list,
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False, 
+            'error': str(e)
+        }, status=500)

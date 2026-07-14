@@ -399,6 +399,12 @@
                             <span>Achievements</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{% url 'tournaments' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'tournaments' %}bg-purple-100 text-purple-700{% endif %}">
+                            <i class="fas fa-medal text-lg"></i>
+                            <span>Tournaments</span>
+                        </a>
+                    </li>
                     {% endif %}
                     {% if user.is_authenticated %}
                     <li>
