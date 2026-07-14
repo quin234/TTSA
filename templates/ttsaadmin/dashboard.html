@@ -214,14 +214,15 @@
                 <h5 class="mb-0"><i class="fab fa-youtube me-2"></i>Add New Channel</h5>
             </div>
             <div class="card-body">
+                <div id="channelAlertContainer"></div>
                 <form id="youtubeChannelForm">
                     {% csrf_token %}
                     
                     <div class="mb-3">
-                        <label for="channel_url_input" class="form-label">Channel URL</label>
-                        <input type="url" class="form-control" id="channel_url_input" name="channel_url_input" 
-                               placeholder="https://www.youtube.com/channel/... or https://www.youtube.com/@handle" required>
-                        <div class="form-text">Paste YouTube channel URL. Channel information will be automatically fetched.</div>
+                        <label for="channel_url_input" class="form-label">Channel ID or Handle</label>
+                        <input type="text" class="form-control" id="channel_url_input" name="channel_url_input" 
+                               placeholder="@chess-kenya or UC... or full URL" required>
+                        <div class="form-text">Enter YouTube channel handle (e.g., @chess-kenya), channel ID (UC...), or full URL. Channel information will be automatically fetched.</div>
                         <div id="urlLoading" class="spinner-border spinner-border-sm d-none" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
@@ -272,7 +273,12 @@
         <div class="card">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-list me-2"></i>Added Channels</h5>
-                <span class="badge bg-primary" id="channelCount">0 channels</span>
+                <div class="d-flex align-items-center">
+                    <button id="syncVideosBtn" class="btn btn-sm btn-outline-success me-2" onclick="syncChannelVideos()">
+                        <i class="fas fa-sync me-1"></i>Sync Videos
+                    </button>
+                    <span class="badge bg-primary" id="channelCount">0 channels</span>
+                </div>
             </div>
             <div class="card-body">
                 <div id="channelsList">
@@ -295,6 +301,7 @@
                 <h5 class="mb-0"><i class="fab fa-youtube me-2"></i>Add YouTube Video</h5>
             </div>
             <div class="card-body">
+                <div id="videoAlertContainer"></div>
                 <form id="addVideoForm">
                     <div class="row">
                         <div class="col-md-8 mb-3">
@@ -372,18 +379,91 @@
     <!-- Players Section -->
     <div id="section-players" class="content-section" style="display: none;">
         <h2 class="section-title">Players</h2>
+        
+        <!-- Stats Overview -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card" style="padding: 1rem;">
+                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;" id="totalPlayers">0</h4>
+                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Total Players</p>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card" style="background: linear-gradient(135deg, #27ae60, #2ecc71); padding: 1rem;">
+                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;" id="activePlayers">0</h4>
+                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Active Players</p>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card" style="background: linear-gradient(135deg, #e74c3c, #c0392b); padding: 1rem;">
+                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;" id="totalGames">0</h4>
+                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Total Games Played</p>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card" style="background: linear-gradient(135deg, #f39c12, #e67e22); padding: 1rem;">
+                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;" id="avgRating">0</h4>
+                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Average Rating</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Players Table -->
         <div class="card">
-            <div class="card-header bg-white">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-chess me-2"></i>Player Management</h5>
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control form-control-sm" id="playerSearch" placeholder="Search players..." style="width: 200px;">
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadPlayers()">
+                        <i class="fas fa-sync me-1"></i>Refresh
+                    </button>
+                </div>
             </div>
             <div class="card-body">
-                <p class="text-muted">Player management coming soon. This section will allow administrators to:</p>
-                <ul>
-                    <li>View player profiles and statistics</li>
-                    <li>Track player progress and ratings</li>
-                    <li>Manage player achievements</li>
-                    <li>Monitor tournament participation</li>
-                </ul>
+                <div class="table-responsive">
+                    <table class="table table-hover" id="playersTable">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Games Played</th>
+                                <th>Wins</th>
+                                <th>Losses</th>
+                                <th>Win Rate</th>
+                                <th>Rating</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="playersTableBody">
+                            <tr>
+                                <td colspan="10" class="text-center py-4">
+                                    <i class="fas fa-spinner fa-spin fa-2x text-muted mb-2"></i>
+                                    <p class="text-muted">Loading players...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <nav class="mt-3">
+                    <ul class="pagination justify-content-center" id="playersPagination">
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#">Previous</a>
+                        </li>
+                        <li class="page-item active">
+                            <a class="page-link" href="#">1</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">2</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">Next</a>
+                        </li>
+                    </ul>
+                </nav>
             </div>
         </div>
     </div>
@@ -526,6 +606,29 @@
         });
     });
 
+    // Helper function to show Bootstrap alerts
+    function showAlert(containerId, message, type = 'success') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        container.innerHTML = '';
+        container.appendChild(alertDiv);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
     // YouTube Channel Management
     let youtubeChannels = [];
 
@@ -633,10 +736,17 @@
     
     function isValidYouTubeUrl(url) {
         const patterns = [
+            // Full URL patterns
             /^https?:\/\/(www\.)?youtube\.com\/channel\/[A-Za-z0-9_-]{24}$/,
             /^https?:\/\/(www\.)?youtube\.com\/c\/[A-Za-z0-9_-]+$/,
             /^https?:\/\/(www\.)?youtube\.com\/@[A-Za-z0-9_.-]+$/,
-            /^https?:\/\/(www\.)?youtube\.com\/user\/[A-Za-z0-9_-]+$/
+            /^https?:\/\/(www\.)?youtube\.com\/user\/[A-Za-z0-9_-]+$/,
+            // Handle pattern (e.g., @chess-kenya)
+            /^@[A-Za-z0-9_.-]+$/,
+            // Channel ID pattern (e.g., UC...)
+            /^UC[A-Za-z0-9_-]{22}$/,
+            // Custom channel name (at least 3 characters)
+            /^[A-Za-z0-9_-]{3,}$/
         ];
         return patterns.some(pattern => pattern.test(url));
     }
@@ -706,7 +816,9 @@
                     }
                 });
 
-                if (response.ok) {
+                const data = await response.json();
+                
+                if (data.success) {
                     // Reset form
                     this.reset();
                     channelInfo.classList.add('d-none');
@@ -716,13 +828,12 @@
                     await loadChannels();
                     
                     // Show success message
-                    alert('Channel added successfully!');
+                    showAlert('channelAlertContainer', data.message || 'Channel added successfully!', 'success');
                 } else {
-                    const data = await response.json();
-                    alert('Error adding channel: ' + (data.error || 'Unknown error'));
+                    showAlert('channelAlertContainer', 'Error adding channel: ' + (data.error || 'Unknown error'), 'danger');
                 }
             } catch (error) {
-                alert('Error adding channel: ' + error.message);
+                showAlert('channelAlertContainer', 'Error adding channel: ' + error.message, 'danger');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-plus-circle me-2"></i>Add Channel';
@@ -732,24 +843,69 @@
 
     // Delete channel
     async function deleteChannel(channelId) {
-        if (confirm('Are you sure you want to delete this channel?')) {
-            try {
-                const response = await fetch(`/ttsa-admin/youtube-channels/${channelId}/delete/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
+        // Show confirmation modal or inline confirmation
+        const confirmDelete = confirm('Are you sure you want to delete this channel?');
+        if (!confirmDelete) {
+            return;
+        }
 
-                if (response.ok) {
-                    await loadChannels();
-                } else {
-                    alert('Error deleting channel');
+        try {
+            const response = await fetch(`/ttsa-admin/youtube-channels/${channelId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
-            } catch (error) {
-                alert('Error deleting channel: ' + error.message);
+            });
+
+            if (response.ok) {
+                await loadChannels();
+                showAlert('channelAlertContainer', 'Channel deleted successfully!', 'success');
+            } else {
+                showAlert('channelAlertContainer', 'Error deleting channel', 'danger');
             }
+        } catch (error) {
+            showAlert('channelAlertContainer', 'Error deleting channel: ' + error.message, 'danger');
+        }
+    }
+
+    // Sync videos from channels
+    async function syncChannelVideos() {
+        const syncBtn = document.getElementById('syncVideosBtn');
+        syncBtn.disabled = true;
+        syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Syncing...';
+
+        try {
+            const response = await fetch('/ttsa-admin/api/sync-channel-videos/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    category: 'strategy',
+                    difficulty: 'intermediate',
+                    max_videos: 50
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert('channelAlertContainer', 
+                    `Sync completed! Added ${data.total_videos_added} videos, skipped ${data.total_videos_skipped} existing videos.`, 
+                    'success');
+                
+                // Reload videos to show newly added videos
+                await loadVideos();
+            } else {
+                showAlert('channelAlertContainer', 'Error syncing videos: ' + (data.error || 'Unknown error'), 'danger');
+            }
+        } catch (error) {
+            showAlert('channelAlertContainer', 'Error syncing videos: ' + error.message, 'danger');
+        } finally {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = '<i class="fas fa-sync me-1"></i>Sync Videos';
         }
     }
 
@@ -801,29 +957,45 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-8">
+                            ${video.youtube_id && video.youtube_id.length > 0 ? `
                             <div class="video-embed-container mb-3" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
                                 <iframe 
-                                    src="https://www.youtube.com/embed/${video.youtube_id}" 
+                                    src="https://www.youtube-nocookie.com/embed/${video.youtube_id}?autoplay=0&rel=0&cc_load_policy=0" 
                                     frameborder="0" 
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                                     allowfullscreen
+                                    referrerpolicy="strict-origin-when-cross-origin"
                                     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                                 </iframe>
                             </div>
+                            ` : `
+                            <div class="video-embed-container mb-3" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+                                <div class="text-center p-4">
+                                    <i class="fas fa-video-slash fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">Video ID not available</p>
+                                </div>
+                            </div>
+                            `}
                         </div>
                         <div class="col-md-4">
-                            <h6 class="mb-2">${video.title}</h6>
-                            <p class="text-muted mb-2 small">${video.channel_name}</p>
+                            <h6 class="mb-2">${video.title || 'Untitled'}</h6>
+                            <p class="text-muted mb-2 small">${video.channel_name || 'Unknown'}</p>
                             <div class="mb-2">
-                                <span class="badge bg-info me-1">${video.category}</span>
-                                <span class="badge bg-secondary me-1">${video.difficulty}</span>
+                                <span class="badge bg-info me-1">${video.category || 'Uncategorized'}</span>
+                                <span class="badge bg-secondary me-1">${video.difficulty || 'Unknown'}</span>
                                 ${video.duration ? `<span class="badge bg-light text-dark">${video.duration}</span>` : ''}
                             </div>
                             <p class="small text-muted mb-3" style="max-height: 60px; overflow: hidden;">${video.description || ''}</p>
                             <div class="btn-group-vertical w-100">
+                                ${video.youtube_id && video.youtube_id.length > 0 ? `
                                 <button class="btn btn-sm btn-outline-primary mb-2" onclick="previewVideo('${video.youtube_id}')">
                                     <i class="fas fa-external-link-alt me-1"></i> Open in YouTube
                                 </button>
+                                ` : `
+                                <button class="btn btn-sm btn-outline-secondary mb-2" disabled>
+                                    <i class="fas fa-video-slash me-1"></i> Video Unavailable
+                                </button>
+                                `}
                                 <button class="btn btn-sm btn-outline-danger" onclick="deleteVideo(${video.id})">
                                     <i class="fas fa-trash me-1"></i> Delete
                                 </button>
@@ -959,7 +1131,8 @@
 
     // Delete video
     async function deleteVideo(videoId) {
-        if (!confirm('Are you sure you want to delete this video?')) {
+        const confirmDelete = confirm('Are you sure you want to delete this video?');
+        if (!confirmDelete) {
             return;
         }
 
@@ -973,11 +1146,12 @@
 
             if (response.ok) {
                 await loadVideos();
+                showAlert('videoAlertContainer', 'Video deleted successfully!', 'success');
             } else {
-                alert('Error deleting video');
+                showAlert('videoAlertContainer', 'Error deleting video', 'danger');
             }
         } catch (error) {
-            alert('Error deleting video');
+            showAlert('videoAlertContainer', 'Error deleting video', 'danger');
         }
     }
 
@@ -996,6 +1170,283 @@
         }
         return cookieValue;
     }
+
+    // Players Management
+    let playersData = [];
+    let currentPage = 1;
+    const playersPerPage = 10;
+
+    // Load players (mock data for frontend)
+    function loadPlayers() {
+        // Mock data - replace with actual API call
+        playersData = [
+            {
+                id: 1,
+                username: 'chessmaster123',
+                email: 'chess@example.com',
+                games_played: 156,
+                wins: 89,
+                losses: 67,
+                rating: 1850,
+                status: 'active',
+                joined: '2024-01-15'
+            },
+            {
+                id: 2,
+                username: 'kingslayer',
+                email: 'king@example.com',
+                games_played: 234,
+                wins: 145,
+                losses: 89,
+                rating: 1920,
+                status: 'active',
+                joined: '2024-02-20'
+            },
+            {
+                id: 3,
+                username: 'queenattack',
+                email: 'queen@example.com',
+                games_played: 89,
+                wins: 45,
+                losses: 44,
+                rating: 1750,
+                status: 'active',
+                joined: '2024-03-10'
+            },
+            {
+                id: 4,
+                username: 'bishopmove',
+                email: 'bishop@example.com',
+                games_played: 312,
+                wins: 178,
+                losses: 134,
+                rating: 1980,
+                status: 'active',
+                joined: '2024-01-05'
+            },
+            {
+                id: 5,
+                username: 'knightjump',
+                email: 'knight@example.com',
+                games_played: 67,
+                wins: 32,
+                losses: 35,
+                rating: 1680,
+                status: 'inactive',
+                joined: '2024-04-12'
+            },
+            {
+                id: 6,
+                username: 'rookpower',
+                email: 'rook@example.com',
+                games_played: 198,
+                wins: 112,
+                losses: 86,
+                rating: 1890,
+                status: 'active',
+                joined: '2024-02-28'
+            },
+            {
+                id: 7,
+                username: 'pawnpusher',
+                email: 'pawn@example.com',
+                games_played: 45,
+                wins: 18,
+                losses: 27,
+                rating: 1550,
+                status: 'active',
+                joined: '2024-05-01'
+            },
+            {
+                id: 8,
+                username: 'castleking',
+                email: 'castle@example.com',
+                games_played: 276,
+                wins: 156,
+                losses: 120,
+                rating: 1950,
+                status: 'active',
+                joined: '2024-01-20'
+            },
+            {
+                id: 9,
+                username: 'checkmate',
+                email: 'mate@example.com',
+                games_played: 423,
+                wins: 267,
+                losses: 156,
+                rating: 2050,
+                status: 'active',
+                joined: '2023-12-15'
+            },
+            {
+                id: 10,
+                username: 'stalemate',
+                email: 'stale@example.com',
+                games_played: 134,
+                wins: 67,
+                losses: 67,
+                rating: 1800,
+                status: 'inactive',
+                joined: '2024-03-25'
+            },
+            {
+                id: 11,
+                username: 'enpassant',
+                email: 'pass@example.com',
+                games_played: 89,
+                wins: 45,
+                losses: 44,
+                rating: 1720,
+                status: 'active',
+                joined: '2024-04-18'
+            },
+            {
+                id: 12,
+                username: 'fianchetto',
+                email: 'fian@example.com',
+                games_played: 156,
+                wins: 89,
+                losses: 67,
+                rating: 1840,
+                status: 'active',
+                joined: '2024-02-10'
+            }
+        ];
+
+        // Update stats
+        updatePlayerStats();
+        
+        // Render table
+        renderPlayersTable();
+    }
+
+    // Update player statistics
+    function updatePlayerStats() {
+        const totalPlayers = playersData.length;
+        const activePlayers = playersData.filter(p => p.status === 'active').length;
+        const totalGames = playersData.reduce((sum, p) => sum + p.games_played, 0);
+        const avgRating = Math.round(playersData.reduce((sum, p) => sum + p.rating, 0) / totalPlayers);
+
+        document.getElementById('totalPlayers').textContent = totalPlayers;
+        document.getElementById('activePlayers').textContent = activePlayers;
+        document.getElementById('totalGames').textContent = totalGames;
+        document.getElementById('avgRating').textContent = avgRating;
+    }
+
+    // Render players table
+    function renderPlayersTable() {
+        const tableBody = document.getElementById('playersTableBody');
+        
+        if (playersData.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="10" class="text-center py-4">
+                        <i class="fas fa-users-slash fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">No players found</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = playersData.map(player => {
+            const winRate = player.games_played > 0 
+                ? ((player.wins / player.games_played) * 100).toFixed(1) 
+                : '0.0';
+            
+            const statusBadge = player.status === 'active' 
+                ? '<span class="badge bg-success">Active</span>'
+                : '<span class="badge bg-secondary">Inactive</span>';
+
+            return `
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="profile-icon me-2" style="width: 35px; height: 35px; font-size: 0.9rem;">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <strong>${player.username}</strong>
+                        </div>
+                    </td>
+                    <td>${player.email}</td>
+                    <td>${player.games_played}</td>
+                    <td><span class="text-success">${player.wins}</span></td>
+                    <td><span class="text-danger">${player.losses}</span></td>
+                    <td>${winRate}%</td>
+                    <td><strong>${player.rating}</strong></td>
+                    <td>${statusBadge}</td>
+                    <td>${player.joined}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="viewPlayerDetails(${player.id})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="editPlayer(${player.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="deletePlayer(${player.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Search players
+    document.getElementById('playerSearch')?.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const filteredPlayers = playersData.filter(player => 
+            player.username.toLowerCase().includes(searchTerm) ||
+            player.email.toLowerCase().includes(searchTerm)
+        );
+        
+        const tableBody = document.getElementById('playersTableBody');
+        if (filteredPlayers.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="10" class="text-center py-4">
+                        <i class="fas fa-search fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">No players match your search</p>
+                    </td>
+                </tr>
+            `;
+        } else {
+            // Temporarily replace playersData for rendering
+            const originalData = playersData;
+            playersData = filteredPlayers;
+            renderPlayersTable();
+            playersData = originalData;
+        }
+    });
+
+    // View player details
+    function viewPlayerDetails(playerId) {
+        const player = playersData.find(p => p.id === playerId);
+        if (player) {
+            alert(`Player Details:\n\nUsername: ${player.username}\nEmail: ${player.email}\nRating: ${player.rating}\nGames: ${player.games_played}\nWins: ${player.wins}\nLosses: ${player.losses}\nStatus: ${player.status}`);
+        }
+    }
+
+    // Edit player
+    function editPlayer(playerId) {
+        alert('Edit player functionality coming soon');
+    }
+
+    // Delete player
+    function deletePlayer(playerId) {
+        if (confirm('Are you sure you want to delete this player?')) {
+            playersData = playersData.filter(p => p.id !== playerId);
+            updatePlayerStats();
+            renderPlayersTable();
+            alert('Player deleted successfully');
+        }
+    }
+
+    // Initialize players on page load
+    loadPlayers();
 
     // Initialize videos on page load
     loadVideos();

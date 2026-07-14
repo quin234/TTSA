@@ -10,3 +10,5 @@ mysqlclient==2.2.0
 python-chess==1.999
 requests==2.31.0
 feedparser==6.0.10
+celery==5.3.4
+redis==5.0.1

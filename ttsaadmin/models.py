@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.contrib.auth.models import User
 import re
 
 
@@ -43,3 +44,37 @@ class YouTubeChannel(models.Model):
             r'^https?://(www\.)?youtube\.com/user/[A-Za-z0-9_-]+$',
         ]
         return any(re.match(pattern, url) for pattern in patterns)
+
+
+class SyncNotification(models.Model):
+    """Model for tracking video sync notifications"""
+    
+    NOTIFICATION_TYPES = [
+        ('sync_started', 'Sync Started'),
+        ('sync_completed', 'Sync Completed'),
+        ('sync_failed', 'Sync Failed'),
+        ('video_added', 'Video Added'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, db_index=True)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    channel_name = models.CharField(max_length=255, blank=True)
+    video_title = models.CharField(max_length=255, blank=True)
+    task_id = models.CharField(max_length=255, blank=True, db_index=True)
+    videos_added = models.IntegerField(default=0)
+    videos_skipped = models.IntegerField(default=0)
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['user', 'is_read', '-created_at']),
+            models.Index(fields=['notification_type', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.title}"

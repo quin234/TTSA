@@ -4,10 +4,12 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .forms import YouTubeChannelForm, VideoLessonForm
-from .models import YouTubeChannel
-from .youtube_utils import validate_and_fetch_channel_metadata, YouTubeChannelError
+from .models import YouTubeChannel, SyncNotification
+from .youtube_utils import validate_and_fetch_channel_metadata, YouTubeChannelError, fetch_channel_videos
 from ttsa_app.models import VideoLesson
 from .youtube_utils import validate_and_fetch_video_metadata, YouTubeVideoError
+from django.db import transaction
+from .tasks import sync_channel_videos_task
 
 
 @login_required
@@ -306,3 +308,102 @@ def delete_youtube_channel(request, channel_id):
         
         messages.error(request, f'Error deleting channel: {str(e)}')
         return redirect('youtube_channels_list')
+
+
+@csrf_exempt
+@login_required
+def sync_channel_videos(request):
+    """API endpoint to sync videos from YouTube channels using Celery"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Only POST method allowed'})
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        channel_id = data.get('channel_id')
+        category = data.get('category', 'strategy')
+        difficulty = data.get('difficulty', 'intermediate')
+        
+        # Validate category and difficulty
+        valid_categories = ['openings', 'middlegame', 'endgames', 'tactics', 'strategy']
+        valid_difficulties = ['beginner', 'intermediate', 'advanced']
+        
+        if category not in valid_categories:
+            return JsonResponse({'success': False, 'error': f'Invalid category. Valid options: {valid_categories}'})
+        
+        if difficulty not in valid_difficulties:
+            return JsonResponse({'success': False, 'error': f'Invalid difficulty. Valid options: {valid_difficulties}'})
+        
+        # Trigger Celery task for background processing
+        task = sync_channel_videos_task.delay(
+            channel_id=channel_id,
+            category=category,
+            difficulty=difficulty,
+            user_id=request.user.id
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Video sync started in background',
+            'task_id': task.id
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'An error occurred: {str(e)}'})
+
+
+@csrf_exempt
+@login_required
+def get_notifications(request):
+    """API endpoint to get user notifications"""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Only GET method allowed'})
+    
+    try:
+        notifications = SyncNotification.objects.filter(
+            user=request.user,
+            is_read=False
+        ).order_by('-created_at')[:10]
+        
+        notifications_data = [{
+            'id': notification.id,
+            'type': notification.notification_type,
+            'title': notification.title,
+            'message': notification.message,
+            'channel_name': notification.channel_name,
+            'video_title': notification.video_title,
+            'videos_added': notification.videos_added,
+            'videos_skipped': notification.videos_skipped,
+            'created_at': notification.created_at.isoformat(),
+        } for notification in notifications]
+        
+        unread_count = SyncNotification.objects.filter(user=request.user, is_read=False).count()
+        
+        return JsonResponse({
+            'success': True,
+            'notifications': notifications_data,
+            'unread_count': unread_count
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'An error occurred: {str(e)}'})
+
+
+@csrf_exempt
+@login_required
+def mark_notification_read(request, notification_id):
+    """API endpoint to mark notification as read"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Only POST method allowed'})
+    
+    try:
+        notification = SyncNotification.objects.get(id=notification_id, user=request.user)
+        notification.is_read = True
+        notification.save()
+        
+        return JsonResponse({'success': True})
+        
+    except SyncNotification.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Notification not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'An error occurred: {str(e)}'})

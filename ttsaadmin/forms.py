@@ -10,13 +10,13 @@ from .youtube_utils import validate_and_fetch_video_metadata, YouTubeVideoError
 class YouTubeChannelForm(forms.ModelForm):
     """Form for adding a YouTube channel"""
     
-    channel_url_input = forms.URLField(
+    channel_url_input = forms.CharField(
         max_length=255,
-        label='Channel URL',
-        help_text='Paste YouTube channel URL (e.g., https://www.youtube.com/channel/... or https://www.youtube.com/@handle)',
-        widget=forms.URLInput(attrs={
+        label='Channel ID or Handle',
+        help_text='Enter YouTube channel handle (e.g., @chess-kenya), channel ID (UC...), or full URL',
+        widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'https://www.youtube.com/channel/...',
+            'placeholder': '@chess-kenya or UC... or full URL',
             'required': True,
             'id': 'channel_url_input'
         })

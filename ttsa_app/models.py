@@ -317,9 +317,9 @@ class VideoLesson(models.Model):
     title = models.CharField(max_length=200, db_index=True)
     description = models.TextField()
     youtube_id = models.CharField(max_length=20, unique=True)  # YouTube video ID
-    thumbnail_url = models.URLField(max_length=500)
+    thumbnail_url = models.URLField(max_length=500, blank=True, default='')
     channel_name = models.CharField(max_length=100)
-    duration = models.CharField(max_length=20)  # e.g., "10:30"
+    duration = models.CharField(max_length=20, blank=True, default='')  # e.g., "10:30"
     category = models.CharField(max_length=50, choices=[
         ('openings', 'Openings'),
         ('middlegame', 'Middlegame'),

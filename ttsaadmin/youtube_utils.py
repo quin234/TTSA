@@ -16,6 +16,85 @@ class YouTubeVideoError(Exception):
     pass
 
 
+def fetch_channel_videos(channel_id, api_key=None, max_results=50):
+    """
+    Fetch all videos from a YouTube channel using the YouTube Data API
+    
+    Args:
+        channel_id: YouTube channel ID or handle
+        api_key: YouTube API key (optional, will use settings if not provided)
+        max_results: Maximum number of videos to fetch per page (default: 50)
+    
+    Returns:
+        List of video dictionaries with video metadata
+    
+    Raises:
+        YouTubeChannelError: If API request fails or channel not found
+    """
+    if not api_key:
+        api_key = getattr(settings, 'YOUTUBE_API_KEY', None)
+    
+    if not api_key:
+        raise YouTubeChannelError("YouTube API key not configured")
+    
+    videos = []
+    next_page_token = None
+    
+    while True:
+        # Try to get videos by channel ID first
+        api_url = f'https://www.googleapis.com/youtube/v3/search'
+        params = {
+            'part': 'snippet',
+            'channelId': channel_id if not channel_id.startswith('@') else None,
+            'forHandle': channel_id.lstrip('@') if channel_id.startswith('@') else None,
+            'order': 'date',
+            'type': 'video',
+            'maxResults': max_results,
+            'key': api_key
+        }
+        
+        # Remove None values
+        params = {k: v for k, v in params.items() if v is not None}
+        
+        if next_page_token:
+            params['pageToken'] = next_page_token
+        
+        try:
+            response = requests.get(api_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as e:
+            raise YouTubeChannelError(f"Failed to fetch videos from YouTube API: {str(e)}")
+        
+        if not data.get('items'):
+            break
+        
+        for item in data['items']:
+            snippet = item.get('snippet', {})
+            video_id = item.get('id', {}).get('videoId') if isinstance(item.get('id'), dict) else item.get('id')
+            
+            if not video_id:
+                continue
+            
+            video_data = {
+                'video_id': video_id,
+                'title': snippet.get('title', ''),
+                'description': snippet.get('description', ''),
+                'channel_name': snippet.get('channelTitle', ''),
+                'published_at': snippet.get('publishedAt', ''),
+                'thumbnail_url': snippet.get('thumbnails', {}).get('high', {}).get('url', '') or \
+                               snippet.get('thumbnails', {}).get('medium', {}).get('url', '') or \
+                               snippet.get('thumbnails', {}).get('default', {}).get('url', ''),
+            }
+            videos.append(video_data)
+        
+        next_page_token = data.get('nextPageToken')
+        if not next_page_token:
+            break
+    
+    return videos
+
+
 def extract_channel_id(url_or_id):
     """
     Extract channel ID from various YouTube URL formats or return as-is if it's already an ID
