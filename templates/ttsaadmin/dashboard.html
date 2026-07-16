@@ -7,195 +7,117 @@
     
     <!-- Dashboard Section -->
     <div id="section-dashboard" class="content-section">
-        <h2 class="section-title">Dashboard Overview</h2>
-        
-        <!-- Statistics Cards -->
+        <!-- Two Column Layout -->
         <div class="row mb-4">
-            <div class="col-md-3 mb-3">
-                <div class="card stat-card" style="padding: 1rem;">
-                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;">1,234</h4>
-                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Total Users</p>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card stat-card" style="background: linear-gradient(135deg, #27ae60, #2ecc71); padding: 1rem;">
-                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;">567</h4>
-                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Active Players</p>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card stat-card" style="background: linear-gradient(135deg, #e74c3c, #c0392b); padding: 1rem;">
-                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;">89</h4>
-                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Games Today</p>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card stat-card" style="background: linear-gradient(135deg, #f39c12, #e67e22); padding: 1rem;">
-                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;">45</h4>
-                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Training Programs</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Recent Activity Section -->
-        <div class="row mb-4">
-            <div class="col-12">
+            <!-- Left Column: Upcoming Tournaments -->
+            <div class="col-md-8">
                 <div class="card mb-4">
                     <div class="card-header bg-white">
-                        <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activity</h5>
+                        <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Upcoming Tournaments</h5>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
-                                        <th>User</th>
-                                        <th>Activity</th>
-                                        <th>Time</th>
+                                        <th>Tournament Name</th>
+                                        <th>Category</th>
+                                        <th>Date</th>
+                                        <th>Venue</th>
+                                        <th>Participants</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {% for tournament in upcoming_tournaments %}
                                     <tr>
-                                        <td>John Doe</td>
-                                        <td>Completed lesson "Opening Principles"</td>
-                                        <td>2 minutes ago</td>
-                                        <td><span class="badge bg-success">Completed</span></td>
+                                        <td>
+                                            <strong>{{ tournament.name }}</strong>
+                                            {% if tournament.is_featured %}
+                                                <i class="fas fa-star text-warning ms-1" title="Featured"></i>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ tournament.get_category_display|title }}</td>
+                                        <td>{{ tournament.start_date|date:"M d, Y H:i" }}</td>
+                                        <td>{{ tournament.venue }}</td>
+                                        <td>
+                                            {{ tournament.current_players }}/{{ tournament.max_players }}
+                                            {% if tournament.available_slots > 0 %}
+                                                <small class="text-muted">({{ tournament.available_slots }} slots)</small>
+                                            {% else %}
+                                                <small class="text-success">(Full)</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tournament.status == 'upcoming' %}
+                                                <span class="badge bg-primary">{{ tournament.status|title }}</span>
+                                            {% elif tournament.status == 'ongoing' %}
+                                                <span class="badge bg-warning">{{ tournament.status|title }}</span>
+                                            {% elif tournament.status == 'completed' %}
+                                                <span class="badge bg-success">{{ tournament.status|title }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ tournament.status|title }}</span>
+                                            {% endif %}
+                                        </td>
                                     </tr>
+                                    {% empty %}
                                     <tr>
-                                        <td>Jane Smith</td>
-                                        <td>Started a new game vs AI</td>
-                                        <td>15 minutes ago</td>
-                                        <td><span class="badge bg-primary">In Progress</span></td>
+                                        <td colspan="6" class="text-center text-muted">
+                                            <i class="fas fa-trophy fa-2x mb-2 d-block"></i>
+                                            No upcoming tournaments found.
+                                        </td>
                                     </tr>
-                                    <tr>
-                                        <td>Mike Johnson</td>
-                                        <td>Joined tournament "Weekly Blitz"</td>
-                                        <td>1 hour ago</td>
-                                        <td><span class="badge bg-info">Registered</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Sarah Williams</td>
-                                        <td>Uploaded training video</td>
-                                        <td>2 hours ago</td>
-                                        <td><span class="badge bg-warning">Pending Review</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>David Brown</td>
-                                        <td>Solved 5 puzzles</td>
-                                        <td>3 hours ago</td>
-                                        <td><span class="badge bg-success">Achievement</span></td>
-                                    </tr>
+                                    {% endfor %}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
             </div>
+            
+            <!-- Right Column: Stats -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6 mb-4">
+                                <div class="p-3 border rounded">
+                                    <h3 class="mb-1">{{ total_users }}</h3>
+                                    <p class="mb-0 small text-muted">Total Users</p>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-4">
+                                <div class="p-3 border rounded">
+                                    <h3 class="mb-1">{{ active_players }}</h3>
+                                    <p class="mb-0 small text-muted">Active Players</p>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-4">
+                                <div class="p-3 border rounded">
+                                    <h3 class="mb-1">{{ games_today }}</h3>
+                                    <p class="mb-0 small text-muted">Games Today</p>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3 border rounded">
+                                    <h3 class="mb-1">{{ upcoming_tournaments|length }}</h3>
+                                    <p class="mb-0 small text-muted">Tournaments</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Upcoming Events & Popular Content -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header bg-white">
-                        <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Upcoming Events</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3 p-2 bg-light rounded">
-                            <div class="me-3">
-                                <div class="text-center">
-                                    <div class="fw-bold text-primary">15</div>
-                                    <div class="small text-muted">JUL</div>
-                                </div>
-                            </div>
-                            <div>
-                                <h6 class="mb-1">Monthly Championship</h6>
-                                <small class="text-muted">Starts at 3:00 PM • 45 participants</small>
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center mb-3 p-2 bg-light rounded">
-                            <div class="me-3">
-                                <div class="text-center">
-                                    <div class="fw-bold text-primary">18</div>
-                                    <div class="small text-muted">JUL</div>
-                                </div>
-                            </div>
-                            <div>
-                                <h6 class="mb-1">Training Program: Endgame Mastery</h6>
-                                <small class="text-muted">Starts at 10:00 AM • 30 spots available</small>
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center p-2 bg-light rounded">
-                            <div class="me-3">
-                                <div class="text-center">
-                                    <div class="fw-bold text-primary">22</div>
-                                    <div class="small text-muted">JUL</div>
-                                </div>
-                            </div>
-                            <div>
-                                <h6 class="mb-1">Live Session with Grandmaster</h6>
-                                <small class="text-muted">Starts at 7:00 PM • Limited seats</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header bg-white">
-                        <h5 class="mb-0"><i class="fas fa-fire me-2"></i>Popular Content</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="me-3">
-                                <i class="fas fa-play-circle fa-2x text-danger"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">Mastering the Sicilian Defense</h6>
-                                <small class="text-muted">Video Lesson • 12.5K views</small>
-                            </div>
-                            <span class="badge bg-success">Hot</span>
-                        </div>
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="me-3">
-                                <i class="fas fa-book fa-2x text-primary"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">Tactical Patterns for Beginners</h6>
-                                <small class="text-muted">Lesson • 8.2K completions</small>
-                            </div>
-                            <span class="badge bg-primary">Popular</span>
-                        </div>
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="me-3">
-                                <i class="fas fa-puzzle-piece fa-2x text-warning"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">Daily Checkmate Puzzles</h6>
-                                <small class="text-muted">Puzzle Set • 5.7K attempts</small>
-                            </div>
-                            <span class="badge bg-info">Trending</span>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <div class="me-3">
-                                <i class="fas fa-graduation-cap fa-2x text-success"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">From Beginner to 1500 ELO</h6>
-                                <small class="text-muted">Training Program • 3.1K enrolled</small>
-                            </div>
-                            <span class="badge bg-secondary">New</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- YouTube Channels Section -->
     <div id="section-youtube-channels" class="content-section" style="display: none;">
-        <h2 class="section-title">YouTube Channels</h2>
+        <h2 class="section-title mb-4">YouTube Channels</h2>
         
         {% if messages %}
             <div class="alert-container mb-3">
@@ -280,7 +202,7 @@
                     <span class="badge bg-primary" id="channelCount">0 channels</span>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div id="channelsList">
                     <div class="text-center text-muted py-4">
                         <i class="fas fa-video fa-3x mb-3"></i>
@@ -293,7 +215,7 @@
 
     <!-- Video Library Section -->
     <div id="section-video-library" class="content-section" style="display: none;">
-        <h2 class="section-title">Video Library</h2>
+        <h2 class="section-title mb-4">Video Library</h2>
         
         <!-- Add Video Form -->
         <div class="card mb-4">
@@ -359,51 +281,58 @@
             </div>
         </div>
 
-        <!-- Videos List -->
-        <div class="card">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Video Lessons</h5>
-                <span class="badge bg-primary" id="videoCount">0 videos</span>
+        <!-- Loading Indicators -->
+        <div id="videoLoadingIndicator" class="text-center py-4" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading videos...</span>
             </div>
-            <div class="card-body">
-                <div id="videosList">
-                    <div class="text-center text-muted py-4">
-                        <i class="fas fa-video fa-3x mb-3"></i>
-                        <p>No videos added yet. Add your first YouTube video above.</p>
-                    </div>
-                </div>
+            <p class="mt-2 text-muted">Loading videos...</p>
+        </div>
+        
+        <div id="infiniteScrollLoading" class="text-center py-3" style="display: none;">
+            <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                <span class="visually-hidden">Loading more videos...</span>
+            </div>
+            <span class="text-muted">Loading more videos...</span>
+        </div>
+        
+        <!-- Videos List -->
+        <div id="videosList">
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-video fa-3x mb-3"></i>
+                <p>No videos added yet. Add your first YouTube video above.</p>
             </div>
         </div>
     </div>
 
     <!-- Players Section -->
     <div id="section-players" class="content-section" style="display: none;">
-        <h2 class="section-title">Players</h2>
+        <h2 class="section-title mb-4">Players</h2>
         
         <!-- Stats Overview -->
         <div class="row mb-4">
             <div class="col-md-3 mb-3">
-                <div class="card stat-card" style="padding: 1rem;">
-                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;" id="totalPlayers">0</h4>
-                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Total Players</p>
+                <div class="card stat-card p-3">
+                    <h4 class="mb-1" id="totalPlayers">0</h4>
+                    <p class="mb-0 opacity-75">Total Players</p>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card stat-card" style="background: linear-gradient(135deg, #27ae60, #2ecc71); padding: 1rem;">
-                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;" id="activePlayers">0</h4>
-                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Active Players</p>
+                <div class="card stat-card p-3" style="background: linear-gradient(135deg, #27ae60, #2ecc71);">
+                    <h4 class="mb-1" id="activePlayers">0</h4>
+                    <p class="mb-0 opacity-75">Active Players</p>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card stat-card" style="background: linear-gradient(135deg, #e74c3c, #c0392b); padding: 1rem;">
-                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;" id="totalGames">0</h4>
-                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Total Games Played</p>
+                <div class="card stat-card p-3" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                    <h4 class="mb-1" id="totalGames">0</h4>
+                    <p class="mb-0 opacity-75">Total Games Played</p>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card stat-card" style="background: linear-gradient(135deg, #f39c12, #e67e22); padding: 1rem;">
-                    <h4 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;" id="avgRating">0</h4>
-                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Average Rating</p>
+                <div class="card stat-card p-3" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+                    <h4 class="mb-1" id="avgRating">0</h4>
+                    <p class="mb-0 opacity-75">Average Rating</p>
                 </div>
             </div>
         </div>
@@ -419,9 +348,9 @@
                     </button>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover" id="playersTable">
+                    <table class="table table-hover mb-0" id="playersTable">
                         <thead>
                             <tr>
                                 <th>Username</th>
@@ -491,12 +420,198 @@
     <div id="section-tournaments" class="content-section" style="display: none;">
         <h2 class="section-title">Tournaments</h2>
 
+        <!-- Tournament Creation Form (Hidden by default) -->
+        <div id="tournamentCreateView" style="display: none;">
+            <div class="card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas {% if edit_tournament %}fa-edit{% else %}fa-plus-circle{% endif %} me-2"></i>
+                        {% if edit_tournament %}Edit Tournament{% else %}Create New Tournament{% endif %}
+                    </h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="hideTournamentForm()">
+                        <i class="fas fa-arrow-left me-1"></i>Back to List
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        <div class="alert-container mb-3">
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <form method="post" id="tournamentCreateForm" action="{% if edit_tournament %}/ttsa-admin/tournaments/{{ edit_tournament.id }}/edit/{% else %}/ttsa-admin/tournaments/create/{% endif %}">
+                        {% csrf_token %}
+                        
+                        <!-- Tournament Details -->
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="{{ form.name.id_for_label }}" class="form-label fw-semibold">Tournament Name *</label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.name.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.venue.id_for_label }}" class="form-label fw-semibold">Venue *</label>
+                                {{ form.venue }}
+                                {% if form.venue.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.venue.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="{{ form.category.id_for_label }}" class="form-label fw-semibold">Category *</label>
+                                {{ form.category }}
+                                {% if form.category.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.category.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.format.id_for_label }}" class="form-label fw-semibold">Format *</label>
+                                {{ form.format }}
+                                {% if form.format.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.format.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.rounds.id_for_label }}" class="form-label fw-semibold">Rounds *</label>
+                                {{ form.rounds }}
+                                {% if form.rounds.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.rounds.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="{{ form.time_control.id_for_label }}" class="form-label fw-semibold">Time Control *</label>
+                                {{ form.time_control }}
+                                {% if form.time_control.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.time_control.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.max_players.id_for_label }}" class="form-label fw-semibold">Max Players *</label>
+                                {{ form.max_players }}
+                                {% if form.max_players.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.max_players.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="{{ form.start_date.id_for_label }}" class="form-label fw-semibold">Start Date *</label>
+                                {{ form.start_date }}
+                                {% if form.start_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.start_date.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.end_date.id_for_label }}" class="form-label fw-semibold">End Date *</label>
+                                {{ form.end_date }}
+                                {% if form.end_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.end_date.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.registration_deadline.id_for_label }}" class="form-label fw-semibold">Registration Deadline *</label>
+                                {{ form.registration_deadline }}
+                                {% if form.registration_deadline.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.registration_deadline.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="{{ form.entry_fee.id_for_label }}" class="form-label fw-semibold">Entry Fee ($)</label>
+                                {{ form.entry_fee }}
+                                {% if form.entry_fee.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.entry_fee.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.status.id_for_label }}" class="form-label fw-semibold">Status</label>
+                                {{ form.status }}
+                                {% if form.status.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.status.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.description.id_for_label }}" class="form-label fw-semibold">Description</label>
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.description.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mt-3">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        Active
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mt-3">
+                                    {{ form.is_featured }}
+                                    <label class="form-check-label" for="{{ form.is_featured.id_for_label }}">
+                                        Featured
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+                            <button type="button" class="btn btn-outline-secondary" onclick="hideTournamentForm()">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="fas fa-save me-2"></i>{% if edit_tournament %}Update{% else %}Create{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- Tournament List View -->
         <div id="tournamentsListView">
             <div class="card">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Tournament Management</h5>
                     <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-primary" onclick="showTournamentForm()">
+                            <i class="fas fa-plus me-1"></i>Create Tournament
+                        </button>
                         <input type="text" class="form-control form-control-sm" id="tournamentSearch" placeholder="Search tournaments..." style="width: 200px;">
                         <select class="form-select form-select-sm" id="tournamentFilter" style="width: 150px;">
                             <option value="">All Status</option>
@@ -505,10 +620,7 @@
                             <option value="completed">Completed</option>
                             <option value="cancelled">Cancelled</option>
                         </select>
-                        <button class="btn btn-sm btn-primary" onclick="showTournamentForm()">
-                            <i class="fas fa-plus me-1"></i>New Tournament
-                        </button>
-                    </div>
+                                            </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -539,114 +651,14 @@
             </div>
         </div>
 
-        <!-- Tournament Form View (Hidden by default) -->
-        <div id="tournamentFormView" style="display: none;">
-            <div class="card">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0" id="tournamentFormTitle"><i class="fas fa-plus me-2"></i>Create Tournament</h5>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="hideTournamentForm()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="card-body">
-                    <form id="tournamentForm">
-                        <input type="hidden" id="tournamentId">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="tournamentName" class="form-label">Tournament Name *</label>
-                                <input type="text" class="form-control" id="tournamentName" required placeholder="Enter tournament name">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="tournamentFormat" class="form-label">Format *</label>
-                                <select class="form-select" id="tournamentFormat" required>
-                                    <option value="">Select Format</option>
-                                    <option value="swiss">Swiss System</option>
-                                    <option value="round_robin">Round Robin</option>
-                                    <option value="knockout">Knockout</option>
-                                    <option value="team">Team Event</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="tournamentCategory" class="form-label">Category *</label>
-                                <select class="form-select" id="tournamentCategory" required>
-                                    <option value="">Select Category</option>
-                                    <option value="open">Open</option>
-                                    <option value="junior">Junior</option>
-                                    <option value="senior">Senior</option>
-                                    <option value="women">Women</option>
-                                    <option value="rapid">Rapid</option>
-                                    <option value="blitz">Blitz</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="tournamentVenue" class="form-label">Venue *</label>
-                                <input type="text" class="form-control" id="tournamentVenue" required placeholder="Enter venue">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label for="tournamentDate" class="form-label">Date *</label>
-                                <input type="date" class="form-control" id="tournamentDate" required>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="tournamentTime" class="form-label">Time *</label>
-                                <input type="time" class="form-control" id="tournamentTime" required>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="tournamentRounds" class="form-label">Number of Rounds *</label>
-                                <input type="number" class="form-control" id="tournamentRounds" required min="1" placeholder="e.g., 7">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label for="timeControl" class="form-label">Time Control *</label>
-                                <input type="text" class="form-control" id="timeControl" required placeholder="e.g., 90+30">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="entryFee" class="form-label">Entry Fee</label>
-                                <input type="number" class="form-control" id="entryFee" placeholder="e.g., 50" min="0">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="tournamentStatus" class="form-label">Status *</label>
-                                <select class="form-select" id="tournamentStatus" required>
-                                    <option value="upcoming">Upcoming</option>
-                                    <option value="ongoing">Ongoing</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="cancelled">Cancelled</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="tournamentDescription" class="form-label">Description</label>
-                            <textarea class="form-control" id="tournamentDescription" rows="3" placeholder="Enter tournament description..."></textarea>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>Save Tournament
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="hideTournamentForm()">
-                                <i class="fas fa-times me-2"></i>Cancel
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
+        
         <!-- Tournament Details View (Hidden by default) -->
         <div id="tournamentDetailsView" style="display: none;">
+            <div id="tournamentAlertContainer"></div>
             <div class="mb-4">
                 <div class="d-flex justify-content-end mb-3">
                     <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-primary" onclick="editCurrentTournament()">
-                            <i class="fas fa-edit me-1"></i>Edit
-                        </button>
-                        <button class="btn btn-sm btn-outline-success" onclick="publishTournament()">
-                            <i class="fas fa-globe me-1"></i>Publish
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCurrentTournament()">
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteCurrentTournament()">
                             <i class="fas fa-trash me-1"></i>Delete
                         </button>
                         <button class="btn btn-sm btn-outline-secondary" onclick="hideTournamentDetails()">
@@ -713,25 +725,25 @@
                 <div class="d-flex gap-4 mb-4 flex-wrap">
                     <div class="d-flex align-items-center">
                         <span class="text-muted me-2">Current Round:</span>
-                        <strong id="currentRound">3</strong>
+                        <strong id="currentRound">0</strong>
                     </div>
                     <div class="d-flex align-items-center">
                         <span class="text-muted me-2">Total Players:</span>
-                        <strong id="totalPlayers">12</strong>
+                        <strong id="totalPlayers">0</strong>
                     </div>
                     <div class="d-flex align-items-center">
                         <span class="text-muted me-2">Total Rounds:</span>
-                        <strong id="totalRounds">7</strong>
+                        <strong id="totalRounds">0</strong>
                     </div>
                     <div class="d-flex align-items-center">
                         <span class="text-muted me-2">Games Completed:</span>
-                        <strong id="gamesCompleted">18</strong>
+                        <strong id="gamesCompleted">0</strong>
                     </div>
                 </div>
 
                 <!-- Action Buttons -->
                 <div class="d-flex gap-2 mb-4 flex-wrap">
-                    <button class="btn btn-primary btn-sm" onclick="pairNextRound()">
+                    <button class="btn btn-primary btn-sm" onclick="pairNextRound()" id="pairNextRoundBtn">
                         Pair Next Round
                     </button>
                     <button class="btn btn-outline-secondary btn-sm" onclick="printPairings()">
@@ -756,14 +768,8 @@
 
                 <!-- Round Navigation (shown only for pairings) -->
                 <div class="d-flex justify-content-center mb-4" id="roundNavigation" style="display: none;">
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary" onclick="changeRound(1)">Round 1</button>
-                        <button class="btn btn-outline-secondary" onclick="changeRound(2)">Round 2</button>
-                        <button class="btn btn-primary" onclick="changeRound(3)">Round 3</button>
-                        <button class="btn btn-outline-secondary" onclick="changeRound(4)">Round 4</button>
-                        <button class="btn btn-outline-secondary" onclick="changeRound(5)">Round 5</button>
-                        <button class="btn btn-outline-secondary" onclick="changeRound(6)">Round 6</button>
-                        <button class="btn btn-outline-secondary" onclick="changeRound(7)">Round 7</button>
+                    <div class="btn-group btn-group-sm" id="roundNavigationButtons">
+                        <!-- Round buttons will be dynamically generated -->
                     </div>
                 </div>
             </div>
@@ -800,32 +806,43 @@
 
             <!-- Round Pairings Section (Hidden by default) -->
             <div id="pairingsSection" style="display: none;">
-                <h5 class="mb-3">Round <span id="pairingRoundNumber">3</span> Pairings</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Round <span id="pairingRoundNumber">3</span> Pairings</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm" onclick="generateNextRound()" id="generateRoundBtn">
+                            <i class="fas fa-plus me-1"></i>Generate Next Round
+                        </button>
+                    </div>
+                </div>
                 <div class="table-responsive">
-                    <table class="table table-hover" id="pairingsTable">
-                        <thead>
+                    <table class="table table-striped table-hover align-middle" id="pairingsTable">
+                        <thead class="table-light">
                             <tr>
-                                <th>Board</th>
-                                <th>White Player</th>
-                                <th>White Rating</th>
-                                <th>Result</th>
-                                <th>Black Player</th>
-                                <th>Black Rating</th>
+                                <th class="text-center" style="width: 80px;">Board</th>
+                                <th style="width: 200px;">White Player</th>
+                                <th class="text-center" style="width: 100px;">White Rating</th>
+                                <th class="text-center" style="width: 120px;">Result</th>
+                                <th style="width: 200px;">Black Player</th>
+                                <th class="text-center" style="width: 100px;">Black Rating</th>
                             </tr>
                         </thead>
                         <tbody id="pairingsTableBody">
                             <tr>
-                                <td colspan="6" class="text-center py-4">
-                                    <div class="spinner-border spinner-border-sm text-muted me-2" role="status"></div>
+                                <td colspan="6" class="text-center py-5">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
                                     <span class="text-muted">Loading pairings...</span>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <div class="mt-3">
-                    <button class="btn btn-primary" onclick="submitResults()">
-                        Submit Results
+                <div class="mt-3 d-flex justify-content-between align-items-center">
+                    <div class="text-muted small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Select results and click "Submit Results" to update standings
+                    </div>
+                    <button class="btn btn-primary" onclick="submitResults()" id="submitResultsBtn">
+                        <i class="fas fa-check me-1"></i>Submit Results
                     </button>
                 </div>
             </div>
@@ -923,6 +940,11 @@
             const targetSection = document.getElementById(`section-${sectionName}`);
             if (targetSection) {
                 targetSection.style.display = 'block';
+            }
+
+            // Load videos only when video library section is accessed
+            if (sectionName === 'video-library' && videoLessons.length === 0) {
+                loadVideos();
             }
 
             // Close sidebar on mobile after selection
@@ -1254,35 +1276,125 @@
 
     // Video Library Management
     let videoLessons = [];
+    let currentPage = 1;
+    const videosPerPage = 10;
+    let isLoadingVideos = false;
+    let hasMoreVideos = true;
+    let videoObserver;
+    let scrollObserver;
 
-    // Load videos from server
-    async function loadVideos() {
+    // Initialize video observer
+    initializeVideoObserver();
+    initializeScrollObserver();
+
+    // Initialize Intersection Observer for lazy loading
+    function initializeVideoObserver() {
+        if ('IntersectionObserver' in window) {
+            videoObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const videoItem = entry.target;
+                        loadVideoEmbed(videoItem);
+                        videoObserver.unobserve(videoItem);
+                    }
+                });
+            }, {
+                rootMargin: '50px',
+                threshold: 0.1
+            });
+        }
+    }
+
+    // Initialize scroll observer for infinite scroll
+    function initializeScrollObserver() {
+        if ('IntersectionObserver' in window) {
+            scrollObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && hasMoreVideos && !isLoadingVideos) {
+                        loadVideos(true);
+                    }
+                });
+            }, {
+                rootMargin: '100px',
+                threshold: 0.1
+            });
+        }
+    }
+
+    // Load video embed when it comes into view
+    function loadVideoEmbed(videoItem) {
+        const youtubeId = videoItem.dataset.youtubeId;
+        const embedContainer = videoItem.querySelector('.video-placeholder');
+        
+        if (youtubeId && embedContainer) {
+            embedContainer.innerHTML = `
+                <iframe 
+                    src="https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=0&rel=0&cc_load_policy=0" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+                    loading="lazy">
+                </iframe>
+            `;
+        }
+    }
+
+    // Load videos from server with pagination
+    async function loadVideos(loadMore = false) {
+        if (isLoadingVideos || (!hasMoreVideos && loadMore)) return;
+        
+        isLoadingVideos = true;
+        
+        // Show appropriate loading indicator
+        const loadingIndicator = loadMore ? 
+            document.getElementById('infiniteScrollLoading') : 
+            document.getElementById('videoLoadingIndicator');
+        if (loadingIndicator) loadingIndicator.style.display = 'block';
+        
         try {
-            const response = await fetch('/ttsa-admin/video-lessons/', {
+            const page = loadMore ? currentPage + 1 : 1;
+            const response = await fetch(`/ttsa-admin/video-lessons/?page=${page}&per_page=${videosPerPage}`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             });
+            
             if (response.ok) {
                 const data = await response.json();
-                videoLessons = data.videos || [];
-                renderVideos();
+                const newVideos = data.videos || [];
+                
+                if (loadMore) {
+                    videoLessons = [...videoLessons, ...newVideos];
+                    currentPage = page;
+                } else {
+                    videoLessons = newVideos;
+                    currentPage = 1;
+                }
+                
+                hasMoreVideos = newVideos.length === videosPerPage;
+                renderVideos(loadMore);
             } else {
                 console.error('Error loading videos:', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Error loading videos:', error);
+        } finally {
+            isLoadingVideos = false;
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
         }
     }
 
-    // Render videos list
-    function renderVideos() {
+    // Render videos list with lazy loading support
+    function renderVideos(append = false) {
         const videosList = document.getElementById('videosList');
-        const videoCount = document.getElementById('videoCount');
         
-        videoCount.textContent = `${videoLessons.length} video${videoLessons.length !== 1 ? 's' : ''}`;
+        if (!append) {
+            videosList.innerHTML = '';
+        }
 
-        if (videoLessons.length === 0) {
+        if (videoLessons.length === 0 && !append) {
             videosList.innerHTML = `
                 <div class="text-center text-muted py-4">
                     <i class="fas fa-video fa-3x mb-3"></i>
@@ -1292,24 +1404,32 @@
             return;
         }
 
-        videosList.innerHTML = videoLessons.map((video, index) => `
-            <div class="card mb-4 video-item">
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-8">
+        const newVideosHtml = videoLessons.slice(append ? -videosPerPage : 0).map((video, index) => {
+            const actualIndex = append ? (videoLessons.length - videosPerPage + index) : index;
+            return `
+                <div class="video-item mb-4 p-4 bg-white rounded shadow-sm border" data-video-id="${video.id}" data-youtube-id="${video.youtube_id || ''}">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
                             ${video.youtube_id && video.youtube_id.length > 0 ? `
-                            <div class="video-embed-container mb-3" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
-                                <iframe 
-                                    src="https://www.youtube-nocookie.com/embed/${video.youtube_id}?autoplay=0&rel=0&cc_load_policy=0" 
-                                    frameborder="0" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                    allowfullscreen
-                                    referrerpolicy="strict-origin-when-cross-origin"
-                                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-                                </iframe>
+                            <div class="video-embed-container" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background: #f8f9fa; border-radius: 8px;">
+                                <div class="video-placeholder" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer;" onclick="loadVideoEmbed(this.parentElement.parentElement)">
+                                    ${video.thumbnail_url ? `
+                                        <img src="${video.thumbnail_url}" alt="${video.title || 'Video thumbnail'}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                                        <div class="position-absolute top-50 start-50 translate-middle">
+                                            <div class="bg-dark bg-opacity-75 rounded-circle p-3">
+                                                <i class="fas fa-play text-white fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    ` : `
+                                        <div class="text-center p-4">
+                                            <i class="fas fa-play-circle fa-4x text-muted mb-3"></i>
+                                            <p class="text-muted">Click to load video</p>
+                                        </div>
+                                    `}
+                                </div>
                             </div>
                             ` : `
-                            <div class="video-embed-container mb-3" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+                            <div class="video-embed-container" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background: #f8f9fa; display: flex; align-items: center; justify-content: center; border-radius: 8px;">
                                 <div class="text-center p-4">
                                     <i class="fas fa-video-slash fa-3x text-muted mb-3"></i>
                                     <p class="text-muted">Video ID not available</p>
@@ -1317,25 +1437,16 @@
                             </div>
                             `}
                         </div>
-                        <div class="col-md-4">
-                            <h6 class="mb-2">${video.title || 'Untitled'}</h6>
-                            <p class="text-muted mb-2 small">${video.channel_name || 'Unknown'}</p>
-                            <div class="mb-2">
-                                <span class="badge bg-info me-1">${video.category || 'Uncategorized'}</span>
-                                <span class="badge bg-secondary me-1">${video.difficulty || 'Unknown'}</span>
-                                ${video.duration ? `<span class="badge bg-light text-dark">${video.duration}</span>` : ''}
-                            </div>
-                            <p class="small text-muted mb-3" style="max-height: 60px; overflow: hidden;">${video.description || ''}</p>
-                            <div class="btn-group-vertical w-100">
-                                ${video.youtube_id && video.youtube_id.length > 0 ? `
-                                <button class="btn btn-sm btn-outline-primary mb-2" onclick="previewVideo('${video.youtube_id}')">
-                                    <i class="fas fa-external-link-alt me-1"></i> Open in YouTube
-                                </button>
-                                ` : `
-                                <button class="btn btn-sm btn-outline-secondary mb-2" disabled>
-                                    <i class="fas fa-video-slash me-1"></i> Video Unavailable
-                                </button>
-                                `}
+                        <div class="col-md-6">
+                            <div class="ps-md-4">
+                                <h5 class="mb-2 fw-bold">${video.title || 'Untitled'}</h5>
+                                <p class="text-muted mb-2"><i class="fas fa-channel me-2"></i>${video.channel_name || 'Unknown'}</p>
+                                <div class="mb-3">
+                                    <span class="badge bg-info me-1">${video.category || 'Uncategorized'}</span>
+                                    <span class="badge bg-secondary me-1">${video.difficulty || 'Unknown'}</span>
+                                    ${video.duration ? `<span class="badge bg-light text-dark">${video.duration}</span>` : ''}
+                                </div>
+                                <p class="text-muted mb-3" style="max-height: 60px; overflow: hidden;">${video.description || ''}</p>
                                 <button class="btn btn-sm btn-outline-danger" onclick="deleteVideo(${video.id})">
                                     <i class="fas fa-trash me-1"></i> Delete
                                 </button>
@@ -1343,8 +1454,46 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+        
+        if (append) {
+            videosList.insertAdjacentHTML('beforeend', newVideosHtml);
+        } else {
+            videosList.innerHTML = newVideosHtml;
+        }
+        
+        // Setup lazy loading for new video items
+        if (videoObserver) {
+            const newVideoItems = videosList.querySelectorAll('.video-item[data-youtube-id]:not(.observed)');
+            newVideoItems.forEach(item => {
+                if (item.dataset.youtubeId && item.dataset.youtubeId.length > 0) {
+                    videoObserver.observe(item);
+                    item.classList.add('observed');
+                }
+            });
+        }
+        
+        // Setup infinite scroll trigger
+        if (scrollObserver && hasMoreVideos) {
+            // Remove existing trigger if any
+            const existingTrigger = videosList.querySelector('.scroll-trigger');
+            if (existingTrigger) {
+                scrollObserver.unobserve(existingTrigger);
+                existingTrigger.remove();
+            }
+            
+            // Add new scroll trigger
+            const scrollTrigger = document.createElement('div');
+            scrollTrigger.className = 'scroll-trigger';
+            scrollTrigger.style.height = '1px';
+            scrollTrigger.style.width = '100%';
+            scrollTrigger.style.opacity = '0';
+            scrollTrigger.style.pointerEvents = 'none';
+            
+            videosList.appendChild(scrollTrigger);
+            scrollObserver.observe(scrollTrigger);
+        }
     }
 
     // Validate video URL before submission
@@ -1513,7 +1662,7 @@
 
     // Players Management
     let playersData = [];
-    let currentPage = 1;
+    let playersCurrentPage = 1;
     const playersPerPage = 10;
 
     // Load players (mock data for frontend)
@@ -1788,8 +1937,7 @@
     // Initialize players on page load
     loadPlayers();
 
-    // Initialize videos on page load
-    loadVideos();
+    // Videos are now loaded on-demand when video library section is accessed
 
     // Tournaments Management
     let tournamentsData = [];
@@ -1856,7 +2004,7 @@
                 entry_fee: 50,
                 status: 'upcoming',
                 description: 'Annual championship tournament featuring top players from the academy.',
-                participants: []
+                participants: [1, 2, 3, 4, 5]
             },
             {
                 id: 2,
@@ -2017,118 +2165,10 @@
         tableBody.appendChild(fragment);
     }
 
-    // Show tournament form
-    function showTournamentForm(tournamentId = null) {
-        document.getElementById('tournamentsListView').style.display = 'none';
-        document.getElementById('tournamentFormView').style.display = 'block';
-        document.getElementById('tournamentDetailsView').style.display = 'none';
-
-        if (tournamentId) {
-            const tournament = tournamentsData.find(t => t.id === tournamentId);
-            if (tournament) {
-                document.getElementById('tournamentFormTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Tournament';
-                document.getElementById('tournamentId').value = tournament.id;
-                document.getElementById('tournamentName').value = tournament.name;
-                document.getElementById('tournamentFormat').value = tournament.format;
-                document.getElementById('tournamentCategory').value = tournament.category;
-                document.getElementById('tournamentVenue').value = tournament.venue;
-                document.getElementById('tournamentDate').value = tournament.date;
-                document.getElementById('tournamentTime').value = tournament.time;
-                document.getElementById('tournamentRounds').value = tournament.rounds;
-                document.getElementById('timeControl').value = tournament.time_control;
-                document.getElementById('entryFee').value = tournament.entry_fee;
-                document.getElementById('tournamentStatus').value = tournament.status;
-                document.getElementById('tournamentDescription').value = tournament.description;
-            }
-        } else {
-            document.getElementById('tournamentFormTitle').innerHTML = '<i class="fas fa-plus me-2"></i>Create Tournament';
-            document.getElementById('tournamentForm').reset();
-            document.getElementById('tournamentId').value = '';
-        }
-    }
-
-    // Hide tournament form
-    function hideTournamentForm() {
-        document.getElementById('tournamentsListView').style.display = 'block';
-        document.getElementById('tournamentFormView').style.display = 'none';
-        document.getElementById('tournamentDetailsView').style.display = 'none';
-    }
-
-    // Handle tournament form submission
-    document.getElementById('tournamentForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const tournamentId = document.getElementById('tournamentId').value;
-        const formData = new FormData();
-        
-        // Prepare form data for backend
-        formData.append('name', document.getElementById('tournamentName').value);
-        formData.append('format', document.getElementById('tournamentFormat').value);
-        formData.append('category', document.getElementById('tournamentCategory').value);
-        formData.append('venue', document.getElementById('tournamentVenue').value);
-        formData.append('rounds', document.getElementById('tournamentRounds').value);
-        formData.append('time_control', document.getElementById('timeControl').value);
-        formData.append('entry_fee', document.getElementById('entryFee').value || 0);
-        formData.append('status', document.getElementById('tournamentStatus').value);
-        formData.append('description', document.getElementById('tournamentDescription').value);
-        
-        // Combine date and time for datetime fields
-        const date = document.getElementById('tournamentDate').value;
-        const time = document.getElementById('tournamentTime').value;
-        if (date && time) {
-            const startDateTime = `${date}T${time}:00`;
-            formData.append('start_date', startDateTime);
-            formData.append('end_date', startDateTime); // Same day for now
-            formData.append('registration_deadline', startDateTime); // Same for now
-        }
-        
-        formData.append('max_players', 32); // Default value
-        formData.append('is_active', true);
-
-        const url = tournamentId ? `/ttsa-admin/tournaments/${tournamentId}/edit/` : '/ttsa-admin/tournaments/create/';
-        const method = 'POST';
-
-        fetch(url, {
-            method: method,
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': getCookie('csrftoken')
-            }
-        })
-        .then(response => {
-            if (response.status === 401) {
-                // Authentication required
-                showMessage('Please log in to save tournaments', 'error');
-                return;
-            }
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (!data) return; // Early return if authentication failed
-            
-            if (data.success) {
-                showMessage(data.message, 'success');
-                loadTournaments(); // Reload tournaments
-                hideTournamentForm();
-            } else {
-                showMessage(data.error || 'Error saving tournament', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showMessage('Error saving tournament', 'error');
-        });
-    });
-
-    // Edit tournament
-    function editTournament(tournamentId) {
-        showTournamentForm(tournamentId);
-    }
-
+    
+    
+    
+    
     // Delete tournament
     function deleteTournament(tournamentId) {
         if (confirm('Are you sure you want to delete this tournament?')) {
@@ -2168,7 +2208,6 @@
             loadRegisteredPlayers(tournament);
 
             document.getElementById('tournamentsListView').style.display = 'none';
-            document.getElementById('tournamentFormView').style.display = 'none';
             document.getElementById('tournamentDetailsView').style.display = 'block';
         }
     }
@@ -2176,50 +2215,405 @@
     // Hide tournament details
     function hideTournamentDetails() {
         document.getElementById('tournamentsListView').style.display = 'block';
-        document.getElementById('tournamentFormView').style.display = 'none';
         document.getElementById('tournamentDetailsView').style.display = 'none';
         currentTournamentId = null;
     }
 
-    // Edit current tournament
-    function editCurrentTournament() {
-        if (currentTournamentId) {
-            showTournamentForm(currentTournamentId);
+    // Show tournament creation form
+    function showTournamentForm() {
+        document.getElementById('tournamentsListView').style.display = 'none';
+        document.getElementById('tournamentCreateView').style.display = 'block';
+        
+        // Reset form to create mode
+        resetFormToCreateMode();
+    }
+
+    // Reset form to create mode
+    function resetFormToCreateMode() {
+        const form = document.getElementById('tournamentCreateForm');
+        if (form) {
+            // Manually clear all form fields
+            const fields = form.querySelectorAll('input, select, textarea');
+            fields.forEach(field => {
+                if (field.type === 'checkbox') {
+                    field.checked = false;
+                } else if (field.type === 'datetime-local') {
+                    field.value = '';
+                } else {
+                    field.value = '';
+                }
+            });
+            
+            // Reset form action to create
+            form.action = '/ttsa-admin/tournaments/create/';
+            
+            // Update form header
+            const formHeader = document.querySelector('#tournamentCreateView .card-header h5');
+            if (formHeader) {
+                formHeader.innerHTML = '<i class="fas fa-plus-circle me-2"></i>Create New Tournament';
+            }
+            
+            // Update submit button
+            const submitBtn = document.querySelector('#tournamentCreateForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-save me-2"></i>Create Tournament';
+            }
+        }
+        
+        // Clear any validation errors
+        clearFormErrors();
+    }
+
+    // Hide tournament creation form
+    function hideTournamentForm() {
+        document.getElementById('tournamentsListView').style.display = 'block';
+        document.getElementById('tournamentCreateView').style.display = 'none';
+    }
+
+    // Edit tournament
+    async function editTournament(tournamentId) {
+        try {
+            // Show loading state
+            const tournament = tournamentsData.find(t => t.id === tournamentId);
+            if (!tournament) {
+                showMessage('Tournament not found', 'error');
+                return;
+            }
+
+            // Show the form
+            showTournamentForm();
+            
+            // Update form header for edit mode
+            const formHeader = document.querySelector('#tournamentCreateView .card-header h5');
+            if (formHeader) {
+                formHeader.innerHTML = '<i class="fas fa-edit me-2"></i>Edit Tournament';
+            }
+
+            // Update submit button text
+            const submitBtn = document.querySelector('#tournamentCreateForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-save me-2"></i>Update Tournament';
+            }
+
+            // Update form action
+            const form = document.getElementById('tournamentCreateForm');
+            if (form) {
+                form.action = `/ttsa-admin/tournaments/${tournamentId}/edit/`;
+            }
+
+            // Populate form fields with tournament data
+            await populateTournamentForm(tournament);
+
+        } catch (error) {
+            console.error('Error editing tournament:', error);
+            showMessage('Error loading tournament data', 'error');
         }
     }
 
-    // Publish tournament
-    function publishTournament() {
-        alert('Tournament published successfully! (Frontend demo)');
+    // Populate tournament form with data
+    async function populateTournamentForm(tournament) {
+        try {
+            // Wait for form to be visible
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Populate form fields
+            const fields = {
+                'id_name': tournament.name || '',
+                'id_description': tournament.description || '',
+                'id_venue': tournament.venue || '',
+                'id_category': tournament.category || '',
+                'id_format': tournament.format || '',
+                'id_rounds': tournament.rounds || '',
+                'id_time_control': tournament.time_control || '',
+                'id_start_date': formatDateForInput(tournament.start_date),
+                'id_end_date': formatDateForInput(tournament.end_date),
+                'id_registration_deadline': formatDateForInput(tournament.registration_deadline),
+                'id_entry_fee': tournament.entry_fee || '',
+                'id_max_players': tournament.max_players || '',
+                'id_status': tournament.status || '',
+                'id_is_active': tournament.is_active || false,
+                'id_is_featured': tournament.is_featured || false
+            };
+
+            // Set field values
+            Object.keys(fields).forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    if (field.type === 'checkbox') {
+                        field.checked = fields[fieldId];
+                    } else {
+                        field.value = fields[fieldId];
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Error populating form:', error);
+            throw error;
+        }
     }
 
+    // Format date for datetime-local input
+    function formatDateForInput(dateString) {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            // Adjust for timezone offset
+            const offset = date.getTimezoneOffset() * 60000;
+            const localDate = new Date(date.getTime() - offset);
+            return localDate.toISOString().slice(0, 16);
+        } catch (error) {
+            console.error('Error formatting date:', error);
+            return '';
+        }
+    }
+
+    // Validate tournament form
+    function validateTournamentForm() {
+        const form = document.getElementById('tournamentCreateForm');
+        const name = form.querySelector('#id_name').value.trim();
+        const venue = form.querySelector('#id_venue').value.trim();
+        const category = form.querySelector('#id_category').value;
+        const format = form.querySelector('#id_format').value;
+        const rounds = form.querySelector('#id_rounds').value;
+        const timeControl = form.querySelector('#id_time_control').value.trim();
+        const startDate = form.querySelector('#id_start_date').value;
+        const endDate = form.querySelector('#id_end_date').value;
+        const registrationDeadline = form.querySelector('#id_registration_deadline').value;
+        const maxPlayers = form.querySelector('#id_max_players').value;
+        const entryFee = form.querySelector('#id_entry_fee').value;
+
+        // Clear previous error messages
+        clearFormErrors();
+
+        let isValid = true;
+        let errorMessage = '';
+
+        // Validate required fields
+        if (!name) {
+            showFieldError('id_name', 'Tournament name is required');
+            isValid = false;
+        }
+
+        if (!venue) {
+            showFieldError('id_venue', 'Venue is required');
+            isValid = false;
+        }
+
+        if (!category) {
+            showFieldError('id_category', 'Category is required');
+            isValid = false;
+        }
+
+        if (!format) {
+            showFieldError('id_format', 'Format is required');
+            isValid = false;
+        }
+
+        if (!rounds || rounds < 1 || rounds > 15) {
+            showFieldError('id_rounds', 'Number of rounds must be between 1 and 15');
+            isValid = false;
+        }
+
+        if (!timeControl) {
+            showFieldError('id_time_control', 'Time control is required');
+            isValid = false;
+        }
+
+        if (!startDate) {
+            showFieldError('id_start_date', 'Start date is required');
+            isValid = false;
+        }
+
+        if (!endDate) {
+            showFieldError('id_end_date', 'End date is required');
+            isValid = false;
+        }
+
+        if (!registrationDeadline) {
+            showFieldError('id_registration_deadline', 'Registration deadline is required');
+            isValid = false;
+        }
+
+        if (!maxPlayers || maxPlayers < 2 || maxPlayers > 1000) {
+            showFieldError('id_max_players', 'Maximum players must be between 2 and 1000');
+            isValid = false;
+        }
+
+        // Validate date logic
+        if (startDate && endDate && new Date(startDate) >= new Date(endDate)) {
+            showFieldError('id_end_date', 'End date must be after start date');
+            isValid = false;
+        }
+
+        if (startDate && registrationDeadline && new Date(registrationDeadline) >= new Date(startDate)) {
+            showFieldError('id_registration_deadline', 'Registration deadline must be before start date');
+            isValid = false;
+        }
+
+        // Validate entry fee
+        if (entryFee && (isNaN(entryFee) || parseFloat(entryFee) < 0)) {
+            showFieldError('id_entry_fee', 'Entry fee must be a positive number');
+            isValid = false;
+        }
+
+        // Validate time control format
+        const timeControlPattern = /^\d+\+\d+$/;
+        if (timeControl && !timeControlPattern.test(timeControl)) {
+            showFieldError('id_time_control', 'Time control must be in format: minutes+increment (e.g., 90+30)');
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    // Show field error
+    function showFieldError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        if (!field) {
+            console.warn(`Field with ID '${fieldId}' not found in DOM`);
+            return;
+        }
+        
+        // Find the parent container (try multiple selectors)
+        let container = field.closest('.mb-3') || field.closest('.col-md-4') || field.closest('.col-md-6') || field.closest('.col-md-8') || field.parentElement;
+        
+        if (!container) {
+            console.warn(`Container for field '${fieldId}' not found`);
+            return;
+        }
+        
+        // Add error class to field
+        field.classList.add('is-invalid');
+        
+        // Create or update error message
+        let errorDiv = container.querySelector('.invalid-feedback');
+        if (!errorDiv) {
+            errorDiv = document.createElement('div');
+            errorDiv.className = 'invalid-feedback d-block';
+            container.appendChild(errorDiv);
+        }
+        errorDiv.textContent = message;
+    }
+
+    // Clear form errors
+    function clearFormErrors() {
+        const form = document.getElementById('tournamentCreateForm');
+        const invalidFields = form.querySelectorAll('.is-invalid');
+        const errorMessages = form.querySelectorAll('.invalid-feedback');
+        
+        invalidFields.forEach(field => field.classList.remove('is-invalid'));
+        errorMessages.forEach(error => error.remove());
+    }
+
+    // Add form submit validation and AJAX submission
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('tournamentCreateForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault(); // Prevent default form submission
+                
+                if (!validateTournamentForm()) {
+                    // Scroll to first error
+                    const firstError = document.querySelector('.is-invalid');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstError.focus();
+                    }
+                    return;
+                }
+                
+                // Submit form via AJAX
+                submitTournamentForm(form);
+            });
+        }
+    });
+
+    // Submit tournament form via AJAX
+    async function submitTournamentForm(form) {
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken') || formData.get('csrfmiddlewaretoken')
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    showMessage(data.message || 'Tournament saved successfully!', 'success');
+                    hideTournamentForm();
+                    // Reload tournaments data
+                    loadTournaments();
+                } else {
+                    showMessage(data.error || 'Error saving tournament', 'error');
+                }
+            } else {
+                showMessage('Error saving tournament. Please try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            showMessage('Error saving tournament. Please try again.', 'error');
+        }
+    }
+
+    // Tournament form is only shown when explicitly requested via button clicks
+
+    
+    
     // Delete current tournament
     function deleteCurrentTournament() {
-        if (currentTournamentId && confirm('Are you sure you want to delete this tournament?')) {
-            tournamentsData = tournamentsData.filter(t => t.id !== currentTournamentId);
-            updateTournamentStats();
-            renderTournamentsTable();
-            hideTournamentDetails();
-            alert('Tournament deleted successfully');
+        if (currentTournamentId) {
+            // Create confirmation modal instead of alert
+            const confirmDelete = confirm('Are you sure you want to delete this tournament?');
+            if (confirmDelete) {
+                tournamentsData = tournamentsData.filter(t => t.id !== currentTournamentId);
+                updateTournamentStats();
+                renderTournamentsTable();
+                hideTournamentDetails();
+                
+                // Show success message using Bootstrap alert
+                showAlert('tournamentAlertContainer', 'Tournament deleted successfully', 'success');
+            }
         }
     }
 
     // Load registered players for tournament
     function loadRegisteredPlayers(tournament) {
-        const participantIds = tournament.participants || [];
-        registeredPlayersData = playersData.filter(player => participantIds.includes(player.id));
-        
-        // Add mock tournament stats
-        registeredPlayersData = registeredPlayersData.map(player => ({
-            ...player,
-            points: Math.floor(Math.random() * 10),
-            wins: Math.floor(Math.random() * 5),
-            losses: Math.floor(Math.random() * 3),
-            draws: Math.floor(Math.random() * 2),
-            tournament_status: 'registered'
-        }));
-
-        renderRegisteredPlayersTable();
+        // Fetch tournament data from API to get real registered players
+        fetch(`/ttsa-admin/api/tournaments/${tournament.id}/`, {
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success === false) {
+                console.error('Error loading tournament details:', data.error);
+                registeredPlayersData = [];
+            } else {
+                // Use the players data from the API response
+                registeredPlayersData = data.players || [];
+                console.log('Loaded registered players from API:', registeredPlayersData);
+            }
+            renderRegisteredPlayersTable();
+        })
+        .catch(error => {
+            console.error('Error loading tournament players:', error);
+            // Fallback to empty state
+            registeredPlayersData = [];
+            renderRegisteredPlayersTable();
+        });
     }
 
     // Render registered players table
@@ -2245,15 +2639,15 @@
                         <div class="profile-icon me-2" style="width: 35px; height: 35px; font-size: 0.9rem;">
                             <i class="fas fa-user"></i>
                         </div>
-                        <strong>${player.username}</strong>
+                        <strong>${player.player_name || player.username || 'Unknown'}</strong>
                     </div>
                 </td>
-                <td><strong>${player.rating}</strong></td>
-                <td>${player.points}</td>
-                <td><span class="text-success">${player.wins}</span></td>
-                <td><span class="text-danger">${player.losses}</span></td>
-                <td><span class="text-warning">${player.draws}</span></td>
-                <td><span class="badge bg-success">Registered</span></td>
+                <td><strong>${player.rating || 'N/A'}</strong></td>
+                <td>${player.points || 0}</td>
+                <td><span class="text-success">${player.wins || 0}</span></td>
+                <td><span class="text-danger">${player.losses || 0}</span></td>
+                <td><span class="text-warning">${player.draws || 0}</span></td>
+                <td><span class="badge bg-success">${player.status || 'Registered'}</span></td>
                 <td>
                     <button class="btn btn-sm btn-outline-danger" onclick="removePlayerFromTournament(${player.id})">
                         <i class="fas fa-user-minus"></i>
@@ -2338,25 +2732,14 @@
             updateTournamentStats();
             renderRegisteredPlayersTable();
             document.getElementById('detailParticipants').textContent = registeredPlayersData.length;
-            alert('Player removed from tournament');
+            
+            // Show success message using Bootstrap alert
+            showAlert('tournamentAlertContainer', 'Player removed from tournament', 'success');
         }
     }
 
-    // Placeholder functions
-    function showPairingsPlaceholder() {
-        alert('Pairings view - This would show round pairings and board assignments (Frontend demo)');
-    }
-
-    function showStandingsPlaceholder() {
-        alert('Standings view - This would show tournament standings table (Frontend demo)');
-    }
-
-    function showResultsPlaceholder() {
-        alert('Results view - This would show game results and scores (Frontend demo)');
-    }
-
     // Round Management
-    let currentRound = 3;
+    let currentRoundData = null;
     let standingsData = [];
     let pairingsData = [];
 
@@ -2369,6 +2752,418 @@
     function hideRoundManagement() {
         document.getElementById('tournamentDetailsView').style.display = 'block';
         document.getElementById('roundManagementView').style.display = 'none';
+    }
+
+    // Load round management data from API
+    async function loadRoundManagementData() {
+        if (!currentTournamentId) return;
+        
+        try {
+            // Load tournament details and rounds data in parallel
+            const [tournamentResponse, roundsResponse] = await Promise.all([
+                fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }),
+                fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/rounds/`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+            ]);
+            
+            let tournamentData = null;
+            let roundsData = { rounds: [] };
+            
+            if (tournamentResponse.ok) {
+                const data = await tournamentResponse.json();
+                if (data.success) {
+                    tournamentData = data.tournament;
+                }
+            }
+            
+            if (roundsResponse.ok) {
+                const data = await roundsResponse.json();
+                if (data.success) {
+                    roundsData = data;
+                    currentRoundData = roundsData.current_round;
+                }
+            }
+            
+            updateRoundStats(roundsData.rounds, tournamentData);
+            
+            // Load current round games or default to Round 1
+            let roundToLoad = currentRoundData;
+            if (!roundToLoad && roundsData.rounds.length === 0) {
+                roundToLoad = 1; // Default to Round 1 for new tournaments
+            } else if (!roundToLoad && roundsData.rounds.length > 0) {
+                // Find the first round (usually Round 1)
+                roundToLoad = Math.min(...roundsData.rounds.map(r => r.round_number));
+            }
+            
+            if (roundToLoad) {
+                await loadRoundGames(roundToLoad);
+                await loadStandings(roundToLoad);
+                
+                // Update pairing round number display
+                const pairingRoundNumberElement = document.getElementById('pairingRoundNumber');
+                if (pairingRoundNumberElement) {
+                    pairingRoundNumberElement.textContent = roundToLoad;
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error loading round management data:', error);
+            showAlert('tournamentAlertContainer', 'Error loading round data', 'error');
+        }
+    }
+
+    // Update round statistics display
+    function updateRoundStats(rounds, tournamentData) {
+        const totalPlayers = tournamentData ? tournamentData.current_players : 0;
+        
+        // Get accurate current round: use API current_round, or highest active/completed round, or 0 if no rounds
+        let currentRound = 0;
+        if (currentRoundData) {
+            currentRound = currentRoundData;
+        } else if (rounds.length > 0) {
+            // Find the highest round number that is active or completed
+            const activeOrCompletedRounds = rounds.filter(r => r.status === 'active' || r.status === 'completed');
+            if (activeOrCompletedRounds.length > 0) {
+                currentRound = Math.max(...activeOrCompletedRounds.map(r => r.round_number));
+            } else {
+                // If no active or completed rounds, default to 0 (next round to be paired)
+                currentRound = 0;
+            }
+        }
+        
+        // Use tournament's configured total rounds, fallback to rounds.length if not available
+        const totalRounds = tournamentData ? tournamentData.rounds : rounds.length;
+        
+        // Update display elements
+        const currentRoundElement = document.getElementById('currentRound');
+        const totalPlayersElement = document.getElementById('totalPlayers');
+        const totalRoundsElement = document.getElementById('totalRounds');
+        const gamesCompletedElement = document.getElementById('gamesCompleted');
+        
+        if (currentRoundElement) currentRoundElement.textContent = currentRound;
+        if (totalPlayersElement) totalPlayersElement.textContent = totalPlayers;
+        if (totalRoundsElement) totalRoundsElement.textContent = totalRounds;
+        
+        // Calculate completed games
+        let completedGames = 0;
+        rounds.forEach(round => {
+            completedGames += round.completed_games_count || 0;
+        });
+        if (gamesCompletedElement) gamesCompletedElement.textContent = completedGames;
+        
+        // Generate round navigation buttons
+        generateRoundNavigation(totalRounds, currentRound);
+        
+        // Update Pair Next Round button text
+        const pairNextRoundBtn = document.getElementById('pairNextRoundBtn');
+        if (pairNextRoundBtn) {
+            // Find the next unpaired round
+            let nextRoundToPair = 1;
+            for (let round of rounds) {
+                if (round.round_number >= nextRoundToPair && round.status !== 'completed') {
+                    nextRoundToPair = round.round_number;
+                    break;
+                }
+            }
+            
+            // If all existing rounds are completed, pair the next round
+            if (nextRoundToPair <= Math.max(...rounds.map(r => r.round_number), 0)) {
+                nextRoundToPair = Math.max(...rounds.map(r => r.round_number), 0) + 1;
+            }
+            
+            if (currentRound === 0 && rounds.length === 0) {
+                nextRoundToPair = 1; // First round to pair
+            }
+            
+            if (nextRoundToPair <= totalRounds) {
+                pairNextRoundBtn.textContent = `Pair Round ${nextRoundToPair}`;
+                pairNextRoundBtn.disabled = false;
+            } else {
+                pairNextRoundBtn.textContent = 'All Rounds Complete';
+                pairNextRoundBtn.disabled = true;
+            }
+        }
+    }
+
+    // Load games for a specific round
+    async function loadRoundGames(roundNumber) {
+        try {
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/games/${roundNumber}/`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    pairingsData = data.games;
+                    renderRoundGames();
+                }
+            }
+        } catch (error) {
+            console.error('Error loading round games:', error);
+        }
+    }
+
+    // Load standings for a specific round
+    async function loadStandings(roundNumber) {
+        try {
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/standings/${roundNumber}/`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    standingsData = data.standings;
+                    renderStandings();
+                }
+            }
+        } catch (error) {
+            console.error('Error loading standings:', error);
+        }
+    }
+
+    // Generate next round pairings
+    async function pairNextRound() {
+        if (!currentTournamentId) return;
+        
+        try {
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/generate-next-round/`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('tournamentAlertContainer', data.message, 'success');
+                    // Reload round data
+                    await loadRoundManagementData();
+                    // Show pairings section
+                    showSection('pairings');
+                } else {
+                    showAlert('tournamentAlertContainer', data.error, 'error');
+                }
+            } else {
+                showAlert('tournamentAlertContainer', 'Failed to generate pairings', 'error');
+            }
+        } catch (error) {
+            console.error('Error generating pairings:', error);
+            showAlert('tournamentAlertContainer', 'Error generating pairings', 'error');
+        }
+    }
+
+    // Change round for viewing pairings/standings
+    async function changeRound(roundNumber) {
+        if (!currentTournamentId) return;
+        
+        try {
+            currentRoundData = roundNumber;
+            await loadRoundGames(roundNumber);
+            await loadStandings(roundNumber);
+            
+            // Update round navigation buttons
+            updateRoundNavigation(roundNumber);
+            
+            // Update pairing round number display
+            const pairingRoundNumberElement = document.getElementById('pairingRoundNumber');
+            if (pairingRoundNumberElement) {
+                pairingRoundNumberElement.textContent = roundNumber;
+            }
+            
+        } catch (error) {
+            console.error('Error changing round:', error);
+            showAlert('tournamentAlertContainer', 'Error loading round data', 'error');
+        }
+    }
+
+    // Generate round navigation buttons dynamically
+    function generateRoundNavigation(totalRounds, currentRound) {
+        const container = document.getElementById('roundNavigationButtons');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        // If no current round (new tournament), default to Round 1
+        const displayRound = currentRound || 1;
+        
+        for (let i = 1; i <= totalRounds; i++) {
+            const button = document.createElement('button');
+            button.className = (i === displayRound) ? 'btn btn-primary' : 'btn btn-outline-secondary';
+            button.textContent = `Round ${i}`;
+            button.onclick = () => changeRound(i);
+            container.appendChild(button);
+        }
+    }
+
+    // Update round navigation buttons
+    function updateRoundNavigation(activeRound) {
+        const buttons = document.querySelectorAll('#roundNavigationButtons button');
+        buttons.forEach((button, index) => {
+            if (index + 1 === activeRound) {
+                button.className = 'btn btn-primary';
+            } else {
+                button.className = 'btn btn-outline-secondary';
+            }
+        });
+    }
+
+    // Update game result
+    async function updateGameResult(gameId, result, silent = false) {
+        try {
+            const formData = new FormData();
+            formData.append('game_id', gameId);
+            formData.append('result', result);
+            
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/games/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    if (!silent) {
+                        showAlert('tournamentAlertContainer', 'Game result updated successfully', 'success');
+                        // Reload data
+                        await loadRoundManagementData();
+                    }
+                } else {
+                    showAlert('tournamentAlertContainer', data.error, 'error');
+                }
+            } else {
+                showAlert('tournamentAlertContainer', 'Failed to update result', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating game result:', error);
+            showAlert('tournamentAlertContainer', 'Error updating result', 'error');
+        }
+    }
+
+    // Submit all changed results from the current round
+    async function submitResults() {
+        const submitBtn = document.getElementById('submitResultsBtn');
+        if (!submitBtn) return;
+        
+        const changedSelects = Array.from(document.querySelectorAll('.result-select')).filter(select => {
+            if (select.disabled) return false;
+            const gameId = select.dataset.gameId;
+            const original = select.dataset.originalResult || '*';
+            return gameId && select.value !== original;
+        });
+        
+        if (changedSelects.length === 0) {
+            showAlert('tournamentAlertContainer', 'No result changes to submit', 'info');
+            return;
+        }
+        
+        submitBtn.disabled = true;
+        const originalBtnHtml = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Submitting...';
+        
+        try {
+            const results = changedSelects.map(select => ({
+                gameId: select.dataset.gameId,
+                result: select.value
+            }));
+            
+            for (const item of results) {
+                await updateGameResult(item.gameId, item.result, true);
+            }
+            
+            showAlert('tournamentAlertContainer', 'Results submitted successfully', 'success');
+            await loadRoundManagementData();
+        } catch (error) {
+            console.error('Error submitting results:', error);
+            showAlert('tournamentAlertContainer', 'Error submitting results', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHtml;
+        }
+    }
+
+    // Print pairings
+    async function printPairings(roundNumber) {
+        if (!currentTournamentId) return;
+        
+        try {
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/print-pairings/${roundNumber}/`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    // Create and download HTML file
+                    const blob = new Blob([data.html], { type: 'text/html' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = data.filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }
+            }
+        } catch (error) {
+            console.error('Error printing pairings:', error);
+        }
+    }
+
+    // Print standings
+    async function printStandings(roundNumber = null) {
+        if (!currentTournamentId) return;
+        
+        try {
+            const url = roundNumber 
+                ? `/ttsa-admin/api/tournaments/${currentTournamentId}/print-standings/${roundNumber}/`
+                : `/ttsa-admin/api/tournaments/${currentTournamentId}/print-standings/`;
+                
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    // Create and download HTML file
+                    const blob = new Blob([data.html], { type: 'text/html' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = data.filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }
+            }
+        } catch (error) {
+            console.error('Error printing standings:', error);
+        }
     }
 
     function showSection(section) {
@@ -2393,45 +3188,31 @@
         }
     }
 
-    function loadRoundManagementData() {
-        // Sample standings data
-        standingsData = [
-            { rank: 1, player: 'checkmate', rating: 2050, points: 5.5, wins: 4, losses: 1, draws: 1, buchholz: 23.5, sonneborn_berger: 18.0 },
-            { rank: 2, player: 'castleking', rating: 1950, points: 5.0, wins: 4, losses: 2, draws: 0, buchholz: 22.0, sonneborn_berger: 16.5 },
-            { rank: 3, player: 'bishopmove', rating: 1980, points: 4.5, wins: 3, losses: 1, draws: 3, buchholz: 21.5, sonneborn_berger: 15.0 },
-            { rank: 4, player: 'kingslayer', rating: 1920, points: 4.0, wins: 3, losses: 2, draws: 2, buchholz: 20.0, sonneborn_berger: 14.5 },
-            { rank: 5, player: 'rookpower', rating: 1890, points: 3.5, wins: 2, losses: 2, draws: 3, buchholz: 19.5, sonneborn_berger: 13.0 },
-            { rank: 6, player: 'chessmaster123', rating: 1850, points: 3.0, wins: 2, losses: 3, draws: 2, buchholz: 18.0, sonneborn_berger: 11.5 },
-            { rank: 7, player: 'fianchetto', rating: 1840, points: 2.5, wins: 2, losses: 3, draws: 1, buchholz: 17.5, sonneborn_berger: 10.0 },
-            { rank: 8, player: 'queenattack', rating: 1750, points: 2.0, wins: 1, losses: 3, draws: 2, buchholz: 16.0, sonneborn_berger: 8.5 },
-            { rank: 9, player: 'stalemate', rating: 1800, points: 1.5, wins: 1, losses: 4, draws: 1, buchholz: 15.5, sonneborn_berger: 7.0 },
-            { rank: 10, player: 'enpassant', rating: 1720, points: 1.0, wins: 0, losses: 4, draws: 2, buchholz: 14.0, sonneborn_berger: 5.5 },
-            { rank: 11, player: 'knightjump', rating: 1680, points: 0.5, wins: 0, losses: 5, draws: 1, buchholz: 13.0, sonneborn_berger: 4.0 },
-            { rank: 12, player: 'pawnpusher', rating: 1550, points: 0.0, wins: 0, losses: 5, draws: 0, buchholz: 12.0, sonneborn_berger: 2.5 }
-        ];
-
-        // Sample pairings data for current round
-        pairingsData = [
-            { board: 1, white: 'checkmate', white_rating: 2050, result: '1-0', black: 'castleking', black_rating: 1950, status: 'completed' },
-            { board: 2, white: 'bishopmove', white_rating: 1980, result: '½-½', black: 'kingslayer', black_rating: 1920, status: 'completed' },
-            { board: 3, white: 'rookpower', white_rating: 1890, result: '0-1', black: 'chessmaster123', black_rating: 1850, status: 'completed' },
-            { board: 4, white: 'fianchetto', white_rating: 1840, result: '1-0', black: 'queenattack', black_rating: 1750, status: 'completed' },
-            { board: 5, white: 'stalemate', white_rating: 1800, result: '½-½', black: 'enpassant', black_rating: 1720, status: 'completed' },
-            { board: 6, white: 'knightjump', white_rating: 1680, result: '*', black: 'pawnpusher', black_rating: 1550, status: 'in_progress' }
-        ];
-
-        renderStandingsTable();
-        renderPairingsTable();
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
-    function renderStandingsTable() {
+    // Render standings table with live data
+    function renderStandings() {
         const tableBody = document.getElementById('standingsTableBody');
         
         if (standingsData.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="text-center py-4">
-                        <i class="fas fa-list-ol fa-2x text-muted mb-2"></i>
+                    <td colspan="11" class="text-center py-4">
+                        <i class="fas fa-trophy fa-2x text-muted mb-2"></i>
                         <p class="text-muted">No standings data available</p>
                     </td>
                 </tr>
@@ -2439,34 +3220,31 @@
             return;
         }
 
-        tableBody.innerHTML = standingsData.map((player, index) => {
-            const rankClass = index === 0 ? 'text-warning' : index === 1 ? 'text-secondary' : index === 2 ? 'text-danger' : '';
-            const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : player.rank;
-            
-            return `
-                <tr class="${index < 3 ? 'table-warning' : ''}">
-                    <td><strong class="${rankClass}">${rankIcon}</strong></td>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="profile-icon me-2" style="width: 30px; height: 30px; font-size: 0.8rem;">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <strong>${player.player}</strong>
+        tableBody.innerHTML = standingsData.map(standing => `
+            <tr>
+                <td><strong>${standing.rank}</strong></td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="profile-icon me-2" style="width: 35px; height: 35px; font-size: 0.9rem;">
+                            <i class="fas fa-user"></i>
                         </div>
-                    </td>
-                    <td>${player.rating}</td>
-                    <td><strong>${player.points}</strong></td>
-                    <td><span class="text-success">${player.wins}</span></td>
-                    <td><span class="text-danger">${player.losses}</span></td>
-                    <td><span class="text-warning">${player.draws}</span></td>
-                    <td>${player.buchholz}</td>
-                    <td>${player.sonneborn_berger}</td>
-                </tr>
-            `;
-        }).join('');
+                        <strong>${standing.player.name}</strong>
+                    </div>
+                </td>
+                <td><strong>${standing.player.rating}</strong></td>
+                <td><span class="badge bg-primary">${standing.points}</span></td>
+                <td>${standing.games_played}</td>
+                <td><span class="text-success">${standing.wins}</span></td>
+                <td><span class="text-warning">${standing.draws}</span></td>
+                <td><span class="text-danger">${standing.losses}</span></td>
+                <td><small class="text-muted">${standing.buchholz}</small></td>
+                <td><small class="text-muted">${standing.sonneborn_berger}</small></td>
+            </tr>
+        `).join('');
     }
 
-    function renderPairingsTable() {
+    // Render round games/pairings table with live data
+    function renderRoundGames() {
         const tableBody = document.getElementById('pairingsTableBody');
         
         if (pairingsData.length === 0) {
@@ -2474,170 +3252,70 @@
                 <tr>
                     <td colspan="6" class="text-center py-4">
                         <i class="fas fa-chess fa-2x text-muted mb-2"></i>
-                        <p class="text-muted">No pairings for this round</p>
+                        <p class="text-muted">No games scheduled for this round</p>
                     </td>
                 </tr>
             `;
             return;
         }
 
-        tableBody.innerHTML = pairingsData.map(pairing => {
-            return `
-                <tr>
-                    <td><strong>Board ${pairing.board}</strong></td>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="profile-icon me-2" style="width: 30px; height: 30px; font-size: 0.8rem; background: #f8f9fa;">
-                                <i class="fas fa-chess-pawn"></i>
-                            </div>
-                            <strong>${pairing.white}</strong>
-                        </div>
-                    </td>
-                    <td>${pairing.white_rating}</td>
-                    <td>
-                        <select class="form-select form-select-sm" id="result_${pairing.board}">
-                            <option value="">Select Result</option>
-                            <option value="1-0" ${pairing.result === '1-0' ? 'selected' : ''}>1-0 (White wins)</option>
-                            <option value="0-1" ${pairing.result === '0-1' ? 'selected' : ''}>0-1 (Black wins)</option>
-                            <option value="½-½" ${pairing.result === '½-½' ? 'selected' : ''}>½-½ (Draw)</option>
-                            <option value="*" ${pairing.result === '*' ? 'selected' : ''}>* (Not started)</option>
-                        </select>
-                    </td>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="profile-icon me-2" style="width: 30px; height: 30px; font-size: 0.8rem; background: #343a40;">
-                                <i class="fas fa-chess-pawn" style="color: white;"></i>
-                            </div>
-                            <strong>${pairing.black}</strong>
-                        </div>
-                    </td>
-                    <td>${pairing.black_rating}</td>
-                </tr>
-            `;
-        }).join('');
+        tableBody.innerHTML = pairingsData.map(game => `
+            <tr class="game-row" data-game-id="${game.id}">
+                <td class="text-center">
+                    <span class="badge bg-primary rounded-pill">${game.board_number}</span>
+                </td>
+                <td>
+                    <div class="player-info">
+                        <div class="fw-semibold text-primary">${game.white_player.name}</div>
+                        <small class="text-muted">ID: ${game.white_player.id}</small>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="rating-badge">${game.white_player.rating}</span>
+                </td>
+                <td class="text-center">
+                    <select class="form-select form-select-sm result-select" data-game-id="${game.id}" data-original-result="${game.result || '*'}" onchange="updateGameResult(${game.id}, this.value)" ${game.status === 'completed' ? 'disabled' : ''}>
+                        <option value="*" ${game.result === '*' ? 'selected' : ''}>Not Started</option>
+                        <option value="1-0" ${game.result === '1-0' ? 'selected' : ''}>1-0</option>
+                        <option value="½-½" ${game.result === '½-½' ? 'selected' : ''}>½-½</option>
+                        <option value="0-1" ${game.result === '0-1' ? 'selected' : ''}>0-1</option>
+                    </select>
+                </td>
+                <td>
+                    <div class="player-info">
+                        <div class="fw-semibold text-dark">${game.black_player.name}</div>
+                        <small class="text-muted">ID: ${game.black_player.id}</small>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="rating-badge">${game.black_player.rating}</span>
+                </td>
+            </tr>
+        `).join('');
     }
 
-    function changeRound(round) {
-        currentRound = round;
-        document.getElementById('currentRound').textContent = round;
-        document.getElementById('pairingRoundNumber').textContent = round;
-        
-        // Update navigation buttons
-        const buttons = document.querySelectorAll('#roundNavigation button');
-        buttons.forEach((btn, index) => {
-            if (index + 1 === round) {
-                btn.classList.remove('btn-outline-secondary');
-                btn.classList.add('btn-primary');
-            } else {
-                btn.classList.remove('btn-primary');
-                btn.classList.add('btn-outline-secondary');
-            }
-        });
-
-        // Reload pairings for the selected round
-        loadRoundPairings(round);
-    }
-
-    function loadRoundPairings(round) {
-        // Generate different pairings based on round
-        const players = ['checkmate', 'castleking', 'bishopmove', 'kingslayer', 'rookpower', 'chessmaster123', 'fianchetto', 'queenattack', 'stalemate', 'enpassant', 'knightjump', 'pawnpusher'];
-        const ratings = [2050, 1950, 1980, 1920, 1890, 1850, 1840, 1750, 1800, 1720, 1680, 1550];
-        
-        pairingsData = [];
-        const numGames = Math.floor(players.length / 2);
-        
-        for (let i = 0; i < numGames; i++) {
-            const whiteIndex = (i * 2 + round - 1) % players.length;
-            const blackIndex = (i * 2 + round) % players.length;
-            
-            const results = ['1-0', '0-1', '½-½', '*'];
-            const statuses = ['completed', 'completed', 'completed', 'in_progress'];
-            const randomResult = round < currentRound ? results[Math.floor(Math.random() * 3)] : '*';
-            const randomStatus = round < currentRound ? 'completed' : (round === currentRound ? statuses[Math.floor(Math.random() * statuses.length)] : 'scheduled');
-            
-            pairingsData.push({
-                board: i + 1,
-                white: players[whiteIndex],
-                white_rating: ratings[whiteIndex],
-                result: randomResult,
-                black: players[blackIndex],
-                black_rating: ratings[blackIndex],
-                status: randomStatus
-            });
-        }
-
-        renderPairingsTable();
-    }
-
-    function pairNextRound() {
-        if (currentRound >= 7) {
-            alert('All rounds have been completed!');
-            return;
-        }
-        
-        if (confirm('Are you sure you want to pair the next round? This will generate pairings for Round ' + (currentRound + 1))) {
-            currentRound++;
-            document.getElementById('currentRound').textContent = currentRound;
-            document.getElementById('pairingRoundNumber').textContent = currentRound;
-            changeRound(currentRound);
-            alert('Round ' + currentRound + ' has been paired successfully!');
+    // Helper functions for rendering
+    function getStatusBadgeClass(status) {
+        switch(status) {
+            case 'completed': return 'bg-success';
+            case 'in_progress': return 'bg-warning';
+            case 'scheduled': return 'bg-info';
+            default: return 'bg-secondary';
         }
     }
 
-    function printPairings() {
-        alert('Printing pairings for Round ' + currentRound + '... (Frontend demo)');
-    }
-
-    function printStandings() {
-        alert('Printing current standings... (Frontend demo)');
-    }
-
-    function editGameResult(board) {
-        alert('Edit result for Board ' + board + ' (Frontend demo)');
-    }
-
-    function viewGame(board) {
-        alert('View game details for Board ' + board + ' (Frontend demo)');
-    }
-
-    function submitResults() {
-        const results = [];
-        let hasChanges = false;
-        
-        // Collect results from dropdowns
-        pairingsData.forEach(pairing => {
-            const selectElement = document.getElementById(`result_${pairing.board}`);
-            const newResult = selectElement ? selectElement.value : '';
-            
-            if (newResult && newResult !== pairing.result) {
-                hasChanges = true;
-                results.push({
-                    board: pairing.board,
-                    white: pairing.white,
-                    black: pairing.black,
-                    result: newResult
-                });
-                
-                // Update the data
-                pairing.result = newResult;
-            }
-        });
-        
-        if (!hasChanges) {
-            alert('No changes detected in the results.');
-            return;
+    function getStatusText(status) {
+        switch(status) {
+            case 'completed': return 'Completed';
+            case 'in_progress': return 'In Progress';
+            case 'scheduled': return 'Scheduled';
+            default: return 'Unknown';
         }
-        
-        // Show confirmation
-        const resultsText = results.map(r => 
-            `Board ${r.board}: ${r.white} vs ${r.black} - ${r.result}`
-        ).join('\n');
-        
-        if (confirm(`Submit the following results?\n\n${resultsText}`)) {
-            alert('Results submitted successfully! Standings have been updated.');
-            // Refresh standings to reflect changes
-            renderStandingsTable();
-        }
+    }
+
+    function viewGameDetails(gameId) {
+        // Placeholder for viewing detailed game information
+        console.log('View game details for game ID:', gameId);
     }
 
     // Search tournaments
@@ -2742,4 +3420,105 @@
         </div>
     </div>
 </div>
+
+<style>
+/* Professional Tournament Table Styles */
+.game-row {
+    transition: all 0.2s ease;
+}
+
+.game-row:hover {
+    background-color: #f8f9fa !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.player-info {
+    line-height: 1.2;
+}
+
+.player-info .fw-semibold {
+    font-size: 0.9rem;
+    margin-bottom: 2px;
+}
+
+.player-info small {
+    font-size: 0.75rem;
+}
+
+.rating-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    background: linear-gradient(135deg, #6c757d, #495057);
+    color: white;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    min-width: 60px;
+    text-align: center;
+}
+
+.result-select {
+    font-size: 0.85rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease;
+}
+
+.result-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.1);
+}
+
+.result-select:disabled {
+    background-color: #e9ecef;
+    opacity: 0.7;
+}
+
+#pairingsTable {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,0,0,0.08);
+}
+
+#pairingsTable .table-light {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-bottom: 2px solid #dee2e6;
+}
+
+#pairingsTable th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #495057;
+}
+
+.badge.bg-primary.rounded-pill {
+    background: linear-gradient(135deg, #0d6efd, #0056b3) !important;
+    font-weight: 600;
+    font-size: 0.8rem;
+    padding: 6px 10px;
+}
+
+/* Generate Round Button */
+#generateRoundBtn {
+    transition: all 0.2s ease;
+}
+
+#generateRoundBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(13, 110, 253, 0.2);
+}
+
+#submitResultsBtn {
+    transition: all 0.2s ease;
+}
+
+#submitResultsBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(25, 135, 84, 0.2);
+}
+</style>
+
 {% endblock %}

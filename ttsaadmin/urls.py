@@ -27,4 +27,15 @@ urlpatterns = [
     path('tournaments/<int:tournament_id>/games/<int:game_id>/result/', views.tournament_update_game_result, name='tournament_update_game_result'),
     path('api/tournaments/', views.tournament_api_data, name='tournament_api_data'),
     path('api/tournaments/<int:tournament_id>/', views.tournament_api_data, name='tournament_api_detail'),
+    
+    # Round Management URLs
+    path('api/tournaments/<int:tournament_id>/rounds/', views.tournament_rounds_api, name='tournament_rounds_api'),
+    path('api/tournaments/<int:tournament_id>/generate-next-round/', views.generate_next_round, name='generate_next_round'),
+    path('api/tournaments/<int:tournament_id>/games/', views.tournament_games_api, name='tournament_games_api'),
+    path('api/tournaments/<int:tournament_id>/games/<int:round_number>/', views.tournament_games_api, name='tournament_games_round'),
+    path('api/tournaments/<int:tournament_id>/standings/', views.tournament_standings_api, name='tournament_standings_api'),
+    path('api/tournaments/<int:tournament_id>/standings/<int:round_number>/', views.tournament_standings_api, name='tournament_standings_round'),
+    path('api/tournaments/<int:tournament_id>/print-pairings/<int:round_number>/', views.print_pairings, name='print_pairings'),
+    path('api/tournaments/<int:tournament_id>/print-standings/', views.print_standings, name='print_standings'),
+    path('api/tournaments/<int:tournament_id>/print-standings/<int:round_number>/', views.print_standings, name='print_standings_round'),
 ]

@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import PlayerProfile, Message
+from .models import User, PlayerProfile, Message
 
 
 class CustomUserCreationForm(UserCreationForm):

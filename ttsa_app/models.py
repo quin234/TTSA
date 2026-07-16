@@ -1,10 +1,60 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 from django.utils import timezone
 
 
+class User(AbstractUser):
+    """Custom User model with Role-Based Access Control."""
+    ROLE_CHOICES = [
+        ('player', 'Player'),
+        ('player_plus', 'Player Plus'),
+        ('ttsa_admin', 'TTSA Admin'),
+    ]
+
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='player',
+        db_index=True,
+    )
+
+    class Meta:
+        db_table = 'ttsa_user'
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
+
+    def __str__(self):
+        return self.username
+
+    @property
+    def is_player(self):
+        return self.role == 'player'
+
+    @property
+    def is_player_plus(self):
+        return self.role == 'player_plus'
+
+    @property
+    def is_ttsa_admin(self):
+        return self.role == 'ttsa_admin'
+
+    @property
+    def can_manage_tournaments(self):
+        """Only PLAYER_PLUS and TTSA Admin users can create/manage tournaments."""
+        return self.role in ('player_plus', 'ttsa_admin')
+
+    def upgrade_to_player_plus(self):
+        """Upgrade a player to PLAYER_PLUS role, preserving all history."""
+        if self.role == 'player':
+            self.role = 'player_plus'
+            self.save(update_fields=['role'])
+            return True
+        return False
+
+
 class PlayerProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     avatar = models.ImageField(upload_to='avatars/', default='avatars/default.png')
     rating = models.IntegerField(default=800)
     coins = models.IntegerField(default=100)
@@ -13,10 +63,30 @@ class PlayerProfile(models.Model):
     learning_streak = models.IntegerField(default=0)
     last_played = models.DateField(default=timezone.now)
     bio = models.TextField(max_length=500, blank=True)
-    ttsa_admin = models.BooleanField(default=False, db_index=True)
-    
+
     def __str__(self):
         return f"{self.user.username}'s Profile"
+
+
+class OrganizerProfile(models.Model):
+    """Profile for PLAYER_PLUS users who can organize tournaments."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='organizer_profile')
+    organization_name = models.CharField(max_length=255, blank=True, db_index=True)
+    contact_phone = models.CharField(max_length=20, blank=True)
+    contact_email = models.EmailField(blank=True)
+    bio = models.TextField(max_length=500, blank=True)
+    is_verified = models.BooleanField(default=False, db_index=True)
+    tournaments_created = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ttsa_organizer_profile'
+        verbose_name = 'Organizer Profile'
+        verbose_name_plural = 'Organizer Profiles'
+
+    def __str__(self):
+        return f"{self.user.username} - Organizer"
 
 
 class Achievement(models.Model):
@@ -210,7 +280,7 @@ class AcademyNews(models.Model):
     content = models.TextField()
     image = models.ImageField(upload_to='news/', blank=True, null=True)
     published_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     
     class Meta:
         ordering = ['-published_at']
@@ -252,8 +322,8 @@ class MultiplayerGame(models.Model):
     ]
     
     game_code = models.CharField(max_length=8, unique=True, db_index=True)
-    white_player = models.ForeignKey(User, related_name='white_games', on_delete=models.CASCADE, db_index=True)
-    black_player = models.ForeignKey(User, related_name='black_games', on_delete=models.CASCADE, null=True, blank=True, db_index=True)
+    white_player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='white_games', on_delete=models.CASCADE, db_index=True)
+    black_player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='black_games', on_delete=models.CASCADE, null=True, blank=True, db_index=True)
     game_type = models.CharField(max_length=20, choices=GAME_TYPE_CHOICES, default='standard')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting', db_index=True)
     result = models.CharField(max_length=20, choices=RESULT_CHOICES, null=True, blank=True)
@@ -289,7 +359,7 @@ class MultiplayerGame(models.Model):
 
 class GameMove(models.Model):
     game = models.ForeignKey(MultiplayerGame, related_name='moves', on_delete=models.CASCADE, db_index=True)
-    player = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    player = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True)
     move_from = models.CharField(max_length=2)
     move_to = models.CharField(max_length=2)
     piece = models.CharField(max_length=1)
@@ -347,45 +417,3 @@ class VideoLesson(models.Model):
         return self.title
 
 
-class TournamentRegistration(models.Model):
-    """Model for user tournament registrations"""
-    
-    STATUS_CHOICES = [
-        ('registered', 'Registered'),
-        ('confirmed', 'Confirmed'),
-        ('withdrawn', 'Withdrawn'),
-        ('disqualified', 'Disqualified'),
-    ]
-    
-    player = models.ForeignKey(PlayerProfile, on_delete=models.CASCADE, db_index=True)
-    tournament = models.ForeignKey('ttsaadmin.Tournament', on_delete=models.CASCADE, db_index=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='registered', db_index=True)
-    registered_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    confirmed_at = models.DateTimeField(null=True, blank=True)
-    withdrawn_at = models.DateTimeField(null=True, blank=True)
-    notes = models.TextField(blank=True)
-    
-    # Tournament statistics (filled when tournament is active/complete)
-    points = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    wins = models.PositiveIntegerField(default=0)
-    losses = models.PositiveIntegerField(default=0)
-    draws = models.PositiveIntegerField(default=0)
-    rank = models.PositiveIntegerField(null=True, blank=True)
-    
-    class Meta:
-        ordering = ['-registered_at']
-        indexes = [
-            models.Index(fields=['player', '-registered_at']),
-            models.Index(fields=['tournament', 'status']),
-            models.Index(fields=['tournament', '-points']),
-            models.Index(fields=['status', '-registered_at']),
-        ]
-        unique_together = ['player', 'tournament']
-    
-    def __str__(self):
-        return f"{self.player.user.username} - {self.tournament.name}"
-    
-    @property
-    def games_played(self):
-        """Calculate total games played"""
-        return self.wins + self.losses + self.draws

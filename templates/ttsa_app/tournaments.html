@@ -11,48 +11,34 @@
                 <h1 class="fredoka text-3xl font-bold mb-2">Tournaments</h1>
                 <p class="text-orange-100">Compete in exciting chess tournaments and test your skills!</p>
             </div>
-            <div class="text-center">
-                <div class="text-3xl font-bold" id="totalTournamentsCount">0</div>
-                <div class="text-sm text-orange-100">Tournaments</div>
+            <div class="flex items-center space-x-4">
+                {% if user.is_authenticated and user.can_manage_tournaments %}
+                <a href="{% url 'tournament_create' %}" class="bg-white text-orange-600 px-4 py-2 rounded-lg font-semibold hover:bg-orange-50 transition flex items-center space-x-2">
+                    <i class="fas fa-plus"></i>
+                    <span>Create Tournament</span>
+                </a>
+                {% endif %}
+                <div class="text-center">
+                    <div class="text-3xl font-bold" id="totalTournamentsCount">0</div>
+                    <div class="text-sm text-orange-100">Tournaments</div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Upcoming Tournaments -->
-    <!-- Search and Filter -->
-    <div class="bg-white rounded-xl shadow-lg p-4 mb-6">
-        <div class="flex flex-col md:flex-row gap-4">
-            <div class="flex-1">
-                <div class="relative">
-                    <input type="text" id="upcomingTournamentsSearch" placeholder="Search upcoming tournaments..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
-                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                </div>
-            </div>
-            <div class="md:w-48">
-                <select id="upcomingTournamentsFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
-                    <option value="">All Categories</option>
-                    <option value="open">Open</option>
-                    <option value="junior">Junior</option>
-                    <option value="senior">Senior</option>
-                    <option value="rapid">Rapid</option>
-                    <option value="blitz">Blitz</option>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <!-- Upcoming Tournaments Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="upcomingTournamentsGrid">
+    <!-- All Tournaments Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="tournamentsGrid">
         <div class="col-span-full text-center py-8">
             <i class="fas fa-spinner fa-spin fa-2x text-gray-400 mb-2"></i>
-            <p class="text-gray-600">Loading upcoming tournaments...</p>
+            <p class="text-gray-600">Loading tournaments...</p>
         </div>
     </div>
 </div>
 
 <script>
 // Tournament Data
-let upcomingTournamentsData = [];
+let allTournamentsData = [];
 
 // Load tournament data from backend API
 function loadTournamentData() {
@@ -65,8 +51,12 @@ function loadTournamentData() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Transform API data to match frontend structure
-            upcomingTournamentsData = data.tournaments.map(tournament => ({
+            // Combine all tournaments into a single array
+            allTournamentsData = [
+                ...(data.upcoming || []),
+                ...(data.ongoing || []),
+                ...(data.completed || [])
+            ].map(tournament => ({
                 id: tournament.id,
                 name: tournament.name,
                 venue: tournament.venue,
@@ -77,19 +67,24 @@ function loadTournamentData() {
                 entry_fee: tournament.entry_fee,
                 available_slots: tournament.available_slots,
                 total_slots: tournament.max_players,
+                current_players: tournament.current_players,
                 category: tournament.category,
                 format: tournament.format,
                 rounds: tournament.rounds,
+                status: tournament.status,
                 is_registered: tournament.is_registered,
                 is_registration_open: tournament.is_registration_open,
                 is_full: tournament.is_full
             }));
             
-            // Update total count
-            document.getElementById('totalTournamentsCount').textContent = upcomingTournamentsData.length;
+            // Sort tournaments by start date (newest first)
+            allTournamentsData.sort((a, b) => new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time));
             
-            // Render data
-            renderUpcomingTournaments();
+            // Update total count
+            document.getElementById('totalTournamentsCount').textContent = allTournamentsData.length;
+            
+            // Render all tournaments
+            renderAllTournaments();
         } else {
             console.error('Error loading tournaments:', data.error);
             showError('Failed to load tournaments. Please try again later.');
@@ -103,7 +98,7 @@ function loadTournamentData() {
 
 // Show error message
 function showError(message) {
-    const grid = document.getElementById('upcomingTournamentsGrid');
+    const grid = document.getElementById('tournamentsGrid');
     grid.innerHTML = `
         <div class="col-span-full text-center py-8">
             <i class="fas fa-exclamation-triangle fa-2x text-red-400 mb-2"></i>
@@ -112,26 +107,41 @@ function showError(message) {
     `;
 }
 
-// Render Upcoming Tournaments
-function renderUpcomingTournaments() {
-    const grid = document.getElementById('upcomingTournamentsGrid');
+// Render all tournaments in compact card format
+function renderAllTournaments() {
+    const grid = document.getElementById('tournamentsGrid');
     
-    if (upcomingTournamentsData.length === 0) {
+    if (allTournamentsData.length === 0) {
         grid.innerHTML = `
             <div class="col-span-full text-center py-8">
                 <i class="fas fa-calendar-times fa-3x text-gray-300 mb-4"></i>
-                <p class="text-gray-600">No upcoming tournaments available.</p>
+                <p class="text-gray-600">No tournaments available.</p>
                 <p class="text-sm text-gray-500">Check back later for new events!</p>
             </div>
         `;
         return;
     }
 
-    grid.innerHTML = upcomingTournamentsData.map(tournament => {
-        const slotsPercentage = (tournament.available_slots / tournament.total_slots) * 100;
+    grid.innerHTML = allTournamentsData.map(tournament => {
         const isFull = tournament.is_full || tournament.available_slots === 0;
         const isRegistered = tournament.is_registered;
         const canRegister = !isFull && !isRegistered && tournament.is_registration_open;
+        
+        // Status-based styling
+        let statusBadge = '';
+        let statusColor = '';
+        if (tournament.status === 'published' || tournament.status === 'registration') {
+            statusBadge = 'Upcoming';
+            statusColor = 'bg-blue-100 text-blue-800';
+        } else if (tournament.status === 'in_progress' || tournament.status === 'ongoing') {
+            statusBadge = 'Live';
+            statusColor = 'bg-green-100 text-green-800';
+        } else if (tournament.status === 'completed' || tournament.status === 'finished') {
+            statusBadge = 'Completed';
+            statusColor = 'bg-gray-100 text-gray-800';
+        }
+        
+        // Category colors
         const categoryColors = {
             open: 'bg-purple-100 text-purple-800',
             junior: 'bg-blue-100 text-blue-800',
@@ -141,75 +151,102 @@ function renderUpcomingTournaments() {
         };
 
         // Determine button state and text
-        let buttonText = 'Register Now';
-        let buttonClass = 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600';
+        let buttonText = 'Register';
+        let buttonClass = 'bg-orange-500 hover:bg-orange-600 text-white';
         let buttonDisabled = '';
         
-        if (isRegistered) {
+        if (tournament.status === 'completed' || tournament.status === 'finished') {
+            buttonText = 'View Results';
+            buttonClass = 'bg-gray-500 hover:bg-gray-600 text-white';
+        } else if (tournament.status === 'in_progress' || tournament.status === 'ongoing') {
+            buttonText = 'View Details';
+            buttonClass = 'bg-green-500 hover:bg-green-600 text-white';
+        } else if (isRegistered) {
             buttonText = 'Registered ✓';
-            buttonClass = 'bg-green-500 cursor-not-allowed';
+            buttonClass = 'bg-green-600 text-white cursor-not-allowed';
             buttonDisabled = 'disabled';
         } else if (isFull) {
-            buttonText = 'Registration Full';
-            buttonClass = 'bg-gray-300 cursor-not-allowed';
+            buttonText = 'Full';
+            buttonClass = 'bg-gray-400 text-white cursor-not-allowed';
             buttonDisabled = 'disabled';
         } else if (!tournament.is_registration_open) {
-            buttonText = 'Registration Closed';
-            buttonClass = 'bg-gray-400 cursor-not-allowed';
+            buttonText = 'Closed';
+            buttonClass = 'bg-gray-400 text-white cursor-not-allowed';
             buttonDisabled = 'disabled';
         }
 
         return `
-            <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
-                <div class="bg-gradient-to-r from-orange-500 to-red-500 p-4 text-white">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="font-bold text-lg">${tournament.name}</h3>
-                            <p class="text-sm text-orange-100">${tournament.format} • ${tournament.rounds} Rounds</p>
-                        </div>
-                        <span class="px-2 py-1 ${categoryColors[tournament.category] || 'bg-gray-100 text-gray-800'} rounded-full text-xs font-semibold text-white">
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden border border-gray-200">
+                <!-- Header with status and category -->
+                <div class="p-3 border-b border-gray-100">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="px-2 py-1 ${statusColor} rounded-full text-xs font-semibold">
+                            ${statusBadge}
+                        </span>
+                        <span class="px-2 py-1 ${categoryColors[tournament.category] || 'bg-gray-100 text-gray-800'} rounded-full text-xs font-semibold">
                             ${tournament.category.charAt(0).toUpperCase() + tournament.category.slice(1)}
                         </span>
                     </div>
+                    <h3 class="font-semibold text-gray-900 text-sm line-clamp-2 leading-tight">${tournament.name}</h3>
                 </div>
-                <div class="p-4">
-                    <div class="space-y-3">
-                        <div class="flex items-center text-sm">
-                            <i class="fas fa-map-marker-alt w-5 text-gray-400"></i>
-                            <span class="text-gray-700">${tournament.venue}</span>
-                        </div>
-                        <div class="flex items-center text-sm">
-                            <i class="fas fa-calendar w-5 text-gray-400"></i>
-                            <span class="text-gray-700">${tournament.date} at ${tournament.time}</span>
-                        </div>
-                        <div class="flex items-center text-sm">
-                            <i class="fas fa-clock w-5 text-gray-400"></i>
-                            <span class="text-gray-700">${tournament.time_control}</span>
-                        </div>
-                        <div class="flex items-center text-sm">
-                            <i class="fas fa-hourglass-end w-5 text-gray-400"></i>
-                            <span class="text-gray-700">Deadline: ${tournament.registration_deadline}</span>
-                        </div>
-                        <div class="flex items-center justify-between pt-2 border-t">
-                            <div class="text-sm">
-                                <span class="font-bold text-orange-600">$${tournament.entry_fee}</span>
-                                <span class="text-gray-500"> entry fee</span>
-                            </div>
-                            <div class="text-sm">
-                                <span class="font-bold ${isFull ? 'text-red-600' : 'text-green-600'}">${tournament.available_slots}</span>
-                                <span class="text-gray-500">/${tournament.total_slots} slots</span>
-                            </div>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div class="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full" style="width: ${slotsPercentage}%"></div>
-                        </div>
-                        <button 
-                            onclick="registerForTournament(${tournament.id})"
-                            class="w-full py-2 ${buttonClass} text-white rounded-lg font-semibold transition"
-                            ${buttonDisabled}>
-                            ${buttonText}
-                        </button>
+                
+                <!-- Details -->
+                <div class="p-3 space-y-2">
+                    <div class="flex items-center text-xs text-gray-600">
+                        <i class="fas fa-map-marker-alt w-4 text-gray-400 mr-2"></i>
+                        <span class="truncate">${tournament.venue}</span>
                     </div>
+                    <div class="flex items-center text-xs text-gray-600">
+                        <i class="fas fa-calendar w-4 text-gray-400 mr-2"></i>
+                        <span>${tournament.date}</span>
+                    </div>
+                    <div class="flex items-center text-xs text-gray-600">
+                        <i class="fas fa-clock w-4 text-gray-400 mr-2"></i>
+                        <span>${tournament.time}</span>
+                    </div>
+                    <div class="flex items-center text-xs text-gray-600">
+                        <i class="fas fa-chess w-4 text-gray-400 mr-2"></i>
+                        <span>${tournament.time_control}</span>
+                    </div>
+                    
+                    <!-- Tournament info -->
+                    <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+                        <div class="text-xs">
+                            <span class="font-semibold text-gray-900">${tournament.format}</span>
+                            <span class="text-gray-500"> • ${tournament.rounds} rounds</span>
+                        </div>
+                        <div class="text-xs text-right">
+                            ${tournament.status === 'published' || tournament.status === 'registration' ? `
+                            <span class="font-semibold ${isFull ? 'text-red-600' : 'text-green-600'}">${tournament.available_slots}</span>
+                            <span class="text-gray-500">/${tournament.total_slots}</span>` : `
+                            <span class="font-semibold text-gray-600">${tournament.current_players}</span>
+                            <span class="text-gray-500"> players</span>`}
+                        </div>
+                    </div>
+                    
+                    <!-- Entry fee for upcoming tournaments -->
+                    ${tournament.status === 'published' || tournament.status === 'registration' ? `
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-semibold text-orange-600">$${tournament.entry_fee}</span>
+                        <span class="text-xs text-gray-500">entry fee</span>
+                    </div>` : ''}
+                    
+                    <!-- Registration deadline for upcoming tournaments -->
+                    ${tournament.status === 'published' || tournament.status === 'registration' ? `
+                    <div class="text-xs text-gray-500">
+                        <i class="fas fa-hourglass-end w-3 text-gray-400 mr-1"></i>
+                        Deadline: ${tournament.registration_deadline}
+                    </div>` : ''}
+                </div>
+                
+                <!-- Action button -->
+                <div class="p-3 pt-0">
+                    <button 
+                        onclick="${tournament.status === 'published' || tournament.status === 'registration' ? `registerForTournament(${tournament.id})` : `viewTournamentDetails(${tournament.id})`}"
+                        class="w-full py-2 px-3 ${buttonClass} rounded-md text-xs font-medium transition-colors ${buttonDisabled}"
+                        ${buttonDisabled}>
+                        ${buttonText}
+                    </button>
                 </div>
             </div>
         `;
@@ -218,51 +255,87 @@ function renderUpcomingTournaments() {
 
 // Register for tournament
 function registerForTournament(tournamentId) {
-    const tournament = upcomingTournamentsData.find(t => t.id === tournamentId);
+    const tournament = allTournamentsData.find(t => t.id === tournamentId);
     if (tournament) {
-        if (confirm(`Are you sure you want to register for "${tournament.name}"?\n\nEntry fee: $${tournament.entry_fee}\nDate: ${tournament.date}\nTime: ${tournament.time}`)) {
-            // Show loading state
-            const button = document.querySelector(`button[onclick="registerForTournament(${tournamentId})"]`);
-            const originalText = button.textContent;
-            button.disabled = true;
-            button.textContent = 'Registering...';
-            
-            // Call registration API
-            fetch(`/api/tournaments/${tournamentId}/register/`, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Update tournament data
-                    tournament.available_slots -= 1;
-                    tournament.is_registered = true;
-                    tournament.is_full = tournament.available_slots === 0;
-                    
-                    // Show success message
-                    showSuccessMessage(data.message || 'Registration successful!');
-                    
-                    // Re-render tournaments
-                    renderUpcomingTournaments();
-                } else {
-                    // Show error message
-                    showErrorMessage(data.error || 'Registration failed. Please try again.');
-                }
-            })
-            .catch(error => {
-                console.error('Registration error:', error);
-                showErrorMessage('Registration failed. Please try again.');
-            })
-            .finally(() => {
-                // Restore button state
-                button.disabled = false;
-                button.textContent = originalText;
-            });
-        }
+        // Create a custom confirmation dialog instead of using alert()
+        const confirmDialog = document.createElement('div');
+        confirmDialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        confirmDialog.innerHTML = `
+            <div class="bg-white rounded-lg p-6 max-w-md mx-4">
+                <h3 class="text-lg font-semibold mb-4">Confirm Tournament Registration</h3>
+                <p class="text-gray-600 mb-4">Are you sure you want to register for "${tournament.name}"?</p>
+                <div class="text-sm text-gray-500 mb-4">
+                    <p>Entry fee: $${tournament.entry_fee}</p>
+                    <p>Date: ${tournament.date}</p>
+                    <p>Time: ${tournament.time}</p>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button onclick="confirmRegistration(${tournamentId})" class="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600">Confirm</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(confirmDialog);
+    }
+}
+
+// Confirm tournament registration
+function confirmRegistration(tournamentId) {
+    // Remove the dialog
+    document.querySelector('.fixed.inset-0')?.remove();
+    
+    const tournament = allTournamentsData.find(t => t.id === tournamentId);
+    if (tournament) {
+        // Show loading state
+        const button = document.querySelector(`button[onclick="registerForTournament(${tournamentId})"]`);
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Registering...';
+        
+        // Call registration API
+        fetch(`/api/tournaments/${tournamentId}/register/`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update tournament data
+                tournament.available_slots -= 1;
+                tournament.is_registered = true;
+                tournament.is_full = tournament.available_slots === 0;
+                
+                // Show success message
+                showSuccessMessage(data.message || 'Registration successful!');
+                
+                // Re-render tournaments
+                renderAllTournaments();
+            } else {
+                // Show error message
+                showErrorMessage(data.error || 'Registration failed. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Registration error:', error);
+            showErrorMessage('Registration failed. Please try again.');
+        })
+        .finally(() => {
+            // Restore button state
+            button.disabled = false;
+            button.textContent = originalText;
+        });
+    }
+}
+
+// View tournament details
+function viewTournamentDetails(tournamentId) {
+    const tournament = allTournamentsData.find(t => t.id === tournamentId);
+    if (tournament) {
+        // For now, just show a simple message - this could be expanded to show a modal with full details
+        showSuccessMessage(`Viewing details for "${tournament.name}" - Feature coming soon!`);
     }
 }
 
@@ -303,56 +376,6 @@ function showErrorMessage(message) {
         toast.remove();
     }, 3000);
 }
-
-// Search Upcoming Tournaments
-document.getElementById('upcomingTournamentsSearch')?.addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const filteredTournaments = upcomingTournamentsData.filter(tournament => 
-        tournament.name.toLowerCase().includes(searchTerm) ||
-        tournament.venue.toLowerCase().includes(searchTerm)
-    );
-    
-    const grid = document.getElementById('upcomingTournamentsGrid');
-    if (filteredTournaments.length === 0) {
-        grid.innerHTML = `
-            <div class="col-span-full text-center py-8">
-                <i class="fas fa-search fa-2x text-gray-300 mb-2"></i>
-                <p class="text-gray-600">No tournaments match your search</p>
-            </div>
-        `;
-    } else {
-        const originalData = upcomingTournamentsData;
-        upcomingTournamentsData = filteredTournaments;
-        renderUpcomingTournaments();
-        upcomingTournamentsData = originalData;
-    }
-});
-
-// Filter Upcoming Tournaments
-document.getElementById('upcomingTournamentsFilter')?.addEventListener('change', function(e) {
-    const categoryFilter = e.target.value;
-    
-    if (categoryFilter === '') {
-        renderUpcomingTournaments();
-    } else {
-        const filteredTournaments = upcomingTournamentsData.filter(tournament => tournament.category === categoryFilter);
-        const grid = document.getElementById('upcomingTournamentsGrid');
-        
-        if (filteredTournaments.length === 0) {
-            grid.innerHTML = `
-                <div class="col-span-full text-center py-8">
-                    <i class="fas fa-filter fa-2x text-gray-300 mb-2"></i>
-                    <p class="text-gray-600">No tournaments in this category</p>
-                </div>
-            `;
-        } else {
-            const originalData = upcomingTournamentsData;
-            upcomingTournamentsData = filteredTournaments;
-            renderUpcomingTournaments();
-            upcomingTournamentsData = originalData;
-        }
-    }
-});
 
 // Initialize on page load
 loadTournamentData();

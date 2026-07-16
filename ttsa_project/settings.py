@@ -161,6 +161,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Custom User model
+AUTH_USER_MODEL = 'ttsa_app.User'
+
 # Login URLs
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
@@ -169,8 +172,8 @@ LOGOUT_REDIRECT_URL = '/'
 # Session configuration
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = False  # Allow HTTP for development
+CSRF_COOKIE_SECURE = False  # Allow HTTP for development
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'

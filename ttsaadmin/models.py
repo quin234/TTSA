@@ -1,6 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.utils import timezone
 import re
 
@@ -57,7 +57,7 @@ class SyncNotification(models.Model):
         ('video_added', 'Video Added'),
     ]
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True)
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, db_index=True)
     title = models.CharField(max_length=200)
     message = models.TextField()
@@ -85,9 +85,8 @@ class Tournament(models.Model):
     """Model for chess tournaments"""
     
     STATUS_CHOICES = [
-        ('draft', 'Draft'),
-        ('published', 'Published'),
-        ('registration', 'Registration Open'),
+       
+        ('upcoming', 'Upcoming'),
         ('ongoing', 'Ongoing'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
@@ -135,7 +134,7 @@ class Tournament(models.Model):
     is_featured = models.BooleanField(default=False, db_index=True)
     
     # Metadata
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -154,16 +153,18 @@ class Tournament(models.Model):
     
     def clean(self):
         """Validate tournament data"""
-        if self.end_date <= self.start_date:
+        # Validate dates only if they are not None
+        if self.end_date is not None and self.start_date is not None and self.end_date <= self.start_date:
             raise ValidationError('End date must be after start date')
         
-        if self.registration_deadline >= self.start_date:
+        if self.registration_deadline is not None and self.start_date is not None and self.registration_deadline >= self.start_date:
             raise ValidationError('Registration deadline must be before tournament start date')
         
-        if self.max_players < 2:
+        # Validate numeric values only if they are not None
+        if self.max_players is not None and self.max_players < 2:
             raise ValidationError('Maximum players must be at least 2')
         
-        if self.rounds < 1:
+        if self.rounds is not None and self.rounds < 1:
             raise ValidationError('Number of rounds must be at least 1')
     
     @property
@@ -179,6 +180,11 @@ class Tournament(models.Model):
             self.registration_deadline > timezone.now() and
             self.available_slots > 0
         )
+    
+    @property
+    def registered_players_count(self):
+        """Get count of registered players only"""
+        return self.players.filter(status='registered').count()
     
     @property
     def is_full(self):
@@ -323,3 +329,177 @@ class TournamentGame(models.Model):
         elif self.result == '½-½':
             return None
         return None
+
+
+class TournamentRound(models.Model):
+    """Model for tournament rounds"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('pairing', 'Pairing'),
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name='tournament_rounds', db_index=True)
+    round_number = models.PositiveIntegerField(db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    
+    # Timing
+    start_time = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    pairings_generated_at = models.DateTimeField(null=True, blank=True)
+    
+    # Configuration
+    time_control = models.CharField(max_length=20, help_text="Time control for this round")
+    bye_players = models.ManyToManyField(TournamentPlayer, related_name='bye_rounds', blank=True)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['round_number']
+        indexes = [
+            models.Index(fields=['tournament', 'round_number']),
+            models.Index(fields=['status']),
+        ]
+        unique_together = ['tournament', 'round_number']
+    
+    def __str__(self):
+        return f"{self.tournament.name} - Round {self.round_number}"
+    
+    @property
+    def games_count(self):
+        return TournamentGame.objects.filter(tournament=self.tournament, round_number=self.round_number).count()
+    
+    @property
+    def completed_games_count(self):
+        return TournamentGame.objects.filter(tournament=self.tournament, round_number=self.round_number, status='completed').count()
+    
+    @property
+    def is_active(self):
+        return self.status == 'active'
+    
+    @property
+    def is_completed(self):
+        return self.status == 'completed'
+
+
+class TournamentStanding(models.Model):
+    """Model for tournament standings and tie-break calculations"""
+    
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name='standings', db_index=True)
+    player = models.ForeignKey(TournamentPlayer, on_delete=models.CASCADE, related_name='standings', db_index=True)
+    round_number = models.PositiveIntegerField(db_index=True)
+    
+    # Basic Statistics
+    points = models.DecimalField(max_digits=5, decimal_places=2, default=0, db_index=True)
+    games_played = models.PositiveIntegerField(default=0)
+    wins = models.PositiveIntegerField(default=0)
+    draws = models.PositiveIntegerField(default=0)
+    losses = models.PositiveIntegerField(default=0)
+    
+    # Tie-break scores
+    buchholz = models.DecimalField(max_digits=6, decimal_places=2, default=0, db_index=True)
+    sonneborn_berger = models.DecimalField(max_digits=6, decimal_places=2, default=0, db_index=True)
+    cumulative_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    progressive_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    
+    # Color balance
+    white_games = models.PositiveIntegerField(default=0)
+    black_games = models.PositiveIntegerField(default=0)
+    
+    # Ranking
+    rank = models.PositiveIntegerField(null=True, blank=True, db_index=True)
+    previous_rank = models.PositiveIntegerField(null=True, blank=True)
+    
+    # Metadata
+    calculated_at = models.DateTimeField(auto_now=True, db_index=True)
+    
+    class Meta:
+        ordering = ['-points', '-buchholz', '-sonneborn_berger', 'player__player_name']
+        indexes = [
+            models.Index(fields=['tournament', 'round_number', '-points']),
+            models.Index(fields=['tournament', 'player', 'round_number']),
+            models.Index(fields=['rank']),
+        ]
+        unique_together = ['tournament', 'player', 'round_number']
+    
+    def __str__(self):
+        return f"{self.player.player_name} - {self.points} points (R{self.round_number})"
+
+
+class TournamentPairing(models.Model):
+    """Model for tournament pairings and pairing history"""
+    
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name='pairings', db_index=True)
+    round_number = models.PositiveIntegerField(db_index=True)
+    white_player = models.ForeignKey(TournamentPlayer, on_delete=models.CASCADE, related_name='white_pairings', db_index=True)
+    black_player = models.ForeignKey(TournamentPlayer, on_delete=models.CASCADE, related_name='black_pairings', db_index=True)
+    
+    # Pairing details
+    board_number = models.PositiveIntegerField()
+    pairing_method = models.CharField(max_length=50, default='swiss')  # swiss, manual, etc.
+    color_preference = models.CharField(max_length=10, default='balanced')
+    
+    # Pairing scores (for Swiss algorithm)
+    white_score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    black_score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    score_difference = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    
+    # Opponent history
+    mutual_games = models.PositiveIntegerField(default=0, help_text="Number of times these players have faced each other")
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    class Meta:
+        ordering = ['round_number', 'board_number']
+        indexes = [
+            models.Index(fields=['tournament', 'round_number', 'board_number']),
+            models.Index(fields=['white_player', 'tournament']),
+            models.Index(fields=['black_player', 'tournament']),
+        ]
+        unique_together = ['tournament', 'round_number', 'board_number']
+    
+    def __str__(self):
+        return f"R{self.round_number} B{self.board_number}: {self.white_player.player_name} (W) vs {self.black_player.player_name} (B)"
+
+
+class TournamentResult(models.Model):
+    """Model for detailed game results"""
+    
+    game = models.OneToOneField(TournamentGame, on_delete=models.CASCADE, related_name='detailed_result', db_index=True)
+    
+    # Result details
+    result = models.CharField(max_length=5, choices=TournamentGame.RESULT_CHOICES)
+    result_method = models.CharField(max_length=50, default='normal')  # normal, forfeit, default, etc.
+    
+    # Time information
+    white_time_remaining = models.CharField(max_length=20, blank=True)
+    black_time_remaining = models.CharField(max_length=20, blank=True)
+    
+    # Additional details
+    moves = models.TextField(blank=True, help_text="Full move list in algebraic notation")
+    opening = models.CharField(max_length=100, blank=True)
+    termination = models.CharField(max_length=100, blank=True)
+    
+    # Scoring confirmation
+    points_awarded = models.BooleanField(default=False)
+    standings_updated = models.BooleanField(default=False)
+    
+    # Metadata
+    entered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    entered_at = models.DateTimeField(auto_now_add=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['game', 'result']),
+            models.Index(fields=['entered_at']),
+        ]
+    
+    def __str__(self):
+        return f"Result for {self.game}: {self.result}"

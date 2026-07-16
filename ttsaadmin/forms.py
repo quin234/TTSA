@@ -202,7 +202,56 @@ class VideoLessonForm(forms.ModelForm):
 
 
 class TournamentForm(forms.ModelForm):
-    """Form for creating and editing tournaments"""
+    """Professional form for creating and editing tournaments"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add Bootstrap classes and placeholders
+        for field_name, field in self.fields.items():
+            if field.widget.__class__.__name__ in ['TextInput', 'NumberInput', 'EmailInput']:
+                field.widget.attrs.update({'class': 'form-control'})
+            elif field.widget.__class__.__name__ == 'Textarea':
+                field.widget.attrs.update({'class': 'form-control', 'rows': 4})
+            elif field.widget.__class__.__name__ == 'Select':
+                field.widget.attrs.update({'class': 'form-select'})
+            elif field.widget.__class__.__name__ == 'CheckboxInput':
+                field.widget.attrs.update({'class': 'form-check-input'})
+        
+        # Set initial values and placeholders
+        self.fields['name'].widget.attrs.update({
+            'placeholder': 'Tournament name'
+        })
+        self.fields['description'].widget.attrs.update({
+            'placeholder': 'Tournament description...'
+        })
+        self.fields['venue'].widget.attrs.update({
+            'placeholder': 'Venue location'
+        })
+        self.fields['time_control'].widget.attrs.update({
+            'placeholder': '90+30'
+        })
+        self.fields['entry_fee'].widget.attrs.update({
+            'placeholder': '0.00',
+            'step': '0.01'
+        })
+        
+        # Set help texts
+        self.fields['rounds'].help_text = '1-15 rounds'
+        self.fields['time_control'].help_text = 'Minutes+increment (e.g., 90+30)'
+        self.fields['max_players'].help_text = '2-1000 players'
+        self.fields['entry_fee'].help_text = 'USD (0 for free)'
+        
+        # Make fields required
+        self.fields['name'].required = True
+        self.fields['venue'].required = True
+        self.fields['category'].required = True
+        self.fields['format'].required = True
+        self.fields['rounds'].required = True
+        self.fields['time_control'].required = True
+        self.fields['start_date'].required = True
+        self.fields['end_date'].required = True
+        self.fields['registration_deadline'].required = True
+        self.fields['max_players'].required = True
     
     class Meta:
         model = Tournament
@@ -214,17 +263,14 @@ class TournamentForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Enter tournament name',
                 'required': True
             }),
             'description': forms.Textarea(attrs={
                 'class': 'form-control',
-                'placeholder': 'Enter tournament description',
                 'rows': 4
             }),
             'venue': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Enter venue',
                 'required': True
             }),
             'category': forms.Select(attrs={
@@ -243,7 +289,6 @@ class TournamentForm(forms.ModelForm):
             }),
             'time_control': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'e.g., 90+30, 15+10',
                 'required': True
             }),
             'start_date': forms.DateTimeInput(attrs={
@@ -264,8 +309,7 @@ class TournamentForm(forms.ModelForm):
             'entry_fee': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': 0,
-                'step': '0.01',
-                'required': True
+                'step': '0.01'
             }),
             'max_players': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -293,16 +337,18 @@ class TournamentForm(forms.ModelForm):
         max_players = cleaned_data.get('max_players')
         rounds = cleaned_data.get('rounds')
         
+        # Validate date logic only if dates are provided
         if start_date and end_date and start_date >= end_date:
             raise ValidationError('End date must be after start date')
         
         if start_date and registration_deadline and registration_deadline >= start_date:
             raise ValidationError('Registration deadline must be before tournament start date')
         
-        if max_players and max_players < 2:
+        # Validate numeric values only if provided
+        if max_players is not None and max_players < 2:
             raise ValidationError('Maximum players must be at least 2')
         
-        if rounds and rounds < 1:
+        if rounds is not None and rounds < 1:
             raise ValidationError('Number of rounds must be at least 1')
         
         return cleaned_data

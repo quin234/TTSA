@@ -406,6 +406,22 @@
                         </a>
                     </li>
                     {% endif %}
+                    {% if user.is_authenticated and user.can_manage_tournaments %}
+                    <li>
+                        <a href="{% url 'tournament_list' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-indigo-50 transition {% if request.resolver_match.url_name == 'tournament_list' or request.resolver_match.url_name == 'tournament_create' %}bg-indigo-100 text-indigo-700{% endif %}">
+                            <i class="fas fa-tasks text-lg"></i>
+                            <span>Manage Tournaments</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.is_authenticated and user.is_ttsa_admin %}
+                    <li>
+                        <a href="{% url 'admin_dashboard' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-red-50 transition {% if request.resolver_match.url_name == 'admin_dashboard' %}bg-red-100 text-red-700{% endif %}">
+                            <i class="fas fa-shield-alt text-lg"></i>
+                            <span>Admin Dashboard</span>
+                        </a>
+                    </li>
+                    {% endif %}
                     {% if user.is_authenticated %}
                     <li>
                         <a href="{% url 'settings' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'settings' %}bg-purple-100 text-purple-700{% endif %}">

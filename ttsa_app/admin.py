@@ -1,9 +1,23 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
 from .models import (
-    PlayerProfile, Achievement, PlayerAchievement, ChessGame,
+    User, PlayerProfile, OrganizerProfile, Achievement, PlayerAchievement, ChessGame,
     Lesson, PlayerLesson, Puzzle, PlayerPuzzle, Leaderboard,
     Friend, Message, AcademyNews
 )
+
+
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
+    list_display = ['username', 'email', 'role', 'is_staff', 'is_active']
+    list_filter = ['role', 'is_staff', 'is_active']
+    search_fields = ['username', 'email']
+    fieldsets = UserAdmin.fieldsets + (
+        ('TTSA Role', {'fields': ('role',)}),
+    )
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        ('TTSA Role', {'fields': ('role',)}),
+    )
 
 
 @admin.register(PlayerProfile)
@@ -11,6 +25,13 @@ class PlayerProfileAdmin(admin.ModelAdmin):
     list_display = ['user', 'rating', 'coins', 'level', 'learning_streak']
     list_filter = ['level', 'learning_streak']
     search_fields = ['user__username', 'user__email']
+
+
+@admin.register(OrganizerProfile)
+class OrganizerProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'organization_name', 'is_verified', 'tournaments_created', 'created_at']
+    list_filter = ['is_verified', 'created_at']
+    search_fields = ['user__username', 'organization_name', 'contact_email']
 
 
 @admin.register(Achievement)

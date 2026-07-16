@@ -14,6 +14,59 @@
     <!-- Settings Forms Grid -->
     <div class="grid lg:grid-cols-3 gap-4">
         
+        <!-- Account Role -->
+        <div class="bg-white rounded-xl shadow-lg p-4">
+            <h2 class="fredoka text-lg font-bold text-gray-800 mb-3">Account Role</h2>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Current Role</label>
+                    <div class="flex items-center space-x-2">
+                        {% if user.is_ttsa_admin %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">
+                            <i class="fas fa-shield-alt mr-1"></i> TTSA Admin
+                        </span>
+                        {% elif user.is_player_plus %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800">
+                            <i class="fas fa-star mr-1"></i> Player Plus
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+                            <i class="fas fa-user mr-1"></i> Player
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if user.is_player %}
+                <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                    <p class="text-sm text-indigo-800 mb-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Upgrade to <strong>Player Plus</strong> to create and manage tournaments. All your history, ratings, games, and statistics will be preserved.
+                    </p>
+                    <form method="POST" action="{% url 'upgrade_to_player_plus' %}" id="upgrade-form">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full bg-indigo-600 text-white py-1.5 px-3 rounded text-sm hover:bg-indigo-700 transition font-medium">
+                            <i class="fas fa-arrow-up mr-1"></i> Upgrade to Player Plus
+                        </button>
+                    </form>
+                </div>
+                {% elif user.is_player_plus %}
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p class="text-sm text-green-800">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        You can create and manage tournaments. Visit the <a href="{% url 'tournament_list' %}" class="underline font-medium">Tournament Management</a> page to get started.
+                    </p>
+                </div>
+                {% elif user.is_ttsa_admin %}
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p class="text-sm text-red-800">
+                        <i class="fas fa-shield-alt mr-1"></i>
+                        You have full admin access. Visit the <a href="{% url 'admin_dashboard' %}" class="underline font-medium">Admin Dashboard</a> to manage the platform.
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
         <!-- Username Change -->
         <div class="bg-white rounded-xl shadow-lg p-4">
             <h2 class="fredoka text-lg font-bold text-gray-800 mb-3">Username</h2>

@@ -26,6 +26,10 @@ urlpatterns = [
     path('settings/', views.settings_view, name='settings'),
     path('settings/change-username/', views.change_username, name='change_username'),
     path('settings/change-password/', views.change_password, name='change_password'),
+    path('settings/upgrade-to-player-plus/', views.upgrade_to_player_plus, name='upgrade_to_player_plus'),
+    
+    # Role API endpoint
+    path('api/user-role/', views.user_role_api, name='user_role_api'),
     
     # Multiplayer game URLs
     path('multiplayer/create/', views.multiplayer_create, name='multiplayer_create'),

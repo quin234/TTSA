@@ -9,11 +9,13 @@ from datetime import timedelta
 from functools import wraps
 from django.db import models
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from .models import (
-    PlayerProfile, Achievement, PlayerAchievement, ChessGame,
+    User, PlayerProfile, OrganizerProfile, Achievement, PlayerAchievement, ChessGame,
     Lesson, PlayerLesson, Puzzle,	PlayerPuzzle, Leaderboard,
-    Friend, Message, AcademyNews, MultiplayerGame, GameMove, VideoLesson, TournamentRegistration
+    Friend, Message, AcademyNews, MultiplayerGame, GameMove, VideoLesson
 )
+from ttsaadmin.models import TournamentPlayer
 from .stockfish_service import stockfish_service, DifficultyLevel
 import random
 import json
@@ -28,6 +30,18 @@ def login_required_with_message(view_func):
         if not request.user.is_authenticated:
             messages.info(request, 'This feature requires an account. Sign up to connect with friends, join tournaments, and access all social features!')
             return redirect('signup')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+
+# Decorator for views that require tournament management permissions
+def tournament_manager_required(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+        if not request.user.can_manage_tournaments:
+            return JsonResponse({'success': False, 'error': 'You do not have permission to manage tournaments. Upgrade to PLAYER_PLUS to create and manage tournaments.'}, status=403)
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
@@ -419,6 +433,56 @@ def change_password(request):
     return redirect('settings')
 
 
+@login_required
+def upgrade_to_player_plus(request):
+    """View for upgrading a player to PLAYER_PLUS role."""
+    if request.method == 'POST':
+        user = request.user
+        
+        if user.role != 'player':
+            messages.error(request, 'Only regular players can upgrade to PLAYER_PLUS.')
+            return redirect('settings')
+        
+        # Upgrade the user's role - preserves all history, ratings, games, and statistics
+        if user.upgrade_to_player_plus():
+            # OrganizerProfile is auto-created by the signal
+            messages.success(request, 'Congratulations! You have been upgraded to PLAYER_PLUS. You can now create and manage tournaments.')
+            
+            # Return JSON if requested via AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Upgraded to PLAYER_PLUS successfully!',
+                    'role': user.role,
+                })
+        else:
+            messages.error(request, 'Unable to upgrade at this time.')
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Unable to upgrade at this time.',
+                })
+        
+        return redirect('settings')
+    
+    return redirect('settings')
+
+
+@login_required
+def user_role_api(request):
+    """API endpoint to get current user's role and permissions."""
+    user = request.user
+    return JsonResponse({
+        'success': True,
+        'role': user.role,
+        'is_player': user.is_player,
+        'is_player_plus': user.is_player_plus,
+        'is_ttsa_admin': user.is_ttsa_admin,
+        'can_manage_tournaments': user.can_manage_tournaments,
+    })
+
+
 def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -429,13 +493,9 @@ def login_view(request):
             login(request, user)
             messages.success(request, f'Welcome back, {username}!')
             
-            # Check if user is a TTSA admin and redirect accordingly
-            try:
-                profile = user.playerprofile
-                if profile.ttsa_admin:
-                    return redirect('admin_dashboard')
-            except PlayerProfile.DoesNotExist:
-                pass
+            # Redirect TTSA admins to admin dashboard
+            if user.is_ttsa_admin:
+                return redirect('admin_dashboard')
             
             return redirect('dashboard')
         else:
@@ -446,7 +506,7 @@ def login_view(request):
 
 def signup(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
             
@@ -505,7 +565,7 @@ def signup(request):
             login(request, user)
             return redirect('dashboard')
     else:
-        form = UserCreationForm()
+        form = CustomUserCreationForm()
     return render(request, 'ttsa_app/signup.html', {'form': form})
 
 
@@ -964,10 +1024,10 @@ def tournaments_api(request):
     if request.method == 'GET':
         from ttsaadmin.models import Tournament
         from django.db.models import Q
+        from django.utils import timezone
         
-        # Get only published/registration tournaments for public view
+        # Get all active tournaments
         tournaments = Tournament.objects.filter(
-            status__in=['published', 'registration'],
             is_active=True
         ).select_related('created_by').prefetch_related('players')
         
@@ -984,24 +1044,28 @@ def tournaments_api(request):
         if category:
             tournaments = tournaments.filter(category=category)
         
-        # Order by start date (upcoming first)
+        # Order by start date
         tournaments = tournaments.order_by('start_date')
         
-        tournaments_list = []
+        # Categorize tournaments
+        upcoming = []
+        ongoing = []
+        completed = []
+        
         for tournament in tournaments:
             # Check if current user is registered
             is_registered = False
-            if request.user.is_authenticated:
+            if hasattr(request, 'user') and request.user.is_authenticated:
                 try:
                     profile = request.user.playerprofile
-                    is_registered = TournamentRegistration.objects.filter(
-                        player=profile, 
+                    is_registered = TournamentPlayer.objects.filter(
+                        player_name=profile.user.username, 
                         tournament=tournament
                     ).exists()
-                except PlayerProfile.DoesNotExist:
+                except (PlayerProfile.DoesNotExist, AttributeError):
                     pass
             
-            tournaments_list.append({
+            tournament_data = {
                 'id': tournament.id,
                 'name': tournament.name,
                 'venue': tournament.venue,
@@ -1025,11 +1089,25 @@ def tournaments_api(request):
                 'is_registration_open': tournament.is_registration_open,
                 'is_full': tournament.is_full,
                 'is_registered': is_registered,
-            })
+            }
+            
+            # Categorize based on status and dates
+            now = timezone.now()
+            if tournament.status in ['published', 'registration', 'upcoming'] and tournament.start_date > now:
+                upcoming.append(tournament_data)
+            elif tournament.status in ['in_progress', 'ongoing'] or (tournament.start_date <= now <= tournament.end_date):
+                ongoing.append(tournament_data)
+            elif tournament.status in ['completed', 'finished'] or tournament.end_date < now:
+                completed.append(tournament_data)
+            # Handle edge case: tournaments with 'upcoming' status but past start date
+            elif tournament.status == 'upcoming' and tournament.start_date <= now:
+                ongoing.append(tournament_data)
         
         return JsonResponse({
             'success': True,
-            'tournaments': tournaments_list,
+            'upcoming': upcoming,
+            'ongoing': ongoing,
+            'completed': completed,
         })
     
     return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
@@ -1044,7 +1122,7 @@ def tournament_register_api(request, tournament_id):
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
     
     try:
-        from ttsaadmin.models import Tournament
+        from ttsaadmin.models import Tournament, TournamentPlayer
         
         # Get tournament
         tournament = get_object_or_404(Tournament, id=tournament_id)
@@ -1067,8 +1145,8 @@ def tournament_register_api(request, tournament_id):
             }, status=400)
         
         # Check if already registered
-        existing_registration = TournamentRegistration.objects.filter(
-            player=profile, 
+        existing_registration = TournamentPlayer.objects.filter(
+            player_name=profile.user.username, 
             tournament=tournament
         ).first()
         
@@ -1079,8 +1157,12 @@ def tournament_register_api(request, tournament_id):
             }, status=400)
         
         # Create registration
-        registration = TournamentRegistration.objects.create(
-            player=profile,
+        registration = TournamentPlayer.objects.create(
+            player_name=profile.user.username,
+            rating=profile.rating or 1200,
+            email=profile.user.email,
+            phone=getattr(profile, 'phone', '') or '',
+            category='open',
             tournament=tournament,
             status='registered'
         )
@@ -1111,7 +1193,7 @@ def tournament_unregister_api(request, tournament_id):
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
     
     try:
-        from ttsaadmin.models import Tournament
+        from ttsaadmin.models import Tournament, TournamentPlayer
         
         # Get tournament
         tournament = get_object_or_404(Tournament, id=tournament_id)
@@ -1120,8 +1202,8 @@ def tournament_unregister_api(request, tournament_id):
         profile = get_object_or_404(PlayerProfile, user=request.user)
         
         # Find registration
-        registration = TournamentRegistration.objects.filter(
-            player=profile, 
+        registration = TournamentPlayer.objects.filter(
+            player_name=profile.user.username, 
             tournament=tournament
         ).first()
         
@@ -1169,8 +1251,8 @@ def my_tournaments_api(request):
     try:
         profile = get_object_or_404(PlayerProfile, user=request.user)
         
-        registrations = TournamentRegistration.objects.filter(
-            player=profile
+        registrations = TournamentPlayer.objects.filter(
+            player_name=profile.user.username
         ).select_related('tournament').order_by('-registered_at')
         
         registrations_list = []
