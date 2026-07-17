@@ -713,83 +713,71 @@
 
         <!-- Round Management Section (Hidden by default) -->
         <div id="roundManagementView" style="display: none;">
-            <div class="mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">Round Management</h5>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="hideRoundManagement()">
-                        Back to Details
-                    </button>
-                </div>
+            <!-- Compact Header -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0 fw-bold text-secondary text-uppercase small">Round Management</h6>
+                <button class="btn btn-sm btn-outline-secondary" onclick="hideRoundManagement()">
+                    <i class="fas fa-arrow-left me-1"></i>Back
+                </button>
+            </div>
 
-                <!-- Simple Stats Row -->
-                <div class="d-flex gap-4 mb-4 flex-wrap">
-                    <div class="d-flex align-items-center">
-                        <span class="text-muted me-2">Current Round:</span>
-                        <strong id="currentRound">0</strong>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <span class="text-muted me-2">Total Players:</span>
-                        <strong id="totalPlayers">0</strong>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <span class="text-muted me-2">Total Rounds:</span>
-                        <strong id="totalRounds">0</strong>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <span class="text-muted me-2">Games Completed:</span>
-                        <strong id="gamesCompleted">0</strong>
-                    </div>
-                </div>
+            <!-- Compact Controls -->
+            <div class="card border shadow-sm mb-2 round-control-card">
+                <div class="card-body p-2">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <!-- Stats -->
+                        <div class="d-flex flex-wrap gap-3 small text-muted">
+                            <span class="text-nowrap">Round <strong id="currentRound" class="text-dark">0</strong></span>
+                            <span class="text-nowrap">Players <strong id="totalPlayers" class="text-dark">0</strong></span>
+                            <span class="text-nowrap">Rounds <strong id="totalRounds" class="text-dark">0</strong></span>
+                            <span class="text-nowrap">Done <strong id="gamesCompleted" class="text-dark">0</strong></span>
+                        </div>
 
-                <!-- Action Buttons -->
-                <div class="d-flex gap-2 mb-4 flex-wrap">
-                    <button class="btn btn-primary btn-sm" onclick="pairNextRound()" id="pairNextRoundBtn">
-                        Pair Next Round
-                    </button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="printPairings()">
-                        Print Pairings
-                    </button>
-                    <button class="btn btn-outline-info btn-sm" onclick="printStandings()">
-                        Print Standings
-                    </button>
-                </div>
-
-                <!-- Section Toggle Buttons -->
-                <div class="d-flex justify-content-center mb-4">
-                    <div class="btn-group btn-group-sm" id="sectionToggle">
-                        <button class="btn btn-primary" onclick="showSection('standings')" id="standingsBtn">
-                            Current Standings
-                        </button>
-                        <button class="btn btn-outline-secondary" onclick="showSection('pairings')" id="pairingsBtn">
-                            Round Pairings
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Round Navigation (shown only for pairings) -->
-                <div class="d-flex justify-content-center mb-4" id="roundNavigation" style="display: none;">
-                    <div class="btn-group btn-group-sm" id="roundNavigationButtons">
-                        <!-- Round buttons will be dynamically generated -->
+                        <!-- Toolbar -->
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <div class="btn-group btn-group-sm" id="sectionToggle">
+                                <button class="btn btn-primary" onclick="showSection('standings')" id="standingsBtn">
+                                    <i class="fas fa-list-ol me-1"></i>Standings
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="showSection('pairings')" id="pairingsBtn">
+                                    <i class="fas fa-chess me-1"></i>Pairings
+                                </button>
+                            </div>
+                            <button class="btn btn-sm btn-success" onclick="pairNextRound()" id="pairNextRoundBtn">
+                                <i class="fas fa-plus me-1"></i>Pair Next
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="printPairings()">
+                                <i class="fas fa-print me-1"></i>Pairings
+                            </button>
+                            <button class="btn btn-sm btn-outline-info" onclick="printStandings()">
+                                <i class="fas fa-print me-1"></i>Standings
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Round Navigation (shown only for pairings) -->
+            <div class="d-flex justify-content-start mb-2" id="roundNavigation" style="display: none;">
+                <div class="btn-group btn-group-sm" id="roundNavigationButtons"></div>
+            </div>
+
             <!-- Current Standings Section -->
             <div id="standingsSection">
-                <h5 class="mb-3">Current Standings</h5>
+                <h6 class="mb-2 fw-bold">Current Standings</h6>
                 <div class="table-responsive">
-                    <table class="table table-hover" id="standingsTable">
-                        <thead>
+                    <table class="table table-sm table-hover align-middle" id="standingsTable">
+                        <thead class="table-light">
                             <tr>
-                                <th>Rank</th>
+                                <th class="text-center">Rank</th>
                                 <th>Player</th>
-                                <th>Rating</th>
-                                <th>Points</th>
-                                <th>Wins</th>
-                                <th>Losses</th>
-                                <th>Draws</th>
-                                <th>Buchholz</th>
-                                <th>Sonneborn-Berger</th>
+                                <th class="text-center">Rating</th>
+                                <th class="text-center">Points</th>
+                                <th class="text-center">W</th>
+                                <th class="text-center">D</th>
+                                <th class="text-center">L</th>
+                                <th class="text-center">Buchholz</th>
+                                <th class="text-center">S-B</th>
                             </tr>
                         </thead>
                         <tbody id="standingsTableBody">
@@ -806,44 +794,33 @@
 
             <!-- Round Pairings Section (Hidden by default) -->
             <div id="pairingsSection" style="display: none;">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">Round <span id="pairingRoundNumber">3</span> Pairings</h5>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-primary btn-sm" onclick="generateNextRound()" id="generateRoundBtn">
-                            <i class="fas fa-plus me-1"></i>Generate Next Round
-                        </button>
-                    </div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 fw-bold">Round <span id="pairingRoundNumber">3</span> Pairings</h6>
+                    <button class="btn btn-sm btn-primary" onclick="submitResults()" id="submitResultsBtn">
+                        <i class="fas fa-check me-1"></i>Submit Results
+                    </button>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle" id="pairingsTable">
+                    <table class="table table-sm table-striped table-hover align-middle" id="pairingsTable">
                         <thead class="table-light">
                             <tr>
-                                <th class="text-center" style="width: 80px;">Board</th>
-                                <th style="width: 200px;">White Player</th>
-                                <th class="text-center" style="width: 100px;">White Rating</th>
-                                <th class="text-center" style="width: 120px;">Result</th>
-                                <th style="width: 200px;">Black Player</th>
-                                <th class="text-center" style="width: 100px;">Black Rating</th>
+                                <th class="text-center" style="width: 60px;">Board</th>
+                                <th style="width: auto;">White Player</th>
+                                <th class="text-center" style="width: 70px;">Rating</th>
+                                <th class="text-center" style="width: 100px;">Result</th>
+                                <th style="width: auto;">Black Player</th>
+                                <th class="text-center" style="width: 70px;">Rating</th>
                             </tr>
                         </thead>
                         <tbody id="pairingsTableBody">
                             <tr>
-                                <td colspan="6" class="text-center py-5">
+                                <td colspan="6" class="text-center py-4">
                                     <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
                                     <span class="text-muted">Loading pairings...</span>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
-                </div>
-                <div class="mt-3 d-flex justify-content-between align-items-center">
-                    <div class="text-muted small">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Select results and click "Submit Results" to update standings
-                    </div>
-                    <button class="btn btn-primary" onclick="submitResults()" id="submitResultsBtn">
-                        <i class="fas fa-check me-1"></i>Submit Results
-                    </button>
                 </div>
             </div>
         </div>
@@ -2204,6 +2181,8 @@
         const tournament = tournamentsData.find(t => t.id === tournamentId);
 
         if (tournament) {
+            // Initialize WebSocket for real-time standings
+            initializeStandingsWebSocket();
             // Load registered players
             loadRegisteredPlayers(tournament);
 
@@ -2216,6 +2195,10 @@
     function hideTournamentDetails() {
         document.getElementById('tournamentsListView').style.display = 'block';
         document.getElementById('tournamentDetailsView').style.display = 'none';
+        
+        // Clean up WebSocket connection
+        cleanupStandingsWebSocket();
+        
         currentTournamentId = null;
     }
 
@@ -2584,8 +2567,23 @@
 
     // Load registered players for tournament
     function loadRegisteredPlayers(tournament) {
+        let tournamentId = null;
+        
+        if (tournament && tournament.id) {
+            tournamentId = tournament.id;
+        } else if (currentTournamentId) {
+            tournamentId = currentTournamentId;
+        }
+        
+        if (!tournamentId) {
+            console.error('Invalid tournament parameter or no current tournament selected');
+            registeredPlayersData = [];
+            renderRegisteredPlayersTable();
+            return;
+        }
+        
         // Fetch tournament data from API to get real registered players
-        fetch(`/ttsa-admin/api/tournaments/${tournament.id}/`, {
+        fetch(`/ttsa-admin/api/tournaments/${tournamentId}/`, {
             credentials: 'same-origin',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
@@ -2603,7 +2601,7 @@
                 registeredPlayersData = [];
             } else {
                 // Use the players data from the API response
-                registeredPlayersData = data.players || [];
+                registeredPlayersData = (data.players || []).filter(player => player && player.id);
                 console.log('Loaded registered players from API:', registeredPlayersData);
             }
             renderRegisteredPlayersTable();
@@ -2632,7 +2630,11 @@
             return;
         }
 
-        tableBody.innerHTML = registeredPlayersData.map(player => `
+        tableBody.innerHTML = registeredPlayersData.map(player => {
+            // Skip if player is undefined or null
+            if (!player) return '';
+            
+            return `
             <tr>
                 <td>
                     <div class="d-flex align-items-center">
@@ -2649,12 +2651,13 @@
                 <td><span class="text-warning">${player.draws || 0}</span></td>
                 <td><span class="badge bg-success">${player.status || 'Registered'}</span></td>
                 <td>
-                    <button class="btn btn-sm btn-outline-danger" onclick="removePlayerFromTournament(${player.id})">
+                    <button class="btn btn-sm btn-outline-danger" onclick="removePlayerFromTournament(${player.id || 0})">
                         <i class="fas fa-user-minus"></i>
                     </button>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     }
 
     // Show registration modal
@@ -2720,8 +2723,14 @@
 
     // Remove player from tournament
     function removePlayerFromTournament(playerId) {
+        // Validate player ID
+        if (!playerId || playerId === 0) {
+            showAlert('tournamentAlertContainer', 'Invalid player ID', 'error');
+            return;
+        }
+        
         if (confirm('Are you sure you want to remove this player from the tournament?')) {
-            registeredPlayersData = registeredPlayersData.filter(p => p.id !== playerId);
+            registeredPlayersData = registeredPlayersData.filter(p => p && p.id !== playerId);
             
             // Update tournament participants
             const tournament = tournamentsData.find(t => t.id === currentTournamentId);
@@ -2864,30 +2873,26 @@
         // Update Pair Next Round button text
         const pairNextRoundBtn = document.getElementById('pairNextRoundBtn');
         if (pairNextRoundBtn) {
-            // Find the next unpaired round
-            let nextRoundToPair = 1;
-            for (let round of rounds) {
-                if (round.round_number >= nextRoundToPair && round.status !== 'completed') {
-                    nextRoundToPair = round.round_number;
-                    break;
-                }
-            }
-            
-            // If all existing rounds are completed, pair the next round
-            if (nextRoundToPair <= Math.max(...rounds.map(r => r.round_number), 0)) {
-                nextRoundToPair = Math.max(...rounds.map(r => r.round_number), 0) + 1;
-            }
+            const maxExistingRound = Math.max(...rounds.map(r => r.round_number), 0);
+            const activeRound = rounds.find(r => r.status === 'active');
+            let nextRoundToPair = activeRound ? activeRound.round_number : (maxExistingRound + 1);
             
             if (currentRound === 0 && rounds.length === 0) {
                 nextRoundToPair = 1; // First round to pair
             }
             
-            if (nextRoundToPair <= totalRounds) {
-                pairNextRoundBtn.textContent = `Pair Round ${nextRoundToPair}`;
-                pairNextRoundBtn.disabled = false;
-            } else {
+            // Only allow pairing when there is no unsubmitted active round
+            const canPair = !activeRound && nextRoundToPair <= totalRounds;
+            
+            if (nextRoundToPair > totalRounds) {
                 pairNextRoundBtn.textContent = 'All Rounds Complete';
                 pairNextRoundBtn.disabled = true;
+            } else if (activeRound) {
+                pairNextRoundBtn.textContent = `Submit Round ${activeRound.round_number} Results First`;
+                pairNextRoundBtn.disabled = true;
+            } else {
+                pairNextRoundBtn.textContent = `Pair Round ${nextRoundToPair}`;
+                pairNextRoundBtn.disabled = false;
             }
         }
     }
@@ -2913,10 +2918,16 @@
         }
     }
 
-    // Load standings for a specific round
-    async function loadStandings(roundNumber) {
+    // Load standings for a specific round (or latest current standings if omitted)
+    async function loadStandings(roundNumber = null) {
+        if (!currentTournamentId) return;
+        
         try {
-            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/standings/${roundNumber}/`, {
+            const url = roundNumber !== null && roundNumber !== undefined
+                ? `/ttsa-admin/api/tournaments/${currentTournamentId}/standings/${roundNumber}/`
+                : `/ttsa-admin/api/tournaments/${currentTournamentId}/standings/`;
+            
+            const response = await fetch(url, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
@@ -2925,7 +2936,11 @@
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
-                    standingsData = data.standings;
+                    standingsData = data.standings || [];
+                    renderStandings();
+                } else {
+                    console.error('Standings API error:', data.error);
+                    standingsData = [];
                     renderStandings();
                 }
             }
@@ -2939,8 +2954,10 @@
         if (!currentTournamentId) return;
         
         try {
+            const formData = new FormData();
             const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/generate-next-round/`, {
                 method: 'POST',
+                body: formData,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRFToken': getCookie('csrftoken')
@@ -3022,14 +3039,13 @@
         });
     }
 
-    // Update game result
+    // Update game result (auto-saved draft, round is NOT completed)
     async function updateGameResult(gameId, result, silent = false) {
         try {
             const formData = new FormData();
-            formData.append('game_id', gameId);
             formData.append('result', result);
             
-            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/games/`, {
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/games/${gameId}/result/`, {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -3041,10 +3057,13 @@
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
+                    // Track that this result has been auto-saved as a draft
+                    const select = document.querySelector(`.result-select[data-game-id="${gameId}"]`);
+                    if (select) {
+                        select.dataset.originalResult = result;
+                    }
                     if (!silent) {
-                        showAlert('tournamentAlertContainer', 'Game result updated successfully', 'success');
-                        // Reload data
-                        await loadRoundManagementData();
+                        showAlert('tournamentAlertContainer', data.message || 'Result saved (draft)', 'success');
                     }
                 } else {
                     showAlert('tournamentAlertContainer', data.error, 'error');
@@ -3058,39 +3077,41 @@
         }
     }
 
-    // Submit all changed results from the current round
+    // Submit/finalize all results for the current round
     async function submitResults() {
         const submitBtn = document.getElementById('submitResultsBtn');
         if (!submitBtn) return;
         
-        const changedSelects = Array.from(document.querySelectorAll('.result-select')).filter(select => {
-            if (select.disabled) return false;
-            const gameId = select.dataset.gameId;
-            const original = select.dataset.originalResult || '*';
-            return gameId && select.value !== original;
-        });
-        
-        if (changedSelects.length === 0) {
-            showAlert('tournamentAlertContainer', 'No result changes to submit', 'info');
-            return;
-        }
+        const roundNumber = currentRoundData || (pairingsData.length > 0 ? pairingsData[0].round_number : null) || 1;
         
         submitBtn.disabled = true;
         const originalBtnHtml = submitBtn.innerHTML;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Submitting...';
         
         try {
-            const results = changedSelects.map(select => ({
-                gameId: select.dataset.gameId,
-                result: select.value
-            }));
+            const formData = new FormData();
+            formData.append('round_number', roundNumber);
             
-            for (const item of results) {
-                await updateGameResult(item.gameId, item.result, true);
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/submit-round/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('tournamentAlertContainer', data.message, 'success');
+                    await loadRoundManagementData();
+                } else {
+                    showAlert('tournamentAlertContainer', data.error, 'error');
+                }
+            } else {
+                showAlert('tournamentAlertContainer', 'Failed to submit round', 'error');
             }
-            
-            showAlert('tournamentAlertContainer', 'Results submitted successfully', 'success');
-            await loadRoundManagementData();
         } catch (error) {
             console.error('Error submitting results:', error);
             showAlert('tournamentAlertContainer', 'Error submitting results', 'error');
@@ -3104,6 +3125,11 @@
     async function printPairings(roundNumber) {
         if (!currentTournamentId) return;
         
+        if (!roundNumber) {
+            const pairingRoundNumberElement = document.getElementById('pairingRoundNumber');
+            roundNumber = pairingRoundNumberElement ? (pairingRoundNumberElement.textContent || '1') : '1';
+        }
+        
         try {
             const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/print-pairings/${roundNumber}/`, {
                 headers: {
@@ -3111,19 +3137,14 @@
                 }
             });
             
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    // Create and download HTML file
-                    const blob = new Blob([data.html], { type: 'text/html' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = data.filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const printWindow = window.open(url, '_blank');
+                if (printWindow) {
+                    printWindow.onload = function() {
+                        try { printWindow.print(); } catch (e) { console.error(e); }
+                    };
                 }
             }
         } catch (error) {
@@ -3134,6 +3155,10 @@
     // Print standings
     async function printStandings(roundNumber = null) {
         if (!currentTournamentId) return;
+        
+        if (!roundNumber) {
+            roundNumber = currentRoundData || (pairingsData.length > 0 ? pairingsData[0].round_number : null);
+        }
         
         try {
             const url = roundNumber 
@@ -3146,24 +3171,27 @@
                 }
             });
             
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    // Create and download HTML file
-                    const blob = new Blob([data.html], { type: 'text/html' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = data.filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const printWindow = window.open(url, '_blank');
+                if (printWindow) {
+                    printWindow.onload = function() {
+                        try { printWindow.print(); } catch (e) { console.error(e); }
+                    };
                 }
             }
         } catch (error) {
             console.error('Error printing standings:', error);
         }
+    }
+
+    // Extract filename from Content-Disposition header
+    function getFilenameFromResponse(response) {
+        const disposition = response.headers.get('content-disposition');
+        if (!disposition) return null;
+        const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+        return match ? match[1].replace(/['"]/g, '') : null;
     }
 
     function showSection(section) {
@@ -3179,6 +3207,8 @@
             standingsBtn.className = 'btn btn-primary';
             pairingsBtn.className = 'btn btn-outline-secondary';
             roundNavigation.style.display = 'none';
+            // Reload current standings when the tab is shown
+            loadStandings();
         } else if (section === 'pairings') {
             standingsSection.style.display = 'none';
             pairingsSection.style.display = 'block';
@@ -3186,6 +3216,14 @@
             pairingsBtn.className = 'btn btn-primary';
             roundNavigation.style.display = 'block';
         }
+    }
+
+    // Escape HTML to prevent XSS when inserting user content
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
     }
 
     // Helper function to get CSRF token
@@ -3259,20 +3297,13 @@
             return;
         }
 
-        tableBody.innerHTML = pairingsData.map(game => `
-            <tr class="game-row" data-game-id="${game.id}">
-                <td class="text-center">
-                    <span class="badge bg-primary rounded-pill">${game.board_number}</span>
+        tableBody.innerHTML = pairingsData.map((game, index) => `
+            <tr class="${index % 2 === 0 ? '' : 'table-secondary'}" data-game-id="${game.id}">
+                <td class="text-center fw-bold">
+                    ${game.board_number}
                 </td>
-                <td>
-                    <div class="player-info">
-                        <div class="fw-semibold text-primary">${game.white_player.name}</div>
-                        <small class="text-muted">ID: ${game.white_player.id}</small>
-                    </div>
-                </td>
-                <td class="text-center">
-                    <span class="rating-badge">${game.white_player.rating}</span>
-                </td>
+                <td class="text-nowrap">${game.white_player.name}</td>
+                <td class="text-center text-muted">${game.white_player.rating}</td>
                 <td class="text-center">
                     <select class="form-select form-select-sm result-select" data-game-id="${game.id}" data-original-result="${game.result || '*'}" onchange="updateGameResult(${game.id}, this.value)" ${game.status === 'completed' ? 'disabled' : ''}>
                         <option value="*" ${game.result === '*' ? 'selected' : ''}>Not Started</option>
@@ -3281,15 +3312,8 @@
                         <option value="0-1" ${game.result === '0-1' ? 'selected' : ''}>0-1</option>
                     </select>
                 </td>
-                <td>
-                    <div class="player-info">
-                        <div class="fw-semibold text-dark">${game.black_player.name}</div>
-                        <small class="text-muted">ID: ${game.black_player.id}</small>
-                    </div>
-                </td>
-                <td class="text-center">
-                    <span class="rating-badge">${game.black_player.rating}</span>
-                </td>
+                <td class="text-nowrap">${game.black_player.name}</td>
+                <td class="text-center text-muted">${game.black_player.rating}</td>
             </tr>
         `).join('');
     }
@@ -3372,8 +3396,220 @@
         }
     });
 
-    // Initialize tournaments on page load
-    loadTournaments();
+    // WebSocket for real-time standings updates
+let standingsWebSocket = null;
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 5;
+let reconnectDelay = 1000; // Start with 1 second
+
+function connectStandingsWebSocket() {
+    if (!currentTournamentId) return;
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/tournament/${currentTournamentId}/standings/`;
+    
+    standingsWebSocket = new WebSocket(wsUrl);
+    
+    standingsWebSocket.onopen = function(e) {
+        console.log('Standings WebSocket connected');
+        reconnectAttempts = 0;
+        reconnectDelay = 1000;
+        
+        // Show connection status
+        showConnectionStatus('Connected', 'success');
+    };
+    
+    standingsWebSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleStandingsMessage(data);
+    };
+    
+    standingsWebSocket.onclose = function(e) {
+        console.log('Standings WebSocket disconnected');
+        showConnectionStatus('Disconnected', 'warning');
+        
+        // Attempt to reconnect
+        if (reconnectAttempts < maxReconnectAttempts) {
+            setTimeout(() => {
+                reconnectAttempts++;
+                reconnectDelay = Math.min(reconnectDelay * 2, 30000); // Max 30 seconds
+                console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
+                showConnectionStatus(`Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`, 'info');
+                connectStandingsWebSocket();
+            }, reconnectDelay);
+        } else {
+            showConnectionStatus('Connection lost. Please refresh the page.', 'danger');
+        }
+    };
+    
+    standingsWebSocket.onerror = function(e) {
+        console.error('Standings WebSocket error:', e);
+        showConnectionStatus('Connection error', 'danger');
+    };
+}
+
+function handleStandingsMessage(data) {
+    switch (data.type) {
+        case 'standings_update':
+            updateStandingsTable(data.standings);
+            showUpdateNotification(data.update_type || 'standings');
+            break;
+        case 'error':
+            console.error('Standings error:', data.message);
+            showConnectionStatus('Error: ' + data.message, 'danger');
+            break;
+        case 'pong':
+            // Ping-pong for connection health check
+            break;
+    }
+}
+
+function updateStandingsTable(standings) {
+    const tbody = document.getElementById('standingsTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    // Handle both array of players and {players: [...]} formats
+    const players = Array.isArray(standings) ? standings : (standings ? standings.players : null);
+    
+    if (!Array.isArray(players) || players.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-4">
+                    <span class="text-muted">No standings available</span>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    players.forEach(player => {
+        if (!player) return;
+        const row = document.createElement('tr');
+        row.className = 'standings-row';
+        row.innerHTML = `
+            <td class="fw-bold">${player.rank || ''}</td>
+            <td>${escapeHtml(player.name || '')}</td>
+            <td>${player.rating || ''}</td>
+            <td class="fw-bold">${player.points || 0}</td>
+            <td>${player.wins || 0}</td>
+            <td>${player.losses || 0}</td>
+            <td>${player.draws || 0}</td>
+            <td>${(player.buchholz || 0).toFixed(1)}</td>
+            <td>${(player.sonneborn_berger || 0).toFixed(1)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Rows rendered without animations
+}
+
+function showConnectionStatus(message, type) {
+    // Remove existing status if any
+    const existingStatus = document.getElementById('connectionStatus');
+    if (existingStatus) {
+        existingStatus.remove();
+    }
+    
+    if (!message) return;
+    
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'connectionStatus';
+    statusDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    statusDiv.style.cssText = 'top: 70px; right: 20px; z-index: 1050; max-width: 300px;';
+    statusDiv.innerHTML = `
+        <small><i class="fas fa-wifi me-1"></i>${message}</small>
+        <button type="button" class="btn-close btn-close-sm" onclick="this.parentElement.remove()"></button>
+    `;
+    
+    document.body.appendChild(statusDiv);
+    
+    // Auto-hide success/info messages after 3 seconds
+    if (['success', 'info'].includes(type)) {
+        setTimeout(() => {
+            if (statusDiv.parentElement) {
+                statusDiv.remove();
+            }
+        }, 3000);
+    }
+}
+
+function showUpdateNotification(updateType) {
+    const notification = document.createElement('div');
+    notification.className = 'toast align-items-center text-white bg-success border-0';
+    notification.setAttribute('role', 'alert');
+    notification.setAttribute('aria-live', 'assertive');
+    notification.setAttribute('aria-atomic', 'true');
+    notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1055;';
+    
+    const updateMessages = {
+        'game_result': 'Game result updated',
+        'standings': 'Standings updated',
+        'pairings': 'New pairings generated'
+    };
+    
+    notification.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-sync-alt me-2"></i>
+                ${updateMessages[updateType] || 'Tournament updated'}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Show toast
+    const toast = new bootstrap.Toast(notification, {
+        autohide: true,
+        delay: 3000
+    });
+    toast.show();
+    
+    // Remove from DOM after hiding
+    notification.addEventListener('hidden.bs.toast', () => {
+        notification.remove();
+    });
+}
+
+// Ping the server every 30 seconds to keep connection alive
+function startPingInterval() {
+    setInterval(() => {
+        if (standingsWebSocket && standingsWebSocket.readyState === WebSocket.OPEN) {
+            standingsWebSocket.send(JSON.stringify({ type: 'ping' }));
+        }
+    }, 30000);
+}
+
+// Clean up WebSocket when tournament changes
+function cleanupStandingsWebSocket() {
+    if (standingsWebSocket) {
+        standingsWebSocket.close();
+        standingsWebSocket = null;
+    }
+    reconnectAttempts = 0;
+    reconnectDelay = 1000;
+    
+    // Remove connection status
+    const status = document.getElementById('connectionStatus');
+    if (status) status.remove();
+}
+
+// Initialize WebSocket when tournament is selected
+function initializeStandingsWebSocket() {
+    cleanupStandingsWebSocket();
+    if (currentTournamentId) {
+        connectStandingsWebSocket();
+    }
+}
+
+// Start ping interval
+startPingInterval();
+
+// Initialize tournaments on page load
+loadTournaments();
 </script>
 
 <!-- Add Player Modal -->
@@ -3423,14 +3659,8 @@
 
 <style>
 /* Professional Tournament Table Styles */
-.game-row {
-    transition: all 0.2s ease;
-}
-
 .game-row:hover {
     background-color: #f8f9fa !important;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .player-info {
@@ -3462,7 +3692,6 @@
     font-size: 0.85rem;
     border-radius: 6px;
     border: 1px solid #dee2e6;
-    transition: all 0.2s ease;
 }
 
 .result-select:focus {
@@ -3475,23 +3704,55 @@
     opacity: 0.7;
 }
 
-#pairingsTable {
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 0 20px rgba(0,0,0,0.08);
-}
-
-#pairingsTable .table-light {
-    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-    border-bottom: 2px solid #dee2e6;
-}
-
-#pairingsTable th {
-    font-weight: 600;
+#pairingsTable,
+#standingsTable {
     font-size: 0.85rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+#pairingsTable thead,
+#standingsTable thead {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+}
+
+#pairingsTable th,
+#standingsTable th {
+    font-weight: 600;
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: #495057;
+    padding: 0.4rem 0.5rem;
+}
+
+#pairingsTable td,
+#standingsTable td {
+    padding: 0.4rem 0.5rem;
+    vertical-align: middle;
+}
+
+#pairingsTable .form-select-sm {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.8rem;
+    min-width: 90px;
+}
+
+/* Scrollable table containers */
+#standingsSection .table-responsive,
+#pairingsSection .table-responsive {
+    max-height: 55vh;
+    overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+}
+
+#standingsTable thead th,
+#pairingsTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 .badge.bg-primary.rounded-pill {
@@ -3502,22 +3763,14 @@
 }
 
 /* Generate Round Button */
-#generateRoundBtn {
-    transition: all 0.2s ease;
-}
-
 #generateRoundBtn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(13, 110, 253, 0.2);
-}
-
-#submitResultsBtn {
-    transition: all 0.2s ease;
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
 }
 
 #submitResultsBtn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(25, 135, 84, 0.2);
+    background-color: #157347;
+    border-color: #146c43;
 }
 </style>
 

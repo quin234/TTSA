@@ -12,3 +12,5 @@ requests==2.31.0
 feedparser==6.0.10
 celery==5.3.4
 redis==5.0.1
+bbp-pairings==1.0.0
+reportlab==5.0.0

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ tournament.name }} - Pairings</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; margin: 20px; color: #111; }
+        h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
+        .meta { font-size: 0.9rem; color: #555; margin-bottom: 1.5rem; }
+        h2 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.95rem; }
+        th { background: #f3f4f6; font-weight: bold; }
+        tr:nth-child(even) { background: #f9fafb; }
+        .result { font-weight: bold; min-width: 60px; display: inline-block; text-align: center; }
+        @media print {
+            body { margin: 0; }
+            h2 { page-break-after: avoid; }
+            table { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <h1>{{ tournament.name }} &mdash; Pairings</h1>
+    <div class="meta">
+        <p><strong>Venue:</strong> {{ tournament.venue }} &nbsp;|&nbsp; <strong>Date:</strong> {{ tournament.start_date|date:"M d, Y H:i" }}</p>
+        <p><strong>Format:</strong> {{ tournament.get_format_display }} &nbsp;|&nbsp; <strong>Rounds:</strong> {{ tournament.rounds }}</p>
+    </div>
+
+    {% for rd in round_data %}
+    <h2>Round {{ rd.round_number }}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Board</th>
+                <th>White</th>
+                <th>Black</th>
+                <th>Result</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for game in rd.games %}
+            <tr>
+                <td>{{ game.board_number }}</td>
+                <td>{{ game.white_player.player_name }}{% if game.white_player.rating %} ({{ game.white_player.rating }}){% endif %}</td>
+                <td>{{ game.black_player.player_name }}{% if game.black_player.rating %} ({{ game.black_player.rating }}){% endif %}</td>
+                <td><span class="result">{{ game.result }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% empty %}
+    <p>No pairings available.</p>
+    {% endfor %}
+
+    <script>window.onload = function() { window.print(); };</script>
+</body>
+</html>

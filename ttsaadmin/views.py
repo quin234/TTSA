@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseForbidden, FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
@@ -12,6 +12,9 @@ from django.core.cache import cache
 from functools import wraps
 import logging
 
+# Import BBP service to ensure registration
+from .bbp_pairings_service import BBPPairingsService
+
 logger = logging.getLogger(__name__)
 from .forms import (
     YouTubeChannelForm, VideoLessonForm, TournamentForm, 
@@ -19,7 +22,7 @@ from .forms import (
 )
 from .models import YouTubeChannel, SyncNotification, Tournament, TournamentPlayer, TournamentGame, TournamentRound, TournamentStanding, TournamentResult
 from .youtube_utils import validate_and_fetch_channel_metadata, YouTubeChannelError, fetch_channel_videos
-from ttsa_app.models import VideoLesson, User, PlayerProfile, ChessGame, MultiplayerGame
+from ttsa_app.models import VideoLesson, User, PlayerProfile, ChessGame, MultiplayerGame, PlayerPlusApplication
 from .youtube_utils import validate_and_fetch_video_metadata, YouTubeVideoError
 from django.db import transaction
 from django.core.exceptions import ValidationError
@@ -548,6 +551,9 @@ def mark_notification_read(request, notification_id):
 @login_required
 def tournament_list(request):
     """View for listing tournaments with search, filtering, and pagination"""
+    if not request.user.can_manage_tournaments:
+        messages.error(request, 'You do not have permission to access tournament management.')
+        return redirect('tournaments')
     search_form = TournamentSearchForm(request.GET)
     tournaments = Tournament.objects.select_related('created_by').prefetch_related('players')
     
@@ -584,7 +590,7 @@ def tournament_list(request):
             tournaments = tournaments.filter(start_date__date__lte=date_to)
         
         # Sorting
-        sort_by = cleaned_data.get('sort_by', '-created_at')
+        sort_by = cleaned_data.get('sort_by') or '-created_at'
         tournaments = tournaments.order_by(sort_by)
     
     # Pagination
@@ -733,6 +739,9 @@ def tournament_create(request):
 @login_required
 def tournament_detail(request, tournament_id):
     """View for tournament details"""
+    if not request.user.is_authenticated or not request.user.can_manage_tournaments:
+        messages.error(request, 'You do not have permission to view tournament management details.')
+        return redirect('tournaments')
     tournament = get_object_or_404(
         Tournament.objects.select_related('created_by').prefetch_related('players', 'games'),
         id=tournament_id
@@ -1290,7 +1299,7 @@ def tournament_api_data(request, tournament_id=None):
 
 
 # Round Management Views
-@login_required
+@tournament_manager_required
 def tournament_rounds_api(request, tournament_id):
     """API endpoint for tournament rounds management"""
     
@@ -1343,58 +1352,158 @@ def generate_next_round(request, tournament_id):
     tournament = get_object_or_404(Tournament, id=tournament_id)
     
     try:
-        from .swiss_pairing import SwissPairingService
+        from .pairing_manager import get_pairing_manager
         
-        pairing_service = SwissPairingService(tournament)
-        pairings = pairing_service.generate_pairings()
+        pairing_manager = get_pairing_manager()
+        result = pairing_manager.generate_next_round(tournament)
         
-        # Get the created round
-        round_number = tournament.tournament_rounds.count()
-        current_round = tournament.tournament_rounds.get(round_number=round_number)
-        
-        # Get games for this round
-        games = TournamentGame.objects.filter(tournament=tournament, round_number=round_number)
-        
-        games_data = []
-        for game in games:
-            games_data.append({
-                'id': game.id,
-                'board_number': game.board_number,
-                'white_player': {
-                    'id': game.white_player.id,
-                    'name': game.white_player.player_name,
-                    'rating': game.white_player.rating
+        if result['success']:
+            # Get the created round
+            round_number = result['round_number']
+            current_round = TournamentRound.objects.get(
+                tournament=tournament, 
+                round_number=round_number
+            )
+            
+            # Get games for this round
+            games = TournamentGame.objects.filter(
+                tournament=tournament, 
+                round_number=round_number
+            )
+            
+            games_data = []
+            for game in games:
+                games_data.append({
+                    'id': game.id,
+                    'board_number': game.board_number,
+                    'white_player': {
+                        'id': game.white_player.id,
+                        'name': game.white_player.player_name,
+                        'rating': game.white_player.rating
+                    },
+                    'black_player': {
+                        'id': game.black_player.id,
+                        'name': game.black_player.player_name,
+                        'rating': game.black_player.rating
+                    },
+                    'result': game.result,
+                    'status': game.status,
+                    'scheduled_time': game.scheduled_time.isoformat() if game.scheduled_time else None
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'round': {
+                    'id': current_round.id,
+                    'round_number': current_round.round_number,
+                    'status': current_round.status,
+                    'games_count': len(games_data)
                 },
-                'black_player': {
-                    'id': game.black_player.id,
-                    'name': game.black_player.player_name,
-                    'rating': game.black_player.rating
-                },
-                'result': game.result,
-                'status': game.status,
-                'scheduled_time': game.scheduled_time.isoformat()
+                'games': games_data,
+                'message': result['message']
             })
+        else:
+            return JsonResponse(result, status=400)
         
-        return JsonResponse({
-            'success': True,
-            'round': {
-                'id': current_round.id,
-                'round_number': current_round.round_number,
-                'status': current_round.status,
-                'games_count': len(games_data)
-            },
-            'games': games_data,
-            'message': f'Successfully generated pairings for Round {round_number}'
-        })
-        
-    except ValidationError as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
     except Exception as e:
         logger.error(f"Error generating pairings: {e}")
         return JsonResponse({'success': False, 'error': 'Failed to generate pairings'}, status=500)
 
 
-@login_required
+@tournament_manager_required
+@require_POST
+def update_game_result_api(request, tournament_id, game_id):
+    """API endpoint to update game result"""
+    
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    
+    if not request.user.can_manage_tournaments:
+        return JsonResponse({'success': False, 'error': 'You do not have permission to update game results.'}, status=403)
+    
+    try:
+        result = request.POST.get('result', '*')
+        if result not in ['*', '1-0', '0-1', '½-½']:
+            return JsonResponse({'success': False, 'error': 'Invalid result value'}, status=400)
+        
+        from .pairing_manager import get_pairing_manager
+        
+        pairing_manager = get_pairing_manager()
+        update_result = pairing_manager.update_game_result(game_id, result)
+        
+        if update_result['success']:
+            # Broadcast standings update to all connected clients
+            try:
+                from ttsa_app.consumers import broadcast_tournament_standings
+                broadcast_tournament_standings(tournament_id, 'game_result')
+            except Exception as e:
+                logger.error(f"Error broadcasting standings: {e}")
+            
+            return JsonResponse(update_result)
+        else:
+            return JsonResponse(update_result, status=400)
+            
+    except Exception as e:
+        logger.error(f"Error updating game result: {e}")
+        return JsonResponse({'success': False, 'error': 'Failed to update game result'}, status=500)
+
+
+@tournament_manager_required
+@require_POST
+def submit_round_results_api(request, tournament_id):
+    """API endpoint to submit/finalize all results for a round"""
+    
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    
+    if not request.user.can_manage_tournaments:
+        return JsonResponse({'success': False, 'error': 'You do not have permission to submit round results.'}, status=403)
+    
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+    
+    try:
+        round_number = request.POST.get('round_number')
+        if not round_number:
+            # Default to the latest active round
+            latest_round = TournamentRound.objects.filter(
+                tournament=tournament,
+                status='active'
+            ).order_by('-round_number').first()
+            if latest_round:
+                round_number = latest_round.round_number
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No active round to submit'
+                }, status=400)
+        else:
+            round_number = int(round_number)
+        
+        from .pairing_manager import get_pairing_manager
+        pairing_manager = get_pairing_manager()
+        result = pairing_manager.submit_round_results(tournament, round_number)
+        
+        if result['success']:
+            # Broadcast standings update
+            try:
+                from ttsa_app.consumers import broadcast_tournament_standings
+                broadcast_tournament_standings(tournament_id, 'round_submitted')
+            except Exception as e:
+                logger.error(f"Error broadcasting round submission: {e}")
+        
+        if result['success']:
+            return JsonResponse(result)
+        else:
+            return JsonResponse(result, status=400)
+    
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Invalid round number'}, status=400)
+    except Exception as e:
+        logger.error(f"Error submitting round results: {e}")
+        return JsonResponse({'success': False, 'error': 'Failed to submit round results'}, status=500)
+
+
+@tournament_manager_required
 def tournament_games_api(request, tournament_id, round_number=None):
     """API endpoint for tournament games"""
     
@@ -1509,7 +1618,7 @@ def tournament_games_api(request, tournament_id, round_number=None):
     return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
 
 
-@login_required
+@tournament_manager_required
 def tournament_standings_api(request, tournament_id, round_number=None):
     """API endpoint for tournament standings"""
     
@@ -1519,44 +1628,60 @@ def tournament_standings_api(request, tournament_id, round_number=None):
     tournament = get_object_or_404(Tournament, id=tournament_id)
     
     if request.method == 'GET':
-        # Get standings for specific round or latest
+        # Recalculate and return current standings dynamically
+        from .pairing_converter import PairingDataConverter
+
+        # If a specific round is requested, prefer that round if it is completed.
+        # Otherwise fall back to the latest completed round so "Current Standings"
+        # always shows meaningful data.
         if round_number:
-            standings = TournamentStanding.objects.filter(tournament=tournament, round_number=round_number)
+            target_round = round_number
+            requested_round = TournamentRound.objects.filter(
+                tournament=tournament, round_number=round_number
+            ).first()
+            if not requested_round or requested_round.status != 'completed':
+                latest_round = TournamentRound.objects.filter(
+                    tournament=tournament, status='completed'
+                ).order_by('-round_number').first()
+                if latest_round:
+                    target_round = latest_round.round_number
         else:
-            # Get latest round standings
-            latest_round = TournamentStanding.objects.filter(tournament=tournament).order_by('-round_number').first()
-            if latest_round:
-                standings = TournamentStanding.objects.filter(tournament=tournament, round_number=latest_round.round_number)
-            else:
-                standings = TournamentStanding.objects.none()
-        
-        standings = standings.order_by('rank')
-        
+            latest_round = TournamentRound.objects.filter(
+                tournament=tournament, status='completed'
+            ).order_by('-round_number').first()
+            target_round = latest_round.round_number if latest_round else None
+
+        standings_list = PairingDataConverter.recalculate_standings(tournament, target_round)
+
+        # Determine the round number being returned
+        display_round = target_round or 0
+
         standings_data = []
-        for standing in standings:
+        for rank, standing in enumerate(standings_list, 1):
+            player = standing['player']
             standings_data.append({
-                'rank': standing.rank,
+                'rank': rank,
                 'player': {
-                    'id': standing.player.id,
-                    'name': standing.player.player_name,
-                    'rating': standing.player.rating
+                    'id': player.id,
+                    'name': player.player_name,
+                    'rating': player.rating
                 },
-                'points': float(standing.points),
-                'games_played': standing.games_played,
-                'wins': standing.wins,
-                'draws': standing.draws,
-                'losses': standing.losses,
-                'white_games': standing.white_games,
-                'black_games': standing.black_games,
-                'buchholz': float(standing.buchholz),
-                'sonneborn_berger': float(standing.sonneborn_berger),
-                'cumulative_score': float(standing.cumulative_score)
+                'points': float(standing['points']),
+                'games_played': standing['games_played'],
+                'wins': standing['wins'],
+                'draws': standing['draws'],
+                'losses': standing['losses'],
+                'white_games': standing['white_games'],
+                'black_games': standing['black_games'],
+                'buchholz': float(standing['buchholz']),
+                'sonneborn_berger': float(standing['sonneborn_berger']),
+                'cumulative_score': float(standing['cumulative_score'])
             })
         
         return JsonResponse({
             'success': True,
             'standings': standings_data,
-            'round_number': round_number or (standings.first().round_number if standings.exists() else None)
+            'round_number': display_round
         })
     
     return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
@@ -1595,81 +1720,46 @@ def _update_player_stats(game: TournamentGame, result: str):
 
 @login_required
 def print_pairings(request, tournament_id, round_number):
-    """API endpoint to generate printable pairings"""
+    """API endpoint to generate a printable pairings PDF"""
     
-    if not request.user.is_authenticated:
-        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    if not request.user.can_manage_tournaments:
+        return JsonResponse({'success': False, 'error': 'You do not have permission to print pairings.'}, status=403)
     
     tournament = get_object_or_404(Tournament, id=tournament_id)
     
     # Get games for this round
-    games = TournamentGame.objects.filter(tournament=tournament, round_number=round_number).order_by('board_number')
+    games = TournamentGame.objects.filter(
+        tournament=tournament,
+        round_number=round_number
+    ).select_related('white_player', 'black_player').order_by('board_number')
     
-    pairings_html = f"""
-    <html>
-    <head>
-        <title>{tournament.name} - Round {round_number} Pairings</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            h1 {{ text-align: center; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-            th {{ background-color: #f2f2f2; }}
-            .board {{ text-align: center; font-weight: bold; }}
-            .player {{ font-weight: bold; }}
-            .rating {{ color: #666; }}
-        </style>
-    </head>
-    <body>
-        <h1>{tournament.name}</h1>
-        <h2>Round {round_number} Pairings</h2>
-        <p>Date: {timezone.now().strftime('%B %d, %Y')}</p>
-        <p>Time Control: {tournament.time_control}</p>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>Board</th>
-                    <th>White Player</th>
-                    <th>Rating</th>
-                    <th>Black Player</th>
-                    <th>Rating</th>
-                </tr>
-            </thead>
-            <tbody>
-    """
+    # Get bye players for this round, if any
+    try:
+        round_obj = TournamentRound.objects.get(tournament=tournament, round_number=round_number)
+        bye_players = list(round_obj.bye_players.all())
+    except TournamentRound.DoesNotExist:
+        bye_players = []
     
-    for game in games:
-        pairings_html += f"""
-                <tr>
-                    <td class="board">{game.board_number}</td>
-                    <td class="player">{game.white_player.player_name}</td>
-                    <td class="rating">{game.white_player.rating}</td>
-                    <td class="player">{game.black_player.player_name}</td>
-                    <td class="rating">{game.black_player.rating}</td>
-                </tr>
-        """
+    from .pdf_utils import generate_pairings_pdf
+    pdf_buffer = generate_pairings_pdf(tournament, round_number, games, bye_players=bye_players)
     
-    pairings_html += """
-            </tbody>
-        </table>
-    </body>
-    </html>
-    """
-    
-    return JsonResponse({
-        'success': True,
-        'html': pairings_html,
-        'filename': f"{tournament.name.replace(' ', '_')}_Round_{round_number}_Pairings.html"
-    })
+    filename = f"{tournament.name.replace(' ', '_')}_Round_{round_number}_Pairings.pdf"
+    response = FileResponse(
+        pdf_buffer,
+        content_type='application/pdf',
+        filename=filename,
+        as_attachment=False
+    )
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
 
 
 @login_required
 def print_standings(request, tournament_id, round_number=None):
-    """API endpoint to generate printable standings"""
+    """API endpoint to generate a printable standings PDF"""
     
-    if not request.user.is_authenticated:
-        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    if not request.user.can_manage_tournaments:
+        return JsonResponse({'success': False, 'error': 'You do not have permission to print standings.'}, status=403)
     
     tournament = get_object_or_404(Tournament, id=tournament_id)
     
@@ -1683,72 +1773,67 @@ def print_standings(request, tournament_id, round_number=None):
         else:
             standings = TournamentStanding.objects.none()
     
-    standings = standings.order_by('rank')
+    standings = standings.select_related('player').order_by('rank')
     
-    standings_html = f"""
-    <html>
-    <head>
-        <title>{tournament.name} - Standings</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            h1 {{ text-align: center; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: center; }}
-            th {{ background-color: #f2f2f2; }}
-            .rank {{ font-weight: bold; }}
-            .player {{ text-align: left; font-weight: bold; }}
-            .points {{ font-weight: bold; color: #2c5aa0; }}
-            .tie-break {{ font-size: 0.9em; color: #666; }}
-        </style>
-    </head>
-    <body>
-        <h1>{tournament.name}</h1>
-        <h2>Standings - Round {round_number or 'Latest'}</h2>
-        <p>Date: {timezone.now().strftime('%B %d, %Y')}</p>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>Rank</th>
-                    <th>Player</th>
-                    <th>Rating</th>
-                    <th>Points</th>
-                    <th>Played</th>
-                    <th>Wins</th>
-                    <th>Draws</th>
-                    <th>Losses</th>
-                    <th>Buchholz</th>
-                    <th>S-B</th>
-                </tr>
-            </thead>
-            <tbody>
-    """
+    from .pdf_utils import generate_standings_pdf
+    pdf_buffer = generate_standings_pdf(tournament, round_number, standings)
     
-    for standing in standings:
-        standings_html += f"""
-                <tr>
-                    <td class="rank">{standing.rank}</td>
-                    <td class="player">{standing.player.player_name}</td>
-                    <td>{standing.player.rating}</td>
-                    <td class="points">{standing.points}</td>
-                    <td>{standing.games_played}</td>
-                    <td>{standing.wins}</td>
-                    <td>{standing.draws}</td>
-                    <td>{standing.losses}</td>
-                    <td class="tie-break">{standing.buchholz}</td>
-                    <td class="tie-break">{standing.sonneborn_berger}</td>
-                </tr>
-        """
+    filename = f"{tournament.name.replace(' ', '_')}_Standings_Round_{round_number or 'Latest'}.pdf"
+    response = FileResponse(
+        pdf_buffer,
+        content_type='application/pdf',
+        filename=filename,
+        as_attachment=False
+    )
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+# Player Plus Application Review Views
+
+@login_required
+def player_plus_applications(request):
+    """List Player Plus applications for admin review."""
+    if not request.user.is_ttsa_admin:
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('admin_dashboard')
     
-    standings_html += """
-            </tbody>
-        </table>
-    </body>
-    </html>
-    """
+    status_filter = request.GET.get('status', 'pending')
+    applications = PlayerPlusApplication.objects.select_related('user').order_by('-submitted_at')
+    if status_filter in ['pending', 'approved', 'rejected']:
+        applications = applications.filter(status=status_filter)
     
-    return JsonResponse({
-        'success': True,
-        'html': standings_html,
-        'filename': f"{tournament.name.replace(' ', '_')}_Standings_Round_{round_number or 'Latest'}.html"
-    })
+    context = {
+        'applications': applications,
+        'status_filter': status_filter,
+    }
+    return render(request, 'ttsaadmin/player_plus_applications.html', context)
+
+
+@login_required
+@require_POST
+def approve_player_plus_application(request, application_id):
+    """Approve a Player Plus application and upgrade the user."""
+    if not request.user.is_ttsa_admin:
+        messages.error(request, 'You do not have permission to approve applications.')
+        return redirect('player_plus_applications')
+    
+    application = get_object_or_404(PlayerPlusApplication, id=application_id, status='pending')
+    application.approve(request.user)
+    messages.success(request, f'Approved {application.user.username} as Player Plus.')
+    return redirect('player_plus_applications')
+
+
+@login_required
+@require_POST
+def reject_player_plus_application(request, application_id):
+    """Reject a Player Plus application."""
+    if not request.user.is_ttsa_admin:
+        messages.error(request, 'You do not have permission to reject applications.')
+        return redirect('player_plus_applications')
+    
+    application = get_object_or_404(PlayerPlusApplication, id=application_id, status='pending')
+    notes = request.POST.get('admin_notes', '')
+    application.reject(request.user, notes)
+    messages.success(request, f'Rejected {application.user.username}\'s application.')
+    return redirect('player_plus_applications')

@@ -1,26 +1,36 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
+from .forms import CustomUserCreationForm, PlayerPlusApplicationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
 from datetime import timedelta
 from functools import wraps
-from django.db import models
+from django.db import models, transaction, IntegrityError
+from django.db.models import Q, Max
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.core.paginator import Paginator
+from django.core.exceptions import ValidationError
+import logging
 from .models import (
-    User, PlayerProfile, OrganizerProfile, Achievement, PlayerAchievement, ChessGame,
+    User, PlayerProfile, OrganizerProfile, PlayerPlusApplication, Achievement, PlayerAchievement, ChessGame,
     Lesson, PlayerLesson, Puzzle,	PlayerPuzzle, Leaderboard,
     Friend, Message, AcademyNews, MultiplayerGame, GameMove, VideoLesson
 )
-from ttsaadmin.models import TournamentPlayer
+from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentRound, TournamentStanding
+from ttsaadmin.forms import TournamentForm, TournamentPlayerForm
+from ttsaadmin.pairing_manager import get_pairing_manager
+from ttsaadmin.pairing_converter import PairingDataConverter
 from .stockfish_service import stockfish_service, DifficultyLevel
 import random
 import json
 import secrets
 import string
+
+logger = logging.getLogger(__name__)
 
 
 # Custom decorator for social features that require authentication
@@ -46,46 +56,40 @@ def tournament_manager_required(view_func):
     return _wrapped_view
 
 
+def can_manage_tournament_object(user, tournament):
+    """Check if a user can manage a specific tournament. Admins can manage all;
+    Player Plus users can only manage tournaments they created."""
+    if not user.is_authenticated:
+        return False
+    if user.is_ttsa_admin:
+        return True
+    return user.is_player_plus and tournament.created_by == user
+
+
+def player_plus_tournament_access(view_func):
+    """Decorator ensuring the user can manage the tournament in the URL."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
+        if not request.user.can_manage_tournaments:
+            messages.error(request, 'You do not have permission to manage tournaments.')
+            return redirect('tournaments')
+        tournament_id = kwargs.get('tournament_id')
+        if tournament_id:
+            tournament = get_object_or_404(Tournament, id=tournament_id)
+            if not can_manage_tournament_object(request.user, tournament):
+                messages.error(request, 'You do not have permission to manage this tournament.')
+                return redirect('player_tournament_list')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+
 def home(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
-    # Redirect guests to the chess game page for instant access
+    # Always redirect to chess game page for instant access
     return redirect('chess_game')
 
 
-@login_required
-def dashboard(request):
-    profile, created = PlayerProfile.objects.get_or_create(user=request.user)
-    
-    # Get recent games
-    recent_games = ChessGame.objects.filter(player=profile).order_by('-created_at')[:5]
-    
-    # Get achievements
-    achievements = PlayerAchievement.objects.filter(player=profile).select_related('achievement')
-    
-    # Get learning streak
-    if profile.last_played == timezone.now().date():
-        profile.learning_streak += 1
-    elif profile.last_played < timezone.now().date() - timedelta(days=1):
-        profile.learning_streak = 1
-    profile.save()
-    
-    # Get lessons progress
-    completed_lessons = PlayerLesson.objects.filter(player=profile, completed=True).count()
-    total_lessons = Lesson.objects.count()
-    
-    # Get news
-    news = AcademyNews.objects.all().order_by('-published_at')[:3]
-    
-    context = {
-        'profile': profile,
-        'recent_games': recent_games,
-        'achievements': achievements,
-        'completed_lessons': completed_lessons,
-        'total_lessons': total_lessons,
-        'news': news,
-    }
-    return render(request, 'ttsa_app/dashboard.html', context)
 
 
 def chess_game(request):
@@ -434,35 +438,41 @@ def change_password(request):
 
 
 @login_required
-def upgrade_to_player_plus(request):
-    """View for upgrading a player to PLAYER_PLUS role."""
+def apply_player_plus(request):
+    """View for a player to apply to become PLAYER_PLUS. Application is reviewed by an admin."""
     if request.method == 'POST':
         user = request.user
         
         if user.role != 'player':
-            messages.error(request, 'Only regular players can upgrade to PLAYER_PLUS.')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': 'Only regular players can apply for Player Plus.'}, status=403)
+            messages.error(request, 'Only regular players can apply for Player Plus.')
             return redirect('settings')
         
-        # Upgrade the user's role - preserves all history, ratings, games, and statistics
-        if user.upgrade_to_player_plus():
-            # OrganizerProfile is auto-created by the signal
-            messages.success(request, 'Congratulations! You have been upgraded to PLAYER_PLUS. You can now create and manage tournaments.')
+        # Only one pending application at a time
+        if PlayerPlusApplication.objects.filter(user=user, status='pending').exists():
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': 'You already have a pending application.'}, status=400)
+            messages.warning(request, 'You already have a pending Player Plus application.')
+            return redirect('settings')
+        
+        form = PlayerPlusApplicationForm(request.POST)
+        if form.is_valid():
+            application = form.save(commit=False)
+            application.user = user
+            application.status = 'pending'
+            application.save()
             
-            # Return JSON if requested via AJAX
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': True,
-                    'message': 'Upgraded to PLAYER_PLUS successfully!',
-                    'role': user.role,
+                    'message': 'Your Player Plus application has been submitted for review.',
                 })
+            messages.success(request, 'Your Player Plus application has been submitted for review.')
         else:
-            messages.error(request, 'Unable to upgrade at this time.')
-            
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Unable to upgrade at this time.',
-                })
+                return JsonResponse({'success': False, 'error': 'Please provide full name and phone number.', 'errors': form.errors}, status=400)
+            messages.error(request, 'Please provide full name and phone number.')
         
         return redirect('settings')
     
@@ -497,7 +507,7 @@ def login_view(request):
             if user.is_ttsa_admin:
                 return redirect('admin_dashboard')
             
-            return redirect('dashboard')
+            return redirect('chess_game')
         else:
             messages.error(request, 'Invalid username or password.')
     
@@ -563,7 +573,7 @@ def signup(request):
                 messages.success(request, f'Account created for {user.username}!')
             
             login(request, user)
-            return redirect('dashboard')
+            return redirect('chess_game')
     else:
         form = CustomUserCreationForm()
     return render(request, 'ttsa_app/signup.html', {'form': form})
@@ -1014,7 +1024,8 @@ def multiplayer_cancel_api(request, game_code):
 
 def tournaments_view(request):
     """View for tournaments page"""
-    return render(request, 'ttsa_app/tournaments.html')
+    profile = request.user.playerprofile if request.user.is_authenticated else None
+    return render(request, 'ttsa_app/tournaments.html', {'profile': profile})
 
 
 @csrf_exempt
@@ -1026,9 +1037,11 @@ def tournaments_api(request):
         from django.db.models import Q
         from django.utils import timezone
         
-        # Get all active tournaments
+        # Get all active tournaments, excluding closed ones
         tournaments = Tournament.objects.filter(
             is_active=True
+        ).exclude(
+            status='closed'
         ).select_related('created_by').prefetch_related('players')
         
         # Apply filters from GET params
@@ -1093,13 +1106,17 @@ def tournaments_api(request):
             
             # Categorize based on status and dates
             now = timezone.now()
+            
+            # Upcoming: tournaments that haven't started yet
             if tournament.status in ['published', 'registration', 'upcoming'] and tournament.start_date > now:
                 upcoming.append(tournament_data)
+            # Ongoing: tournaments currently in progress
             elif tournament.status in ['in_progress', 'ongoing'] or (tournament.start_date <= now <= tournament.end_date):
                 ongoing.append(tournament_data)
+            # Completed: tournaments that have finished
             elif tournament.status in ['completed', 'finished'] or tournament.end_date < now:
                 completed.append(tournament_data)
-            # Handle edge case: tournaments with 'upcoming' status but past start date
+            # Handle edge case: tournaments with 'upcoming' status but past start date should be ongoing
             elif tournament.status == 'upcoming' and tournament.start_date <= now:
                 ongoing.append(tournament_data)
         
@@ -1123,18 +1140,23 @@ def tournament_register_api(request, tournament_id):
     
     try:
         from ttsaadmin.models import Tournament, TournamentPlayer
+        from django.utils import timezone
         
         # Get tournament
         tournament = get_object_or_404(Tournament, id=tournament_id)
         
-        # Get player profile
-        profile = get_object_or_404(PlayerProfile, user=request.user)
+        # Validate tournament status and eligibility
+        if tournament.status not in ['upcoming', 'published', 'registration']:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Registration is not available for this tournament'
+            }, status=400)
         
         # Check if registration is still open
         if not tournament.is_registration_open:
             return JsonResponse({
                 'success': False, 
-                'error': 'Registration is closed for this tournament'
+                'error': 'Registration deadline has passed'
             }, status=400)
         
         # Check if tournament is full
@@ -1144,6 +1166,15 @@ def tournament_register_api(request, tournament_id):
                 'error': 'Tournament is full'
             }, status=400)
         
+        # Get player profile
+        try:
+            profile = request.user.playerprofile
+        except PlayerProfile.DoesNotExist:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Player profile not found. Please complete your profile first.'
+            }, status=400)
+        
         # Check if already registered
         existing_registration = TournamentPlayer.objects.filter(
             player_name=profile.user.username, 
@@ -1151,10 +1182,29 @@ def tournament_register_api(request, tournament_id):
         ).first()
         
         if existing_registration:
-            return JsonResponse({
-                'success': False, 
-                'error': 'You are already registered for this tournament'
-            }, status=400)
+            if existing_registration.status == 'registered':
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'You are already registered for this tournament'
+                }, status=400)
+            else:
+                # Re-activate cancelled registration if exists
+                existing_registration.status = 'registered'
+                existing_registration.registered_at = timezone.now()
+                existing_registration.save(update_fields=['status', 'registered_at'])
+                
+                # Update tournament current players count
+                tournament.current_players += 1
+                tournament.save(update_fields=['current_players'])
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Registration reactivated successfully!',
+                    'registration_id': existing_registration.id
+                })
+        
+        # Note: PlayerProfile doesn't have category field, using 'open' as default
+        # All players can register for 'open' tournaments, category restrictions handled at tournament level
         
         # Create registration
         registration = TournamentPlayer.objects.create(
@@ -1162,18 +1212,19 @@ def tournament_register_api(request, tournament_id):
             rating=profile.rating or 1200,
             email=profile.user.email,
             phone=getattr(profile, 'phone', '') or '',
-            category='open',
+            category='open',  # Default category since PlayerProfile doesn't have category field
             tournament=tournament,
-            status='registered'
+            status='registered',
+            registered_at=timezone.now()
         )
         
         # Update tournament current players count
         tournament.current_players += 1
-        tournament.save()
+        tournament.save(update_fields=['current_players'])
         
         return JsonResponse({
             'success': True,
-            'message': f'Successfully registered for {tournament.name}',
+            'message': f'Successfully registered for {tournament.name}!',
             'registration_id': registration.id
         })
         
@@ -1293,3 +1344,543 @@ def my_tournaments_api(request):
             'success': False, 
             'error': str(e)
         }, status=500)
+
+
+def tournament_results(request, tournament_id):
+    """Display tournament results and standings"""
+    
+    try:
+        from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentStanding
+        
+        # Get tournament
+        tournament = get_object_or_404(Tournament, id=tournament_id, is_active=True)
+        
+        # Get all registered players with their stats
+        players = TournamentPlayer.objects.filter(
+            tournament=tournament,
+            status='registered'
+        ).order_by('-points', '-wins', '-draws', 'rank')
+        
+        # Calculate standings if not already calculated
+        standings = TournamentStanding.objects.filter(
+            tournament=tournament
+        ).order_by('rank')
+        
+        # If no standings exist, create basic standings from player data
+        if not standings.exists():
+            standings_list = []
+            for i, player in enumerate(players, 1):
+                standings_list.append({
+                    'rank': i,
+                    'player_name': player.player_name,
+                    'rating': player.rating,
+                    'points': player.points,
+                    'wins': player.wins,
+                    'losses': player.losses,
+                    'draws': player.draws,
+                    'games_played': player.wins + player.losses + player.draws,
+                    'score_percentage': (player.points / (player.wins + player.losses + player.draws) * 100) if (player.wins + player.losses + player.draws) > 0 else 0
+                })
+        else:
+            standings_list = []
+            for standing in standings:
+                standings_list.append({
+                    'rank': standing.rank,
+                    'player_name': standing.player.player_name,
+                    'rating': standing.player.rating,
+                    'points': standing.points,
+                    'wins': standing.wins,
+                    'losses': standing.losses,
+                    'draws': standing.draws,
+                    'games_played': standing.games_played,
+                    'score_percentage': standing.score_percentage,
+                    'tie_breaks': standing.tie_breaks
+                })
+        
+        # Get recent games for this tournament
+        recent_games = TournamentGame.objects.filter(
+            tournament=tournament
+        ).order_by('-scheduled_time')[:10]
+        
+        context = {
+            'tournament': tournament,
+            'standings': standings_list,
+            'players_count': players.count(),
+            'recent_games': recent_games,
+            'is_completed': tournament.status in ['completed', 'finished']
+        }
+        
+        return render(request, 'ttsa_app/tournament_results.html', context)
+        
+    except Exception as e:
+        logger.error(f"Error in tournament_results: {str(e)}")
+        messages.error(request, 'Unable to load tournament results. Please try again.')
+        return redirect('tournaments')
+
+
+# Player Plus Tournament Management Views
+
+@login_required
+def player_tournament_list(request):
+    """List tournaments owned by the current Player Plus user (admins see all)."""
+    if not request.user.can_manage_tournaments:
+        messages.error(request, 'You do not have permission to manage tournaments.')
+        return redirect('tournaments')
+
+    if request.user.is_ttsa_admin:
+        tournaments = Tournament.objects.all()
+    else:
+        tournaments = Tournament.objects.filter(created_by=request.user)
+
+    tournaments = tournaments.prefetch_related('tournament_rounds', 'players').order_by('-created_at')
+    paginator = Paginator(tournaments, 12)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    for tournament in page_obj:
+        rounds = list(tournament.tournament_rounds.order_by('round_number'))
+        registered = tournament.players.filter(status='registered').count()
+        if rounds:
+            latest = rounds[-1]
+            tournament.round_label = f"Round {latest.round_number} of {tournament.rounds}"
+            tournament.round_status = latest.get_status_display() or latest.status
+            tournament.can_generate_round = (
+                tournament.status not in ['completed', 'cancelled'] and
+                latest.status == 'completed' and
+                latest.round_number < tournament.rounds and
+                registered >= 2
+            )
+        else:
+            tournament.round_label = "No rounds"
+            tournament.round_status = "Not started"
+            tournament.can_generate_round = (
+                tournament.status not in ['completed', 'cancelled'] and
+                registered >= 2
+            )
+
+    return render(request, 'ttsa_app/tournament_management.html', {
+        'profile': request.user.playerprofile,
+        'page_obj': page_obj,
+    })
+
+
+@login_required
+def player_tournament_create(request):
+    """Create a new tournament from the TTSA app (Player Plus / Admin)."""
+    if not request.user.can_manage_tournaments:
+        messages.error(request, 'You do not have permission to create tournaments.')
+        return redirect('tournaments')
+
+    if request.method == 'POST':
+        form = TournamentForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    tournament = form.save(commit=False)
+                    tournament.created_by = request.user
+                    tournament.current_players = 0
+                    tournament.save()
+                messages.success(request, f'Tournament "{tournament.name}" created successfully.')
+                return redirect('player_tournament_manage', tournament_id=tournament.id)
+            except Exception as e:
+                messages.error(request, f'Error creating tournament: {str(e)}')
+    else:
+        form = TournamentForm(initial={'status': 'upcoming'})
+
+    return render(request, 'ttsa_app/tournament_form.html', {
+        'profile': request.user.playerprofile,
+        'form': form,
+        'title': 'Create Tournament',
+    })
+
+
+@login_required
+@player_plus_tournament_access
+def player_tournament_edit(request, tournament_id):
+    """Edit an existing tournament (owner or admin)."""
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+
+    if request.method == 'POST':
+        form = TournamentForm(request.POST, instance=tournament)
+        if form.is_valid():
+            try:
+                tournament = form.save()
+                messages.success(request, f'Tournament "{tournament.name}" updated successfully.')
+                return redirect('player_tournament_manage', tournament_id=tournament.id)
+            except Exception as e:
+                messages.error(request, f'Error updating tournament: {str(e)}')
+    else:
+        form = TournamentForm(instance=tournament)
+
+    return render(request, 'ttsa_app/tournament_form.html', {
+        'profile': request.user.playerprofile,
+        'form': form,
+        'title': 'Edit Tournament',
+        'tournament': tournament,
+    })
+
+
+@login_required
+@player_plus_tournament_access
+@require_POST
+def player_tournament_delete(request, tournament_id):
+    """Delete a tournament (owner or admin)."""
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+    tournament_name = tournament.name
+    tournament.delete()
+    messages.success(request, f'Tournament "{tournament_name}" deleted successfully.')
+    return redirect('player_tournament_list')
+
+
+@login_required
+@player_plus_tournament_access
+def player_tournament_manage(request, tournament_id):
+    """Central management page for a tournament: players, rounds, results, standings."""
+    tournament = get_object_or_404(
+        Tournament.objects.prefetch_related('players', 'tournament_rounds'),
+        id=tournament_id
+    )
+    tab = request.POST.get('tab') or request.GET.get('tab', 'overview')
+
+    # Pre-load rounds and games so POST actions can enforce round locking.
+    games = tournament.games.select_related('white_player', 'black_player').order_by('round_number', 'board_number')
+    rounds = {r.round_number: r for r in tournament.tournament_rounds.all()}
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        extra_round = None  # used to keep the rounds tab on the active round after POST
+
+        if action == 'add_player':
+            form = TournamentPlayerForm(request.POST)
+            if form.is_valid():
+                player_name = form.cleaned_data['player_name']
+                if tournament.players.filter(player_name__iexact=player_name).exists():
+                    messages.error(request, f'A player named "{player_name}" already exists in this tournament.')
+                else:
+                    try:
+                        with transaction.atomic():
+                            player = form.save(commit=False)
+                            player.tournament = tournament
+                            player.save()
+                            tournament.current_players = tournament.players.filter(status='registered').count()
+                            tournament.save()
+                        messages.success(request, f'Player "{player.player_name}" added successfully.')
+                    except IntegrityError:
+                        messages.error(request, f'A player named "{player_name}" already exists in this tournament.')
+                    except Exception as e:
+                        logger.error(f"Error adding player: {e}")
+                        messages.error(request, 'An error occurred while adding the player. Please try again.')
+            else:
+                messages.error(request, 'Please correct the player form and try again.')
+
+        elif action == 'remove_player':
+            player_id = request.POST.get('player_id')
+            player = get_object_or_404(TournamentPlayer, id=player_id, tournament=tournament)
+            player_name = player.player_name
+            player.delete()
+            tournament.current_players = tournament.players.filter(status='registered').count()
+            tournament.save()
+            messages.success(request, f'Player "{player_name}" removed successfully.')
+
+        elif action == 'generate_next_round':
+            try:
+                pairing_manager = get_pairing_manager()
+                result = pairing_manager.generate_next_round(tournament)
+                if result['success']:
+                    if tournament.status != 'ongoing':
+                        tournament.status = 'ongoing'
+                        tournament.save(update_fields=['status'])
+                    messages.success(request, result['message'])
+                else:
+                    messages.error(request, result.get('error', 'Failed to generate pairings.'))
+            except Exception as e:
+                logger.error(f"Error generating next round: {e}")
+                messages.error(request, 'An error occurred while generating pairings.')
+
+        elif action == 'update_game_result':
+            game_id = request.POST.get('game_id')
+            result = request.POST.get('result')
+            try:
+                game = TournamentGame.objects.select_related('white_player', 'black_player').get(id=int(game_id), tournament=tournament)
+            except (ValueError, TournamentGame.DoesNotExist):
+                messages.error(request, 'Game not found.')
+            else:
+                extra_round = game.round_number
+                round_obj = rounds.get(game.round_number)
+                # A round is locked once it has been submitted (completed) or any of its games are completed.
+                round_locked = round_obj and round_obj.status == 'completed'
+                if round_locked:
+                    messages.error(request, f'Round {game.round_number} has already been submitted and cannot be edited.')
+                elif result in dict(TournamentGame.RESULT_CHOICES):
+                    success = PairingDataConverter.update_game_result(int(game_id), result)
+                    if success:
+                        messages.success(request, 'Game result updated.')
+                    else:
+                        messages.error(request, 'Failed to update game result.')
+                else:
+                    messages.error(request, 'Invalid game result.')
+
+        elif action == 'submit_round':
+            round_number = request.POST.get('round_number')
+            try:
+                rn = int(round_number)
+                extra_round = rn
+                pairing_manager = get_pairing_manager()
+                result = pairing_manager.submit_round_results(tournament, rn)
+                if result['success']:
+                    if rn >= tournament.rounds:
+                        tournament.status = 'completed'
+                        tournament.save(update_fields=['status'])
+                    messages.success(request, result['message'])
+                else:
+                    messages.error(request, result.get('error', 'Failed to submit round.'))
+            except Exception as e:
+                logger.error(f"Error submitting round: {e}")
+                messages.error(request, 'An error occurred while submitting round results.')
+
+        elif action == 'reset_round':
+            round_number = request.POST.get('round_number')
+            try:
+                rn = int(round_number)
+            except (ValueError, TypeError):
+                messages.error(request, 'Invalid round number.')
+            else:
+                extra_round = rn
+                if not request.user.is_ttsa_admin:
+                    messages.error(request, 'Only TTSA administrators can reset a submitted round.')
+                else:
+                    round_obj = rounds.get(rn)
+                    if not round_obj:
+                        messages.error(request, f'Round {rn} does not exist.')
+                    elif round_obj.status != 'completed':
+                        messages.error(request, f'Round {rn} is not submitted, so it does not need to be reset.')
+                    elif rn != max(rounds.keys(), default=0):
+                        messages.error(request, 'Only the latest submitted round can be reset.')
+                    else:
+                        with transaction.atomic():
+                            # Reset all games in this round to unplayed
+                            TournamentGame.objects.filter(
+                                tournament=tournament, round_number=rn
+                            ).update(result='*', status='scheduled', completed_at=None)
+                            # Unlock the round
+                            round_obj.status = 'active'
+                            round_obj.end_time = None
+                            round_obj.save()
+                            # Remove standings for this and later rounds
+                            TournamentStanding.objects.filter(
+                                tournament=tournament, round_number__gte=rn
+                            ).delete()
+                            # Re-open tournament if it was completed
+                            if tournament.status == 'completed':
+                                tournament.status = 'ongoing'
+                                tournament.save(update_fields=['status'])
+                        messages.success(request, f'Round {rn} has been reset and can now be edited.')
+
+        elif action == 'delete_tournament':
+            tournament_name = tournament.name
+            tournament.delete()
+            messages.success(request, f'Tournament "{tournament_name}" deleted successfully.')
+            return redirect('player_tournament_list')
+
+        redirect_url = f'/my-tournaments/{tournament_id}/?tab={tab}'
+        if extra_round:
+            redirect_url += f'&round={extra_round}'
+        return redirect(redirect_url)
+
+    # Build context per tab
+    players = tournament.players.order_by('-points', '-buchholz', '-sonneborn_berger', 'player_name')
+
+    grouped_games = {}
+    for game in games:
+        grouped_games.setdefault(game.round_number, []).append(game)
+
+    round_numbers = sorted(grouped_games.keys())
+    current_round = max(round_numbers) if round_numbers else 0
+
+    # Build round data with locking info. A round is locked once it has been
+    # submitted (status=completed). Rounds with no submitted results remain editable.
+    round_data = []
+    for rn in round_numbers:
+        round_obj = rounds.get(rn, TournamentRound(round_number=rn, tournament=tournament))
+        round_games = grouped_games[rn]
+        is_locked = round_obj.status == 'completed' or any(g.status == 'completed' for g in round_games)
+        has_results = any(g.result != '*' for g in round_games)
+        all_results_set = all(g.result != '*' for g in round_games) and round_games
+        round_data.append({
+            'round_number': rn,
+            'round': round_obj,
+            'games': round_games,
+            'is_locked': is_locked,
+            'is_editable': not is_locked,
+            'has_results': has_results,
+            'all_results_set': all_results_set,
+        })
+
+    completed_games = games.filter(status='completed').count()
+
+    # Determine if next round can be generated
+    registered_players = tournament.players.filter(status='registered').count()
+    can_generate = (
+        tournament.status not in ['completed', 'cancelled'] and
+        current_round < tournament.rounds and
+        registered_players >= 2 and
+        (current_round == 0 or rounds.get(current_round, TournamentRound()).status == 'completed')
+    )
+    can_submit = any(r.status == 'active' for r in rounds.values())
+
+    player_form = TournamentPlayerForm()
+
+    # Recalculate latest standings if any completed rounds exist
+    standings = []
+    latest_completed = tournament.tournament_rounds.filter(status='completed').order_by('-round_number').first()
+    if latest_completed:
+        standings_list = PairingDataConverter.recalculate_standings(tournament, latest_completed.round_number)
+        for rank, standing in enumerate(standings_list, 1):
+            standings.append({
+                'rank': rank,
+                'player': standing['player'],
+                'points': float(standing['points']),
+                'wins': standing['wins'],
+                'draws': standing['draws'],
+                'losses': standing['losses'],
+                'games_played': standing['games_played'],
+                'buchholz': float(standing['buchholz']),
+                'sonneborn_berger': float(standing['sonneborn_berger']),
+            })
+
+    # Selected round for the rounds tab (default to the latest round)
+    try:
+        selected_round = int(request.GET.get('round'))
+        if selected_round not in round_numbers:
+            selected_round = current_round
+    except (ValueError, TypeError):
+        selected_round = current_round
+
+    context = {
+        'profile': request.user.playerprofile,
+        'tournament': tournament,
+        'tab': tab,
+        'players': players,
+        'games': games,
+        'round_data': round_data,
+        'round_numbers': round_numbers,
+        'current_round': current_round,
+        'selected_round': selected_round,
+        'completed_games': completed_games,
+        'player_form': player_form,
+        'standings': standings,
+        'result_choices': TournamentGame.RESULT_CHOICES,
+        'can_generate': can_generate,
+        'can_submit': can_submit,
+        'is_admin': request.user.is_ttsa_admin,
+    }
+
+    return render(request, 'ttsa_app/tournament_manage.html', context)
+
+
+@login_required
+@player_plus_tournament_access
+@csrf_exempt
+def player_tournament_api_data(request, tournament_id):
+    """API endpoint for tournament data (owner or admin)."""
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+
+    players_data = []
+    for player in tournament.players.all():
+        players_data.append({
+            'id': player.id,
+            'player_name': player.player_name,
+            'rating': player.rating,
+            'points': float(player.points),
+            'wins': player.wins,
+            'losses': player.losses,
+            'draws': player.draws,
+            'status': player.status,
+        })
+
+    games_data = []
+    for game in tournament.games.all():
+        games_data.append({
+            'id': game.id,
+            'round_number': game.round_number,
+            'board_number': game.board_number,
+            'white_player': game.white_player.player_name,
+            'black_player': game.black_player.player_name,
+            'result': game.result,
+            'status': game.status,
+        })
+
+    return JsonResponse({
+        'success': True,
+        'tournament': {
+            'id': tournament.id,
+            'name': tournament.name,
+            'status': tournament.status,
+            'current_players': tournament.current_players,
+            'max_players': tournament.max_players,
+            'rounds': tournament.rounds,
+        },
+        'players': players_data,
+        'games': games_data,
+    })
+
+
+@login_required
+@player_plus_tournament_access
+def player_tournament_print_pairings(request, tournament_id):
+    """Printable pairings for a tournament or a single round."""
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+    games = tournament.games.select_related('white_player', 'black_player').order_by('round_number', 'board_number')
+
+    round_param = request.GET.get('round')
+    round_data = []
+    if round_param:
+        try:
+            rn = int(round_param)
+            filtered_games = [g for g in games if g.round_number == rn]
+            if filtered_games:
+                round_data = [{'round_number': rn, 'games': filtered_games}]
+        except (ValueError, TypeError):
+            pass
+
+    if not round_data:
+        grouped = {}
+        for g in games:
+            grouped.setdefault(g.round_number, []).append(g)
+        round_data = [{'round_number': rn, 'games': grouped[rn]} for rn in sorted(grouped.keys())]
+
+    context = {
+        'tournament': tournament,
+        'round_data': round_data,
+    }
+    return render(request, 'ttsa_app/tournament_print_pairings.html', context)
+
+
+@login_required
+@player_plus_tournament_access
+def player_tournament_print_standings(request, tournament_id):
+    """Printable tournament standings."""
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+
+    standings = []
+    latest_completed = tournament.tournament_rounds.filter(status='completed').order_by('-round_number').first()
+    if latest_completed:
+        standings_list = PairingDataConverter.recalculate_standings(tournament, latest_completed.round_number)
+        for rank, standing in enumerate(standings_list, 1):
+            standings.append({
+                'rank': rank,
+                'player': standing['player'],
+                'points': float(standing['points']),
+                'wins': standing['wins'],
+                'draws': standing['draws'],
+                'losses': standing['losses'],
+                'games_played': standing['games_played'],
+                'buchholz': float(standing['buchholz']),
+                'sonneborn_berger': float(standing['sonneborn_berger']),
+            })
+
+    context = {
+        'tournament': tournament,
+        'standings': standings,
+        'round_number': latest_completed.round_number if latest_completed else None,
+    }
+    return render(request, 'ttsa_app/tournament_print_standings.html', context)

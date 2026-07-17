@@ -31,6 +31,8 @@ urlpatterns = [
     # Round Management URLs
     path('api/tournaments/<int:tournament_id>/rounds/', views.tournament_rounds_api, name='tournament_rounds_api'),
     path('api/tournaments/<int:tournament_id>/generate-next-round/', views.generate_next_round, name='generate_next_round'),
+    path('api/tournaments/<int:tournament_id>/games/<int:game_id>/result/', views.update_game_result_api, name='update_game_result_api'),
+    path('api/tournaments/<int:tournament_id>/submit-round/', views.submit_round_results_api, name='submit_round_results_api'),
     path('api/tournaments/<int:tournament_id>/games/', views.tournament_games_api, name='tournament_games_api'),
     path('api/tournaments/<int:tournament_id>/games/<int:round_number>/', views.tournament_games_api, name='tournament_games_round'),
     path('api/tournaments/<int:tournament_id>/standings/', views.tournament_standings_api, name='tournament_standings_api'),
@@ -38,4 +40,9 @@ urlpatterns = [
     path('api/tournaments/<int:tournament_id>/print-pairings/<int:round_number>/', views.print_pairings, name='print_pairings'),
     path('api/tournaments/<int:tournament_id>/print-standings/', views.print_standings, name='print_standings'),
     path('api/tournaments/<int:tournament_id>/print-standings/<int:round_number>/', views.print_standings, name='print_standings_round'),
+    
+    # Player Plus application review
+    path('player-plus/applications/', views.player_plus_applications, name='player_plus_applications'),
+    path('player-plus/applications/<int:application_id>/approve/', views.approve_player_plus_application, name='approve_player_plus_application'),
+    path('player-plus/applications/<int:application_id>/reject/', views.reject_player_plus_application, name='reject_player_plus_application'),
 ]

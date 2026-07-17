@@ -57,7 +57,7 @@ class SyncNotification(models.Model):
         ('video_added', 'Video Added'),
     ]
     
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True, db_constraint=False)
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, db_index=True)
     title = models.CharField(max_length=200)
     message = models.TextField()
@@ -134,7 +134,7 @@ class Tournament(models.Model):
     is_featured = models.BooleanField(default=False, db_index=True)
     
     # Metadata
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True, db_constraint=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -176,7 +176,7 @@ class Tournament(models.Model):
     def is_registration_open(self):
         """Check if registration is still open"""
         return (
-            self.status in ['published', 'registration'] and
+            self.status in ['published', 'registration', 'upcoming'] and
             self.registration_deadline > timezone.now() and
             self.available_slots > 0
         )
@@ -491,7 +491,7 @@ class TournamentResult(models.Model):
     standings_updated = models.BooleanField(default=False)
     
     # Metadata
-    entered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    entered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, db_index=True, db_constraint=False)
     entered_at = models.DateTimeField(auto_now_add=True)
     verified_at = models.DateTimeField(null=True, blank=True)
     

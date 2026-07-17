@@ -24,7 +24,7 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=2">
     
     <!-- Chess.js library -->
     <script src="https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.min.js"></script>
@@ -77,7 +77,7 @@
             grid-template-columns: repeat(8, 1fr);
             grid-template-rows: repeat(8, 1fr);
             width: 100%;
-            max-width: 500px;
+            max-width: 600px;
             aspect-ratio: 1;
             border: 4px solid #4a5568;
             border-radius: 8px;
@@ -234,6 +234,15 @@
             animation: bounce 1s infinite;
         }
         
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-in-out;
+        }
+        
         .piece-animation {
             animation: pieceMove 0.5s ease;
         }
@@ -328,6 +337,22 @@
                         <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
                     </button>
                     
+                    <!-- Plus / Tournaments link -->
+                    {% if user.is_player %}
+                        {% if user.has_pending_player_plus_application %}
+                            <span class="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-1 rounded-full">Pending</span>
+                        {% else %}
+                            <button onclick="openPlayerPlusModal()" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:shadow-md transition flex items-center space-x-1">
+                                <i class="fas fa-plus"></i>
+                                <span>Plus</span>
+                            </button>
+                        {% endif %}
+                    {% elif user.can_manage_tournaments %}
+                        <a href="{% url 'player_tournament_list' %}" class="text-sm font-semibold text-purple-700 hover:text-purple-900 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition">
+                            <i class="fas fa-trophy mr-1"></i>My Tournaments
+                        </a>
+                    {% endif %}
+
                     <!-- User Avatar -->
                     <div class="flex items-center space-x-1 sm:space-x-2">
                         <div class="w-8 h-8 rounded-full border-2 border-purple-500 bg-purple-100 flex items-center justify-center">
@@ -360,15 +385,7 @@
         <aside id="sidebar" class="sidebar w-64 bg-white shadow-xl overflow-y-auto">
             <nav class="p-4">
                 <ul class="space-y-2">
-                    {% if user.is_authenticated %}
-                    <li>
-                        <a href="{% url 'dashboard' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'dashboard' %}bg-purple-100 text-purple-700{% endif %}">
-                            <i class="fas fa-home text-lg"></i>
-                            <span>Dashboard</span>
-                        </a>
-                    </li>
-                    {% endif %}
-                    <li>
+                                        <li>
                         <a href="{% url 'chess_game' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition {% if request.resolver_match.url_name == 'chess_game' %}bg-purple-100 text-purple-700{% endif %}">
                             <i class="fas fa-chess text-lg"></i>
                             <span>Play vs Computer</span>
@@ -408,7 +425,7 @@
                     {% endif %}
                     {% if user.is_authenticated and user.can_manage_tournaments %}
                     <li>
-                        <a href="{% url 'tournament_list' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-indigo-50 transition {% if request.resolver_match.url_name == 'tournament_list' or request.resolver_match.url_name == 'tournament_create' %}bg-indigo-100 text-indigo-700{% endif %}">
+                        <a href="{% url 'player_tournament_list' %}" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-indigo-50 transition {% if request.resolver_match.url_name == 'player_tournament_list' or request.resolver_match.url_name == 'player_tournament_create' or request.resolver_match.url_name == 'player_tournament_manage' %}bg-indigo-100 text-indigo-700{% endif %}">
                             <i class="fas fa-tasks text-lg"></i>
                             <span>Manage Tournaments</span>
                         </a>
@@ -454,9 +471,103 @@
     
     <!-- Mobile Menu Overlay -->
     <div id="mobileMenuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden"></div>
+
+    {% if user.is_authenticated and user.is_player and not user.has_pending_player_plus_application %}
+    <!-- Player Plus Application Modal -->
+    <div id="playerPlusModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center px-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+            <button onclick="closePlayerPlusModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="text-center mb-6">
+                <div class="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-star text-white text-lg"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800">Apply for Player Plus</h3>
+                <p class="text-sm text-gray-600 mt-1">Host and manage your own chess tournaments.</p>
+            </div>
+            <form id="playerPlusForm" method="post" action="{% url 'apply_player_plus' %}" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label for="plusFullName" class="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
+                    <input type="text" id="plusFullName" name="full_name" required class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="Your full name">
+                </div>
+                <div>
+                    <label for="plusPhone" class="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
+                    <input type="tel" id="plusPhone" name="phone_number" required class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="Phone number">
+                </div>
+                <div>
+                    <label for="plusAdditional" class="block text-sm font-semibold text-gray-700 mb-1">Additional Information</label>
+                    <textarea id="plusAdditional" name="additional_info" rows="3" class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="Tell us why you want to become a tournament organizer"></textarea>
+                </div>
+                <div id="playerPlusMessage" class="hidden text-sm text-center"></div>
+                <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg font-semibold hover:shadow-md transition">
+                    Submit Application
+                </button>
+            </form>
+        </div>
+    </div>
     
     <!-- JavaScript -->
     <script src="{% static 'js/main.js' %}"></script>
+    <script>
+        function openPlayerPlusModal() {
+            const modal = document.getElementById('playerPlusModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+        function closePlayerPlusModal() {
+            const modal = document.getElementById('playerPlusModal');
+            if (modal) modal.classList.add('hidden');
+        }
+        
+        const playerPlusForm = document.getElementById('playerPlusForm');
+        if (playerPlusForm) {
+            playerPlusForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const messageDiv = document.getElementById('playerPlusMessage');
+                messageDiv.classList.add('hidden');
+                messageDiv.className = 'text-sm text-center';
+                
+                const formData = new FormData(playerPlusForm);
+                try {
+                    const response = await fetch(playerPlusForm.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        messageDiv.textContent = data.message;
+                        messageDiv.classList.add('text-green-600');
+                        messageDiv.classList.remove('hidden');
+                        setTimeout(() => {
+                            closePlayerPlusModal();
+                            window.location.reload();
+                        }, 1200);
+                    } else {
+                        messageDiv.textContent = data.error || 'Application failed. Please try again.';
+                        messageDiv.classList.add('text-red-600');
+                        messageDiv.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    messageDiv.textContent = 'An error occurred. Please try again.';
+                    messageDiv.classList.add('text-red-600');
+                    messageDiv.classList.remove('hidden');
+                }
+            });
+        }
+        
+        // Close modal when clicking outside
+        const playerPlusModal = document.getElementById('playerPlusModal');
+        if (playerPlusModal) {
+            playerPlusModal.addEventListener('click', function(e) {
+                if (e.target === playerPlusModal) closePlayerPlusModal();
+            });
+        }
+    </script>
+    {% endif %}
     {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -52,6 +52,12 @@ class User(AbstractUser):
             return True
         return False
 
+    @property
+    def has_pending_player_plus_application(self):
+        if not hasattr(self, 'player_plus_applications'):
+            return False
+        return self.player_plus_applications.filter(status='pending').exists()
+
 
 class PlayerProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -87,6 +93,67 @@ class OrganizerProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - Organizer"
+
+
+class PlayerPlusApplication(models.Model):
+    """Application submitted by a player to become Player Plus."""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='player_plus_applications', db_index=True)
+    full_name = models.CharField(max_length=255)
+    phone_number = models.CharField(max_length=20)
+    additional_info = models.TextField(max_length=1000, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    submitted_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_player_plus_applications')
+    admin_notes = models.TextField(max_length=1000, blank=True)
+
+    class Meta:
+        db_table = 'ttsa_player_plus_application'
+        ordering = ['-submitted_at']
+        indexes = [
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['status', '-submitted_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.status}"
+
+    def approve(self, admin_user):
+        if self.status != 'pending':
+            return False
+        self.status = 'approved'
+        self.reviewed_at = timezone.now()
+        self.reviewed_by = admin_user
+        self.save()
+        user = self.user
+        if user.role == 'player':
+            user.role = 'player_plus'
+            user.save(update_fields=['role'])
+        # Populate organizer profile
+        profile, _ = OrganizerProfile.objects.get_or_create(user=user)
+        profile.contact_phone = self.phone_number
+        profile.contact_email = user.email
+        profile.organization_name = self.full_name
+        profile.bio = self.additional_info
+        profile.is_verified = True
+        profile.save()
+        return True
+
+    def reject(self, admin_user, notes=''):
+        if self.status != 'pending':
+            return False
+        self.status = 'rejected'
+        self.reviewed_at = timezone.now()
+        self.reviewed_by = admin_user
+        self.admin_notes = notes
+        self.save()
+        return True
 
 
 class Achievement(models.Model):

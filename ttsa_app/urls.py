@@ -8,8 +8,7 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='chess_game'), name='logout'),
     
-    path('dashboard/', views.dashboard, name='dashboard'),
-    path('game/', views.chess_game, name='chess_game'),
+        path('game/', views.chess_game, name='chess_game'),
     
     path('lessons/', views.lessons, name='lessons'),
     path('lessons/<int:lesson_id>/', views.lesson_detail, name='lesson_detail'),
@@ -19,6 +18,7 @@ urlpatterns = [
     path('puzzles/', views.puzzles, name='puzzles'),
     path('achievements/', views.achievements, name='achievements'),
     path('tournaments/', views.tournaments_view, name='tournaments'),
+    path('tournaments/<int:tournament_id>/results/', views.tournament_results, name='tournament_results'),
     path('leaderboard/', views.leaderboard, name='leaderboard'),
     path('friends/', views.friends, name='friends'),
     path('messages/', views.messages_view, name='messages'),
@@ -26,7 +26,7 @@ urlpatterns = [
     path('settings/', views.settings_view, name='settings'),
     path('settings/change-username/', views.change_username, name='change_username'),
     path('settings/change-password/', views.change_password, name='change_password'),
-    path('settings/upgrade-to-player-plus/', views.upgrade_to_player_plus, name='upgrade_to_player_plus'),
+    path('settings/apply-player-plus/', views.apply_player_plus, name='apply_player_plus'),
     
     # Role API endpoint
     path('api/user-role/', views.user_role_api, name='user_role_api'),
@@ -45,6 +45,16 @@ urlpatterns = [
     path('api/tournaments/<int:tournament_id>/register/', views.tournament_register_api, name='tournament_register_api'),
     path('api/tournaments/<int:tournament_id>/unregister/', views.tournament_unregister_api, name='tournament_unregister_api'),
     path('api/my-tournaments/', views.my_tournaments_api, name='my_tournaments_api'),
+
+    # Player Plus tournament management (stays inside ttsa_app)
+    path('my-tournaments/', views.player_tournament_list, name='player_tournament_list'),
+    path('my-tournaments/create/', views.player_tournament_create, name='player_tournament_create'),
+    path('my-tournaments/<int:tournament_id>/', views.player_tournament_manage, name='player_tournament_manage'),
+    path('my-tournaments/<int:tournament_id>/edit/', views.player_tournament_edit, name='player_tournament_edit'),
+    path('my-tournaments/<int:tournament_id>/delete/', views.player_tournament_delete, name='player_tournament_delete'),
+    path('my-tournaments/<int:tournament_id>/print/pairings/', views.player_tournament_print_pairings, name='player_tournament_print_pairings'),
+    path('my-tournaments/<int:tournament_id>/print/standings/', views.player_tournament_print_standings, name='player_tournament_print_standings'),
+    path('api/my-tournaments/<int:tournament_id>/', views.player_tournament_api_data, name='player_tournament_api_data'),
     
     # API endpoints
     path('api/save-game/', views.save_game, name='save_game'),

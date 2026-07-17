@@ -1,5 +1,4 @@
 import json
-import chess
 import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -8,6 +7,15 @@ from django.utils import timezone
 from django.db import transaction
 from datetime import timedelta
 from .models import MultiplayerGame, GameMove
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+# Import chess only for multiplayer game functionality
+try:
+    import chess
+    CHESS_AVAILABLE = True
+except ImportError:
+    CHESS_AVAILABLE = False
 
 
 class MultiplayerGameConsumer(AsyncWebsocketConsumer):
@@ -94,6 +102,10 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         game = await self.get_game()
         if not game or game.status != 'playing':
             print(f"Game not found or not playing: {game}")
+            return
+
+        if not CHESS_AVAILABLE:
+            print("Chess module not available")
             return
 
         # Verify it's the user's turn
@@ -340,6 +352,9 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
     async def handle_game_over(self, chess_game):
         game = await self.get_game()
         if not game:
+            return
+
+        if not CHESS_AVAILABLE:
             return
 
         result = None
@@ -716,3 +731,153 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
                     'active_clock': current_times['active_clock']
                 }
             )
+
+
+class TournamentStandingsConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.tournament_id = self.scope['url_route']['kwargs']['tournament_id']
+        self.tournament_group_name = f'tournament_standings_{self.tournament_id}'
+        
+        # Get user in async-safe way
+        self.user = await sync_to_async(lambda: self.scope['user'])()
+
+        # Check if user is authenticated
+        if not self.user.is_authenticated:
+            await self.close()
+            return
+
+        # Join tournament group
+        await self.channel_layer.group_add(self.tournament_group_name, self.channel_name)
+        await self.accept()
+
+        # Send current standings on connect
+        await self.send_current_standings()
+
+    async def disconnect(self, close_code):
+        # Leave tournament group
+        await self.channel_layer.group_discard(self.tournament_group_name, self.channel_name)
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        message_type = data.get('type')
+        
+        if message_type == 'request_standings':
+            await self.send_current_standings()
+        elif message_type == 'ping':
+            await self.send(text_data=json.dumps({'type': 'pong'}))
+
+    async def send_current_standings(self):
+        """Send current tournament standings to the client"""
+        try:
+            standings = await self.get_tournament_standings()
+            await self.send(text_data=json.dumps({
+                'type': 'standings_update',
+                'standings': standings,
+                'timestamp': timezone.now().isoformat()
+            }))
+        except Exception as e:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': f'Failed to load standings: {str(e)}'
+            }))
+
+    async def standings_updated(self, event):
+        """Handle standings update broadcast"""
+        await self.send(text_data=json.dumps({
+            'type': 'standings_update',
+            'standings': event['standings'],
+            'timestamp': event.get('timestamp', timezone.now().isoformat()),
+            'update_type': event.get('update_type', 'game_result')
+        }))
+
+    @database_sync_to_async
+    def get_tournament_standings(self):
+        """Get tournament standings from database"""
+        from ttsaadmin.models import Tournament, TournamentPlayer
+        
+        try:
+            tournament = Tournament.objects.get(id=self.tournament_id)
+            players = tournament.players.filter(status='confirmed').order_by('-points', '-buchholz', '-sonneborn_berger', '-rating')
+            
+            standings_data = []
+            rank = 1
+            for player in players:
+                standings_data.append({
+                    'rank': rank,
+                    'id': player.id,
+                    'name': player.player_name,
+                    'rating': player.rating,
+                    'points': float(player.points),
+                    'wins': player.wins,
+                    'losses': player.losses,
+                    'draws': player.draws,
+                    'buchholz': float(player.buchholz),
+                    'sonneborn_berger': float(player.sonneborn_berger),
+                    'status': player.status
+                })
+                rank += 1
+            
+            return {
+                'tournament_id': self.tournament_id,
+                'tournament_name': tournament.name,
+                'players': standings_data,
+                'total_players': len(standings_data)
+            }
+            
+        except Tournament.DoesNotExist:
+            return None
+
+
+def broadcast_tournament_standings(tournament_id, update_type='game_result'):
+    """
+    Helper function to broadcast tournament standings updates
+    Can be called from views or signals
+    """
+    channel_layer = get_channel_layer()
+    group_name = f'tournament_standings_{tournament_id}'
+    
+    # Get current standings
+    from ttsaadmin.models import Tournament, TournamentPlayer
+    
+    try:
+        tournament = Tournament.objects.get(id=tournament_id)
+        players = tournament.players.filter(status='confirmed').order_by('-points', '-buchholz', '-sonneborn_berger', '-rating')
+        
+        standings_data = []
+        rank = 1
+        for player in players:
+            standings_data.append({
+                'rank': rank,
+                'id': player.id,
+                'name': player.player_name,
+                'rating': player.rating,
+                'points': float(player.points),
+                'wins': player.wins,
+                'losses': player.losses,
+                'draws': player.draws,
+                'buchholz': float(player.buchholz),
+                'sonneborn_berger': float(player.sonneborn_berger),
+                'status': player.status
+            })
+            rank += 1
+        
+        standings = {
+            'tournament_id': tournament_id,
+            'tournament_name': tournament.name,
+            'players': standings_data,
+            'total_players': len(standings_data)
+        }
+        
+        # Broadcast to all clients in the tournament group
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                'type': 'standings_updated',
+                'standings': standings,
+                'timestamp': timezone.now().isoformat(),
+                'update_type': update_type
+            }
+        )
+        
+    except Tournament.DoesNotExist:
+        pass

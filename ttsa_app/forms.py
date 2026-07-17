@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import User, PlayerProfile, Message
+from .models import User, PlayerProfile, Message, PlayerPlusApplication
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -11,6 +11,13 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ("username", "first_name", "last_name", "email", "password1", "password2")
+
+    def _post_clean(self):
+        # Bypass Django's password validators for registrations, allowing simple passwords
+        super(forms.ModelForm, self)._post_clean()
+        password = self.cleaned_data.get("password2")
+        if password:
+            self.instance.set_password(password)
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -45,3 +52,14 @@ class FriendRequestForm(forms.Form):
         max_length=150,
         widget=forms.TextInput(attrs={'placeholder': 'Enter username to add as friend'})
     )
+
+
+class PlayerPlusApplicationForm(forms.ModelForm):
+    class Meta:
+        model = PlayerPlusApplication
+        fields = ['full_name', 'phone_number', 'additional_info']
+        widgets = {
+            'full_name': forms.TextInput(attrs={'placeholder': 'Your full name'}),
+            'phone_number': forms.TextInput(attrs={'placeholder': 'Phone number'}),
+            'additional_info': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Any additional information'}),
+        }

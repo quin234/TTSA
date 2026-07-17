@@ -7,27 +7,25 @@
 <div class="container mx-auto px-4 py-6">
     
     <!-- Game Header -->
-    <div class="bg-white rounded-xl shadow-lg p-4 mb-6">
-        <div class="flex items-center justify-center space-x-3">
-            <label class="text-sm font-medium text-gray-600">Difficulty:</label>
-            <select id="difficultySelect" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none">
-                {% for key, value in difficulty_levels.items %}
-                <option value="{{ key }}" {% if difficulty == key %}selected{% endif %}>{{ value.name }}</option>
-                {% endfor %}
-            </select>
-            <button onclick="startNewGame()" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition">
-                <i class="fas fa-play mr-1"></i>New Game
-            </button>
-        </div>
+    <div class="flex items-center justify-center space-x-3 mb-6">
+        <label class="text-sm font-medium text-gray-600">Difficulty:</label>
+        <select id="difficultySelect" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none">
+            {% for key, value in difficulty_levels.items %}
+            <option value="{{ key }}" {% if difficulty == key %}selected{% endif %}>{{ value.name }}</option>
+            {% endfor %}
+        </select>
+        <button onclick="startNewGame()" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition">
+            <i class="fas fa-play mr-1"></i>New Game
+        </button>
     </div>
     
     <!-- Main Game Area -->
     <div class="flex flex-col items-center w-full">
         <!-- Chess Board -->
-        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 w-full max-w-2xl">
+        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 w-full max-w-4xl">
             <!-- Chessboard.js Board with external notation -->
             <div class="flex justify-center">
-                <div class="relative" style="width: 100%; max-width: 400px;">
+                <div class="relative" style="width: 100%; max-width: 600px;">
                     <!-- Column letters (top) -->
                     <div class="flex justify-around mb-1">
                         <span class="w-1/8 text-center text-sm font-semibold text-gray-600">a</span>
@@ -109,23 +107,57 @@
                 <button onclick="learnMove()" class="w-10 h-10 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition flex items-center justify-center" title="Learn Move">
                     <i class="fas fa-graduation-cap"></i>
                 </button>
+                <button onclick="toggleSound()" id="soundToggle" class="w-10 h-10 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition flex items-center justify-center" title="Toggle Sound">
+                    <i id="soundIcon" class="fas fa-volume-up"></i>
+                </button>
             </div>
         </div>
     </div>
     
-    <!-- Game Over Modal -->
-    <div id="gameOverModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <!-- Pawn Promotion Modal -->
+    <div id="promotionModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all">
             <div class="text-center">
-                <div id="gameResultIcon" class="text-6xl mb-4"></div>
-                <h2 id="gameResultTitle" class="fredoka text-3xl font-bold mb-2"></h2>
-                <p id="gameResultMessage" class="text-gray-600 mb-6"></p>
-                <div class="flex space-x-3 justify-center">
-                    <button onclick="startNewGame()" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition">
-                        <i class="fas fa-redo mr-2"></i>Play Again
+                <h2 class="fredoka text-2xl font-bold mb-6 text-gray-800">Choose Promotion Piece</h2>
+                <div class="grid grid-cols-4 gap-4 mb-6">
+                    <button onclick="selectPromotionPiece('q')" class="promotion-piece-btn group relative p-4 bg-gray-100 rounded-lg hover:bg-purple-100 transition-all transform hover:scale-105 border-2 border-transparent hover:border-purple-300">
+                        <div class="text-4xl mb-2">♕</div>
+                        <div class="text-xs font-medium text-gray-700">Queen</div>
+                        <div class="absolute top-1 right-1 text-xs text-purple-600 font-bold">9</div>
                     </button>
-                    <button onclick="closeGameOverModal()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-                        Close
+                    <button onclick="selectPromotionPiece('r')" class="promotion-piece-btn group relative p-4 bg-gray-100 rounded-lg hover:bg-blue-100 transition-all transform hover:scale-105 border-2 border-transparent hover:border-blue-300">
+                        <div class="text-4xl mb-2">♖</div>
+                        <div class="text-xs font-medium text-gray-700">Rook</div>
+                        <div class="absolute top-1 right-1 text-xs text-blue-600 font-bold">5</div>
+                    </button>
+                    <button onclick="selectPromotionPiece('b')" class="promotion-piece-btn group relative p-4 bg-gray-100 rounded-lg hover:bg-green-100 transition-all transform hover:scale-105 border-2 border-transparent hover:border-green-300">
+                        <div class="text-4xl mb-2">♗</div>
+                        <div class="text-xs font-medium text-gray-700">Bishop</div>
+                        <div class="absolute top-1 right-1 text-xs text-green-600 font-bold">3</div>
+                    </button>
+                    <button onclick="selectPromotionPiece('n')" class="promotion-piece-btn group relative p-4 bg-gray-100 rounded-lg hover:bg-orange-100 transition-all transform hover:scale-105 border-2 border-transparent hover:border-orange-300">
+                        <div class="text-4xl mb-2">♘</div>
+                        <div class="text-xs font-medium text-gray-700">Knight</div>
+                        <div class="absolute top-1 right-1 text-xs text-orange-600 font-bold">3</div>
+                    </button>
+                </div>
+                <div class="text-xs text-gray-500 mb-4">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Select the piece to promote your pawn to
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" onclick="if (event.target === this) closeGameOverModal()" class="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 hidden flex items-center justify-center animate-fade-in">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border-2 border-purple-200 overflow-hidden">
+            <div class="text-center">
+                <h2 id="gameResultTitle" class="fredoka text-2xl font-bold mb-1 bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent"></h2>
+                <p id="gameResultMessage" class="text-gray-600 mb-4 text-base"></p>
+                <div class="flex justify-center">
+                    <button onclick="startNewGame()" class="px-4 py-2 text-sm bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition shadow-lg">
+                        <i class="fas fa-redo mr-1"></i>Play Again
                     </button>
                 </div>
             </div>
@@ -201,50 +233,69 @@ function onSquareClick(square) {
         } else {
             // Try to move to the clicked square
             console.log('Attempting move');
-            const move = game.move({
-                from: selectedSquare,
-                to: square,
-                promotion: 'q'
-            });
             
-            console.log('Move result:', move);
+            // Check if this is a pawn promotion move
+            const piece = game.get(selectedSquare);
+            const isPawnPromotion = piece && piece.type === 'p' && 
+                ((piece.color === 'w' && square[1] === '8') || 
+                 (piece.color === 'b' && square[1] === '1'));
             
-            if (move) {
-                // Move successful
-                console.log('Move successful');
+            if (isPawnPromotion) {
+                // Show promotion dialog instead of making the move
+                console.log('Pawn promotion detected, showing dialog');
+                showPromotionDialog(selectedSquare, square);
                 clearHighlights();
                 selectedSquare = null;
-                
-                // Update board position
-                const newFen = game.fen();
-                console.log('Updating board to FEN:', newFen);
-                console.log('Board object:', board);
-                board.position(newFen);
-                console.log('Board position updated');
-                
-                // Highlight move path (origin and destination)
-                lastMove = { from: move.from, to: move.to };
-                highlightMovePath(move.from, move.to);
-                
-                // Play approprate sound
-                chessSounds.playMoveSound(move, game);
-                
-                // Update game state
-                moveHistory.push(move);
-                updateTurnIndicator();
-                
-                // Check for game over
-                if (game.game_over()) {
-                    endGame();
-                } else {
-                    // AI move (Stockfish)
-                    setTimeout(makeAIMove, 500);
-                }
             } else {
-                // Invalid move, deselect
-                console.log('Invalid move');
-                clearHighlights();
-                selectedSquare = null;
+                // Regular move
+                const move = game.move({
+                    from: selectedSquare,
+                    to: square,
+                    promotion: 'q' // Default promotion (won't be used for non-promotion moves)
+                });
+                
+                console.log('Move result:', move);
+                
+                if (move) {
+                    // Move successful
+                    console.log('Move successful');
+                    clearHighlights();
+                    selectedSquare = null;
+                    
+                    // Update board position
+                    const newFen = game.fen();
+                    console.log('Updating board to FEN:', newFen);
+                    console.log('Board object:', board);
+                    board.position(newFen);
+                    console.log('Board position updated');
+                    
+                    // Highlight move path (origin and destination)
+                    lastMove = { from: move.from, to: move.to };
+                    highlightMovePath(move.from, move.to);
+                    
+                    // Play appropriate sound
+                    chessSounds.playMoveSound(move, game);
+                    
+                    // Update game state
+                    moveHistory.push(move);
+                    updateTurnIndicator();
+                    
+                    // Update check highlighting
+                    updateCheckHighlight();
+                    
+                    // Check for game over
+                    if (game.game_over()) {
+                        endGame();
+                    } else {
+                        // AI move (Stockfish)
+                        setTimeout(makeAIMove, 500);
+                    }
+                } else {
+                    // Invalid move, deselect
+                    console.log('Invalid move');
+                    clearHighlights();
+                    selectedSquare = null;
+                }
             }
         }
     }
@@ -288,9 +339,52 @@ function highlightLegalMoves(square) {
 function clearHighlights() {
     console.log('clearHighlights called');
     document.querySelectorAll('.square-55d63').forEach(el => {
-        el.classList.remove('selected-square', 'valid-move', 'capture-move', 'move-from', 'move-to');
+        el.classList.remove('selected-square', 'valid-move', 'capture-move', 'move-from', 'move-to', 'in-check', 'checkmate');
     });
     console.log('clearHighlights finished');
+}
+
+function findKingPosition(gameState, color) {
+    const board = gameState.board();
+    
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const piece = board[row][col];
+            if (piece && piece.type === 'k' && piece.color === color) {
+                // Convert to algebraic notation
+                const files = 'abcdefgh';
+                const ranks = '87654321';
+                return files[col] + ranks[row];
+            }
+        }
+    }
+    return null;
+}
+
+function updateCheckHighlight() {
+    if (!game) return;
+    
+    // Clear previous check highlights
+    document.querySelectorAll('.square-55d63').forEach(el => {
+        el.classList.remove('in-check', 'checkmate');
+    });
+    
+    // Check if current king is in check
+    if (game.in_check()) {
+        const currentColor = game.turn();
+        const kingPos = findKingPosition(game, currentColor);
+        
+        if (kingPos) {
+            const kingSquare = document.querySelector(`.square-55d63[data-square="${kingPos}"]`);
+            if (kingSquare) {
+                if (game.in_checkmate()) {
+                    kingSquare.classList.add('checkmate');
+                } else {
+                    kingSquare.classList.add('in-check');
+                }
+            }
+        }
+    }
 }
 
 function highlightMovePath(from, to) {
@@ -332,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
         position: 'start',
         onSquareClick: onSquareClick,
         onSnapEnd: onSnapEnd,
-        moveSpeed: 'slow',
+        moveSpeed: 'medium',
         pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
         showNotation: false
     };
@@ -354,31 +448,22 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Difficulty set to:', currentDifficulty);
     updateTurnIndicator();
     
+    // Initialize check highlighting
+    updateCheckHighlight();
+    
+    // Initialize sound system (async)
+    chessSounds.loadSettings();
+    chessSounds.init().then(() => {
+        updateSoundButton();
+        console.log('Sound system initialized');
+    }).catch(error => {
+        console.warn('Sound system initialization failed:', error);
+        updateSoundButton(); // Still update button even if sound fails
+    });
+    
     // Add fallback click handler in case chessboard.js click handler doesn't work
     setTimeout(() => {
-        console.log('=== ADDING FALLBACK CLICK HANDLERS ===');
-        const squares = document.querySelectorAll('.square-55d63');
-        console.log('Found squares:', squares.length);
-        squares.forEach((square, index) => {
-            const squareId = square.getAttribute('data-square');
-            console.log(`Square ${index}: data-square="${squareId}"`);
-            square.addEventListener('click', function(e) {
-                const squareId = this.getAttribute('data-square');
-                console.log('=== FALLBACK CLICK HANDLER TRIGGERED ===');
-                console.log('Square:', squareId);
-                console.log('Event:', e);
-                console.log('onSquareClick exists:', typeof onSquareClick);
-                console.log('squareId exists:', !!squareId);
-                if (squareId && typeof onSquareClick === 'function') {
-                    console.log('Calling onSquareClick with:', squareId);
-                    onSquareClick(squareId);
-                    console.log('onSquareClick returned');
-                } else {
-                    console.log('Cannot call onSquareClick - squareId:', squareId, 'function exists:', typeof onSquareClick);
-                }
-            });
-        });
-        console.log('Fallback click handlers added');
+        addClickHandlers();
     }, 1000);
 });
 
@@ -1632,6 +1717,9 @@ function executeAIMove(moveString) {
         
         updateTurnIndicator();
         
+        // Update check highlighting
+        updateCheckHighlight();
+        
         if (game.game_over()) {
             endGame();
         }
@@ -1692,18 +1780,57 @@ function endGame() {
     // Show game over modal
     const modal = document.getElementById('gameOverModal');
     if (modal) {
-        document.getElementById('gameResultIcon').textContent = icon;
         document.getElementById('gameResultTitle').textContent = title;
         document.getElementById('gameResultMessage').textContent = message;
         modal.classList.remove('hidden');
     }
 }
 
+function addClickHandlers() {
+    console.log('=== ADDING FALLBACK CLICK HANDLERS ===');
+    const squares = document.querySelectorAll('.square-55d63');
+    console.log('Found squares:', squares.length);
+    
+    // Remove existing event listeners to prevent duplicates
+    squares.forEach(square => {
+        square.replaceWith(square.cloneNode(true));
+    });
+    
+    // Re-select squares after cloning
+    const freshSquares = document.querySelectorAll('.square-55d63');
+    freshSquares.forEach((square, index) => {
+        const squareId = square.getAttribute('data-square');
+        console.log(`Square ${index}: data-square="${squareId}"`);
+        square.addEventListener('click', function(e) {
+            const squareId = this.getAttribute('data-square');
+            console.log('=== FALLBACK CLICK HANDLER TRIGGERED ===');
+            console.log('Square:', squareId);
+            console.log('Event:', e);
+            console.log('onSquareClick exists:', typeof onSquareClick);
+            console.log('squareId exists:', !!squareId);
+            if (squareId && typeof onSquareClick === 'function') {
+                console.log('Calling onSquareClick with:', squareId);
+                onSquareClick(squareId);
+                console.log('onSquareClick returned');
+            } else {
+                console.log('Cannot call onSquareClick - squareId:', squareId, 'function exists:', typeof onSquareClick);
+            }
+        });
+    });
+    console.log('Fallback click handlers added');
+}
+
 function startNewGame() {
     console.log('Starting new game...');
     
+    // Stop any existing timer
+    stopGameTimer();
+    
     // Reset Chess.js game
     game.reset();
+    
+    // Clear all highlights
+    clearHighlights();
     
     // Randomly select player color
     const playerColor = Math.random() < 0.5 ? 'white' : 'black';
@@ -1713,9 +1840,22 @@ function startNewGame() {
     board.start();
     board.orientation(playerColor);
     
+    // Re-attach click handlers after board reset
+    setTimeout(() => {
+        addClickHandlers();
+    }, 100);
+    
     // Reset game state
     moveHistory = [];
     selectedSquare = null;
+    lastMove = null;
+    
+    // Update UI
+    updateTurnIndicator();
+    updateCheckHighlight();
+    
+    // Start game timer
+    startGameTimer();
     
     // If player is black, make an initial AI move as white
     if (playerColor === 'black') {
@@ -1723,9 +1863,6 @@ function startNewGame() {
             executeAIMove();
         }, 500);
     }
-    
-    // Update UI
-    updateTurnIndicator();
     
     // Hide game over modal if visible
     const modal = document.getElementById('gameOverModal');
@@ -1738,6 +1875,8 @@ function startNewGame() {
     if (gameStatus) {
         gameStatus.textContent = '';
     }
+    
+    console.log('New game started successfully');
 }
 
 function undoMove() {
@@ -1861,6 +2000,117 @@ function closeGameOverModal() {
     const modal = document.getElementById('gameOverModal');
     if (modal) {
         modal.classList.add('hidden');
+    }
+}
+
+// Promotion handling variables
+let pendingPromotion = null;
+let promotionMove = null;
+
+function showPromotionDialog(from, to) {
+    pendingPromotion = { from, to };
+    promotionMove = null;
+    
+    const modal = document.getElementById('promotionModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        
+        // Highlight selected buttons on hover
+        const buttons = modal.querySelectorAll('.promotion-piece-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.1)';
+            });
+            btn.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1.05)';
+            });
+        });
+    }
+}
+
+function selectPromotionPiece(piece) {
+    if (!pendingPromotion) return;
+    
+    promotionMove = {
+        from: pendingPromotion.from,
+        to: pendingPromotion.to,
+        promotion: piece
+    };
+    
+    // Close the modal
+    const modal = document.getElementById('promotionModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    
+    // Execute the promotion move
+    executePromotionMove();
+}
+
+function executePromotionMove() {
+    if (!promotionMove) return;
+    
+    const move = game.move(promotionMove);
+    
+    if (move) {
+        // Update board position
+        const newFen = game.fen();
+        board.position(newFen);
+        
+        // Highlight move path
+        lastMove = { from: move.from, to: move.to };
+        highlightMovePath(move.from, move.to);
+        
+        // Play promotion sound
+        chessSounds.playPromotion();
+        
+        // Update game state
+        moveHistory.push(move);
+        updateTurnIndicator();
+        
+        // Update check highlighting
+        updateCheckHighlight();
+        
+        // Check for game over
+        if (game.game_over()) {
+            endGame();
+        } else {
+            // AI move
+            setTimeout(makeAIMove, 500);
+        }
+    }
+    
+    // Clear promotion state
+    pendingPromotion = null;
+    promotionMove = null;
+}
+
+function closePromotionModal() {
+    const modal = document.getElementById('promotionModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    pendingPromotion = null;
+    promotionMove = null;
+}
+
+function toggleSound() {
+    chessSounds.setEnabled(!chessSounds.enabled);
+    updateSoundButton();
+}
+
+function updateSoundButton() {
+    const soundToggle = document.getElementById('soundToggle');
+    const soundIcon = document.getElementById('soundIcon');
+    
+    if (soundToggle && soundIcon) {
+        if (chessSounds.enabled) {
+            soundToggle.className = 'w-10 h-10 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition flex items-center justify-center';
+            soundIcon.className = 'fas fa-volume-up';
+        } else {
+            soundToggle.className = 'w-10 h-10 bg-red-500 text-white rounded-lg hover:bg-red-600 transition flex items-center justify-center';
+            soundIcon.className = 'fas fa-volume-mute';
+        }
     }
 }
 </script>

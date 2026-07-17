@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Sounds Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center">Chess Sounds Test</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Sound Controls</h2>
+            <div class="flex gap-4 mb-4">
+                <button onclick="toggleSound()" id="soundToggle" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    <i id="soundIcon" class="fas fa-volume-up mr-2"></i>Toggle Sound
+                </button>
+                <div class="flex items-center gap-2">
+                    <label for="volumeSlider" class="text-sm font-medium">Volume:</label>
+                    <input type="range" id="volumeSlider" min="0" max="100" value="60" class="w-32">
+                    <span id="volumeDisplay" class="text-sm">60%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Test Sounds</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <button onclick="testMove()" class="px-4 py-3 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    <i class="fas fa-chess mr-2"></i>Move
+                </button>
+                <button onclick="testCapture()" class="px-4 py-3 bg-red-500 text-white rounded hover:bg-red-600">
+                    <i class="fas fa-times mr-2"></i>Capture
+                </button>
+                <button onclick="testCheck()" class="px-4 py-3 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>Check
+                </button>
+                <button onclick="testCastle()" class="px-4 py-3 bg-purple-500 text-white rounded hover:bg-purple-600">
+                    <i class="fas fa-chess-rook mr-2"></i>Castle
+                </button>
+                <button onclick="testPromotion()" class="px-4 py-3 bg-green-500 text-white rounded hover:bg-green-600">
+                    <i class="fas fa-chess-queen mr-2"></i>Promotion
+                </button>
+                <button onclick="testGameEnd()" class="px-4 py-3 bg-indigo-500 text-white rounded hover:bg-indigo-600">
+                    <i class="fas fa-trophy mr-2"></i>Game End
+                </button>
+                <button onclick="testDraw()" class="px-4 py-3 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    <i class="fas fa-handshake mr-2"></i>Draw
+                </button>
+                <button onclick="testIllegal()" class="px-4 py-3 bg-orange-500 text-white rounded hover:bg-orange-600">
+                    <i class="fas fa-ban mr-2"></i>Illegal
+                </button>
+                <button onclick="testSequence()" class="px-4 py-3 bg-teal-500 text-white rounded hover:bg-teal-600">
+                    <i class="fas fa-play mr-2"></i>Sequence
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+            <h2 class="text-xl font-semibold mb-4">Status</h2>
+            <div id="status" class="text-sm text-gray-600">Ready to test sounds...</div>
+        </div>
+    </div>
+
+    <script src="static/js/chess-sounds.js"></script>
+    <script>
+        let statusDiv = document.getElementById('status');
+        let volumeSlider = document.getElementById('volumeSlider');
+        let volumeDisplay = document.getElementById('volumeDisplay');
+
+        function updateStatus(message) {
+            statusDiv.textContent = message;
+            console.log(message);
+        }
+
+        function toggleSound() {
+            chessSounds.setEnabled(!chessSounds.enabled);
+            updateSoundButton();
+            updateStatus(`Sound ${chessSounds.enabled ? 'enabled' : 'disabled'}`);
+        }
+
+        function updateSoundButton() {
+            const soundToggle = document.getElementById('soundToggle');
+            const soundIcon = document.getElementById('soundIcon');
+            
+            if (soundToggle && soundIcon) {
+                if (chessSounds.enabled) {
+                    soundToggle.className = 'px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600';
+                    soundIcon.className = 'fas fa-volume-up mr-2';
+                } else {
+                    soundToggle.className = 'px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600';
+                    soundIcon.className = 'fas fa-volume-mute mr-2';
+                }
+            }
+        }
+
+        volumeSlider.addEventListener('input', function() {
+            const volume = this.value / 100;
+            chessSounds.setVolume(volume);
+            volumeDisplay.textContent = this.value + '%';
+            updateStatus(`Volume set to ${this.value}%`);
+        });
+
+        function testMove() {
+            updateStatus('Playing move sound...');
+            chessSounds.playMove();
+        }
+
+        function testCapture() {
+            updateStatus('Playing capture sound...');
+            chessSounds.playCapture();
+        }
+
+        function testCheck() {
+            updateStatus('Playing check sound...');
+            chessSounds.playCheck();
+        }
+
+        function testCastle() {
+            updateStatus('Playing castle sound...');
+            chessSounds.playCastle();
+        }
+
+        function testPromotion() {
+            updateStatus('Playing promotion sound...');
+            chessSounds.playPromotion();
+        }
+
+        function testGameEnd() {
+            updateStatus('Playing game end sound...');
+            chessSounds.playGameEnd(true);
+        }
+
+        function testDraw() {
+            updateStatus('Playing draw sound...');
+            chessSounds.playDraw();
+        }
+
+        function testIllegal() {
+            updateStatus('Playing illegal move sound...');
+            chessSounds.playIllegal();
+        }
+
+        function testSequence() {
+            updateStatus('Playing sound sequence...');
+            chessSounds.playMove();
+            setTimeout(() => chessSounds.playCapture(), 300);
+            setTimeout(() => chessSounds.playCheck(), 600);
+            setTimeout(() => chessSounds.playCastle(), 900);
+            setTimeout(() => chessSounds.playPromotion(), 1200);
+            setTimeout(() => chessSounds.playGameEnd(true), 1500);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            chessSounds.loadSettings();
+            updateSoundButton();
+            volumeSlider.value = chessSounds.volume * 100;
+            volumeDisplay.textContent = Math.round(chessSounds.volume * 100) + '%';
+            
+            // Initialize sound system asynchronously
+            chessSounds.init().then(() => {
+                updateStatus('Sound system initialized with real audio. Click buttons to test sounds.');
+            }).catch(error => {
+                updateStatus('Sound system initialized with fallback sounds. Click buttons to test sounds.');
+                console.warn('Sound system initialization failed:', error);
+            });
+        });
+    </script>
+</body>
+</html>

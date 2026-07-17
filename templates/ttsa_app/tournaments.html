@@ -13,7 +13,7 @@
             </div>
             <div class="flex items-center space-x-4">
                 {% if user.is_authenticated and user.can_manage_tournaments %}
-                <a href="{% url 'tournament_create' %}" class="bg-white text-orange-600 px-4 py-2 rounded-lg font-semibold hover:bg-orange-50 transition flex items-center space-x-2">
+                <a href="{% url 'player_tournament_create' %}" class="bg-white text-orange-600 px-4 py-2 rounded-lg font-semibold hover:bg-orange-50 transition flex items-center space-x-2">
                     <i class="fas fa-plus"></i>
                     <span>Create Tournament</span>
                 </a>
@@ -130,15 +130,22 @@ function renderAllTournaments() {
         // Status-based styling
         let statusBadge = '';
         let statusColor = '';
-        if (tournament.status === 'published' || tournament.status === 'registration') {
+        let showRegisterButton = false;
+        let showResultsButton = false;
+        let showOngoingBadge = false;
+        
+        if (tournament.status === 'upcoming' || tournament.status === 'published' || tournament.status === 'registration') {
             statusBadge = 'Upcoming';
             statusColor = 'bg-blue-100 text-blue-800';
+            showRegisterButton = true;
         } else if (tournament.status === 'in_progress' || tournament.status === 'ongoing') {
-            statusBadge = 'Live';
+            statusBadge = 'Ongoing';
             statusColor = 'bg-green-100 text-green-800';
+            showOngoingBadge = true;
         } else if (tournament.status === 'completed' || tournament.status === 'finished') {
             statusBadge = 'Completed';
             statusColor = 'bg-gray-100 text-gray-800';
+            showResultsButton = true;
         }
         
         // Category colors
@@ -151,28 +158,34 @@ function renderAllTournaments() {
         };
 
         // Determine button state and text
-        let buttonText = 'Register';
-        let buttonClass = 'bg-orange-500 hover:bg-orange-600 text-white';
+        let buttonText = '';
+        let buttonClass = '';
         let buttonDisabled = '';
+        let showButton = true;
         
-        if (tournament.status === 'completed' || tournament.status === 'finished') {
+        if (showRegisterButton) {
+            if (isRegistered) {
+                buttonText = 'Registered ✓';
+                buttonClass = 'bg-green-600 text-white cursor-not-allowed';
+                buttonDisabled = 'disabled';
+            } else if (isFull) {
+                buttonText = 'Full';
+                buttonClass = 'bg-gray-400 text-white cursor-not-allowed';
+                buttonDisabled = 'disabled';
+            } else if (!tournament.is_registration_open) {
+                buttonText = 'Registration Closed';
+                buttonClass = 'bg-gray-400 text-white cursor-not-allowed';
+                buttonDisabled = 'disabled';
+            } else {
+                buttonText = 'Register';
+                buttonClass = 'bg-orange-500 hover:bg-orange-600 text-white';
+            }
+        } else if (showResultsButton) {
             buttonText = 'View Results';
             buttonClass = 'bg-gray-500 hover:bg-gray-600 text-white';
-        } else if (tournament.status === 'in_progress' || tournament.status === 'ongoing') {
-            buttonText = 'View Details';
-            buttonClass = 'bg-green-500 hover:bg-green-600 text-white';
-        } else if (isRegistered) {
-            buttonText = 'Registered ✓';
-            buttonClass = 'bg-green-600 text-white cursor-not-allowed';
-            buttonDisabled = 'disabled';
-        } else if (isFull) {
-            buttonText = 'Full';
-            buttonClass = 'bg-gray-400 text-white cursor-not-allowed';
-            buttonDisabled = 'disabled';
-        } else if (!tournament.is_registration_open) {
-            buttonText = 'Closed';
-            buttonClass = 'bg-gray-400 text-white cursor-not-allowed';
-            buttonDisabled = 'disabled';
+        } else if (showOngoingBadge) {
+            // Ongoing tournaments show badge instead of button
+            showButton = false;
         }
 
         return `
@@ -216,7 +229,7 @@ function renderAllTournaments() {
                             <span class="text-gray-500"> • ${tournament.rounds} rounds</span>
                         </div>
                         <div class="text-xs text-right">
-                            ${tournament.status === 'published' || tournament.status === 'registration' ? `
+                            ${showRegisterButton ? `
                             <span class="font-semibold ${isFull ? 'text-red-600' : 'text-green-600'}">${tournament.available_slots}</span>
                             <span class="text-gray-500">/${tournament.total_slots}</span>` : `
                             <span class="font-semibold text-gray-600">${tournament.current_players}</span>
@@ -225,28 +238,33 @@ function renderAllTournaments() {
                     </div>
                     
                     <!-- Entry fee for upcoming tournaments -->
-                    ${tournament.status === 'published' || tournament.status === 'registration' ? `
+                    ${showRegisterButton ? `
                     <div class="flex justify-between items-center">
                         <span class="text-xs font-semibold text-orange-600">$${tournament.entry_fee}</span>
                         <span class="text-xs text-gray-500">entry fee</span>
                     </div>` : ''}
                     
                     <!-- Registration deadline for upcoming tournaments -->
-                    ${tournament.status === 'published' || tournament.status === 'registration' ? `
+                    ${showRegisterButton ? `
                     <div class="text-xs text-gray-500">
                         <i class="fas fa-hourglass-end w-3 text-gray-400 mr-1"></i>
                         Deadline: ${tournament.registration_deadline}
                     </div>` : ''}
                 </div>
                 
-                <!-- Action button -->
+                <!-- Action button or ongoing badge -->
                 <div class="p-3 pt-0">
+                    ${showButton ? `
                     <button 
-                        onclick="${tournament.status === 'published' || tournament.status === 'registration' ? `registerForTournament(${tournament.id})` : `viewTournamentDetails(${tournament.id})`}"
+                        onclick="${showRegisterButton ? `registerForTournament(${tournament.id})` : `viewTournamentResults(${tournament.id})`}"
                         class="w-full py-2 px-3 ${buttonClass} rounded-md text-xs font-medium transition-colors ${buttonDisabled}"
                         ${buttonDisabled}>
                         ${buttonText}
-                    </button>
+                    </button>` : `
+                    <div class="w-full py-2 px-3 bg-green-100 text-green-800 rounded-md text-xs font-medium text-center">
+                        <i class="fas fa-chess mr-1"></i>
+                        Ongoing Tournament
+                    </div>`}
                 </div>
             </div>
         `;
@@ -336,6 +354,15 @@ function viewTournamentDetails(tournamentId) {
     if (tournament) {
         // For now, just show a simple message - this could be expanded to show a modal with full details
         showSuccessMessage(`Viewing details for "${tournament.name}" - Feature coming soon!`);
+    }
+}
+
+// View tournament results
+function viewTournamentResults(tournamentId) {
+    const tournament = allTournamentsData.find(t => t.id === tournamentId);
+    if (tournament) {
+        // Redirect to tournament results page in ttsa_app
+        window.location.href = `/tournaments/${tournamentId}/results/`;
     }
 }
 
