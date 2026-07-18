@@ -325,7 +325,7 @@ function initializeGame() {
     // Check if Chessboard.js is loaded
     if (typeof Chessboard === 'undefined') {
         console.error('Chessboard.js is not loaded!');
-        alert('Chessboard library failed to load. Please refresh the page.');
+        showTTSAToast('Chessboard library failed to load. Please refresh the page.', 'error');
         return;
     }
     
@@ -914,7 +914,7 @@ function handleWebSocketMessage(data) {
                 stopClock();
                 showGameOver('draw');
             } else {
-                alert('Draw offer declined');
+                showTTSAToast('Draw offer declined', 'info');
             }
             break;
             
@@ -1082,21 +1082,21 @@ function closeGameOverModal() {
 }
 
 function resignGame() {
-    if (confirm('Are you sure you want to resign?')) {
+    showTTSAConfirm('Are you sure you want to resign?', function() {
         websocket.send(JSON.stringify({
             type: 'resign'
         }));
         gameEnded = true;
         board.draggable = false;
         showGameOver('resign');
-    }
+    });
 }
 
 function offerDraw() {
     websocket.send(JSON.stringify({
         type: 'draw_offer'
     }));
-    alert('Draw offer sent to opponent');
+    showTTSAToast('Draw offer sent to opponent', 'success');
 }
 
 function acceptDraw() {

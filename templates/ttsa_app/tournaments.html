@@ -275,7 +275,7 @@ function renderAllTournaments() {
 function registerForTournament(tournamentId) {
     const tournament = allTournamentsData.find(t => t.id === tournamentId);
     if (tournament) {
-        // Create a custom confirmation dialog instead of using alert()
+        // Create a custom confirmation dialog instead of using a blocking alert
         const confirmDialog = document.createElement('div');
         confirmDialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
         confirmDialog.innerHTML = `

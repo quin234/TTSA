@@ -133,6 +133,7 @@
                            minlength="8"
                            class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-gray-500 focus:border-transparent"
                            placeholder="Confirm new password">
+                    <p id="password-error" class="hidden text-red-600 text-xs mt-1"></p>
                 </div>
                 <button type="submit" class="w-full bg-gray-700 text-white py-1.5 px-3 rounded text-sm hover:bg-gray-800 transition font-medium">
                     Update Password
@@ -189,8 +190,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (newPassword !== confirmPassword) {
                 e.preventDefault();
-                alert('New passwords do not match!');
+                const errorEl = document.getElementById('password-error');
+                errorEl.textContent = 'New passwords do not match!';
+                errorEl.classList.remove('hidden');
                 return false;
+            } else {
+                document.getElementById('password-error').classList.add('hidden');
             }
         });
     }

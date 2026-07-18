@@ -176,24 +176,33 @@ class UCIProtocol:
                     # Configure engine based on difficulty
                     self.send_command(f"setoption name Skill Level value {settings['skill_level']}")
                     self.send_command(f"setoption name Contempt value 0")
+                    # Use Skill Level for strength; do not cap via UCI_Elo
+                    self.send_command("setoption name UCI_LimitStrength value false")
                     
-                    # For master level, disable strength limiting for maximum performance
+                    # Engine resources
                     if difficulty == DifficultyLevel.MASTER:
-                        self.send_command("setoption name UCI_LimitStrength value false")
                         self.send_command("setoption name Threads value 4")
                         self.send_command("setoption name Hash value 256")
                     else:
-                        self.send_command("setoption name UCI_LimitStrength value true")
+                        self.send_command("setoption name Threads value 1")
+                        self.send_command("setoption name Hash value 32")
                     
-                    # Search for best move
-                    if settings['movetime']:
-                        self.send_command(f"go movetime {settings['movetime']}")
-                    else:
-                        self.send_command(f"go depth {settings['depth']}")
+                    # Ensure option changes are applied before searching
+                    self.send_command("isready")
+                    if not self.wait_for_response("readyok", timeout=5000):
+                        logger.warning("Engine did not respond to isready")
+                    
+                    # Build go command with depth, time, and node limits
+                    go_parts = [f"depth {settings['depth']}"]
+                    if settings.get('movetime'):
+                        go_parts.append(f"movetime {settings['movetime']}")
+                    if settings.get('nodes'):
+                        go_parts.append(f"nodes {settings['nodes']}")
+                    self.send_command(f"go {' '.join(go_parts)}")
                     
                     # Wait for bestmove response
                     start_time = time.time()
-                    timeout = settings['movetime'] + 2000 if settings['movetime'] else 5000
+                    timeout = settings['movetime'] + 3000 if settings['movetime'] else 5000
                     
                     while time.time() - start_time < timeout / 1000:
                         try:
@@ -250,20 +259,8 @@ class StockfishService:
     
     def __init__(self):
         if self._uci_protocol is None:
-            # Default Stockfish path - should be configurable
-            stockfish_paths = [
-                "stockfish.exe",  # Windows
-                "stockfish",      # Linux/Mac
-                "/usr/bin/stockfish",
-                "/usr/local/bin/stockfish",
-                "/usr/games/stockfish",  # Ubuntu/Debian
-            ]
-            
-            self.engine_path = None
-            for path in stockfish_paths:
-                if os.path.exists(path):
-                    self.engine_path = path
-                    break
+            from .stockfish_config import find_stockfish_executable
+            self.engine_path = find_stockfish_executable()
             
             if not self.engine_path:
                 logger.warning("Stockfish executable not found in standard locations")

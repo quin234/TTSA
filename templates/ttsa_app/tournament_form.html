@@ -3,105 +3,173 @@
 {% block title %}{{ title }} - TTSA Academy{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-6 max-w-4xl">
-    <div class="bg-white rounded-xl shadow-lg p-6">
-        <div class="flex items-center justify-between mb-6">
+<style>
+    .tournament-form label {
+        display: block;
+        font-weight: 600;
+        color: #4b5563;
+        font-size: 0.75rem;
+        margin-bottom: 0.2rem;
+        letter-spacing: 0.01em;
+    }
+    .tournament-form input[type="text"],
+    .tournament-form input[type="number"],
+    .tournament-form input[type="email"],
+    .tournament-form input[type="url"],
+    .tournament-form input[type="datetime-local"],
+    .tournament-form input[type="date"],
+    .tournament-form input[type="time"],
+    .tournament-form select,
+    .tournament-form textarea {
+        width: 100%;
+        padding: 0.4rem 0.65rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.35rem;
+        background-color: #ffffff;
+        color: #111827;
+        font-size: 0.9rem;
+        line-height: 1.35;
+        transition: all 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .tournament-form input:focus,
+    .tournament-form select:focus,
+    .tournament-form textarea:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    }
+    .tournament-form textarea {
+        height: 2.5rem;
+        min-height: 2.5rem;
+        resize: vertical;
+    }
+    .tournament-form input[type="checkbox"] {
+        width: 1rem;
+        height: 1rem;
+        accent-color: #6366f1;
+        cursor: pointer;
+    }
+    .tournament-form input[type="checkbox"] + label {
+        display: inline;
+        margin: 0 0 0 0.35rem;
+        font-weight: 500;
+        font-size: 0.85rem;
+        color: #374151;
+    }
+</style>
+
+<div class="container mx-auto px-4 py-4 max-w-7xl">
+    <div class="bg-white rounded-xl shadow-lg p-4 md:p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-4 border-b border-gray-100 pb-3">
             <h1 class="fredoka text-2xl font-bold text-gray-800">{{ title }}</h1>
-            <a href="{% url 'player_tournament_list' %}" class="text-gray-600 hover:text-gray-800 text-sm">
+            <a href="{% url 'player_tournament_list' %}" class="mt-2 md:mt-0 inline-flex items-center text-gray-600 hover:text-gray-800 text-sm font-medium transition">
                 <i class="fas fa-arrow-left mr-1"></i>Back to My Tournaments
             </a>
         </div>
 
         {% if messages %}
             {% for message in messages %}
-                <div class="mb-4 px-4 py-3 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                <div class="mb-4 px-3 py-2 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
                     {{ message }}
                 </div>
             {% endfor %}
         {% endif %}
 
-        <form method="post" class="space-y-5">
+        <form method="post" class="tournament-form">
             {% csrf_token %}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.name.id_for_label }}">Tournament Name *</label>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3">
+                <div class="lg:col-span-2">
+                    <label for="{{ form.name.id_for_label }}">Tournament Name <span class="text-red-500">*</span></label>
                     {{ form.name }}
-                    {% if form.name.errors %}<p class="text-red-600 text-sm mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+                    {% if form.name.errors %}<p class="text-red-600 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
                 </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.description.id_for_label }}">Description</label>
+                <div class="lg:col-span-2">
+                    <label for="{{ form.description.id_for_label }}">Description</label>
                     {{ form.description }}
                 </div>
+
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.venue.id_for_label }}">Venue *</label>
+                    <label for="{{ form.venue.id_for_label }}">Venue <span class="text-red-500">*</span></label>
                     {{ form.venue }}
-                    {% if form.venue.errors %}<p class="text-red-600 text-sm mt-1">{{ form.venue.errors.0 }}</p>{% endif %}
+                    {% if form.venue.errors %}<p class="text-red-600 text-xs mt-1">{{ form.venue.errors.0 }}</p>{% endif %}
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.time_control.id_for_label }}">Time Control *</label>
+                    <label for="{{ form.time_control.id_for_label }}">Time Control <span class="text-red-500">*</span></label>
                     {{ form.time_control }}
-                    {% if form.time_control.errors %}<p class="text-red-600 text-sm mt-1">{{ form.time_control.errors.0 }}</p>{% endif %}
+                    {% if form.time_control.errors %}<p class="text-red-600 text-xs mt-1">{{ form.time_control.errors.0 }}</p>{% endif %}
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.category.id_for_label }}">Category *</label>
+                    <label for="{{ form.category.id_for_label }}">Category <span class="text-red-500">*</span></label>
                     {{ form.category }}
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.format.id_for_label }}">Format *</label>
+                    <label for="{{ form.format.id_for_label }}">Format <span class="text-red-500">*</span></label>
                     {{ form.format }}
                 </div>
+
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.rounds.id_for_label }}">Rounds *</label>
+                    <label for="{{ form.rounds.id_for_label }}">Rounds <span class="text-red-500">*</span></label>
                     {{ form.rounds }}
-                    {% if form.rounds.errors %}<p class="text-red-600 text-sm mt-1">{{ form.rounds.errors.0 }}</p>{% endif %}
+                    {% if form.rounds.errors %}<p class="text-red-600 text-xs mt-1">{{ form.rounds.errors.0 }}</p>{% endif %}
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.max_players.id_for_label }}">Max Players *</label>
+                    <label for="{{ form.max_players.id_for_label }}">Max Players <span class="text-red-500">*</span></label>
                     {{ form.max_players }}
-                    {% if form.max_players.errors %}<p class="text-red-600 text-sm mt-1">{{ form.max_players.errors.0 }}</p>{% endif %}
+                    {% if form.max_players.errors %}<p class="text-red-600 text-xs mt-1">{{ form.max_players.errors.0 }}</p>{% endif %}
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.start_date.id_for_label }}">Start Date *</label>
-                    {{ form.start_date }}
-                    {% if form.start_date.errors %}<p class="text-red-600 text-sm mt-1">{{ form.start_date.errors.0 }}</p>{% endif %}
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.end_date.id_for_label }}">End Date *</label>
-                    {{ form.end_date }}
-                    {% if form.end_date.errors %}<p class="text-red-600 text-sm mt-1">{{ form.end_date.errors.0 }}</p>{% endif %}
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.registration_deadline.id_for_label }}">Registration Deadline *</label>
-                    {{ form.registration_deadline }}
-                    {% if form.registration_deadline.errors %}<p class="text-red-600 text-sm mt-1">{{ form.registration_deadline.errors.0 }}</p>{% endif %}
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.entry_fee.id_for_label }}">Entry Fee (USD)</label>
+                    <label for="{{ form.entry_fee.id_for_label }}">Entry Fee (USD)</label>
                     {{ form.entry_fee }}
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.status.id_for_label }}">Status</label>
+                    <label for="{{ form.status.id_for_label }}">Status</label>
                     {{ form.status }}
                 </div>
-                <div class="flex items-center space-x-4">
-                    <div class="flex items-center">
-                        {{ form.is_active }}
-                        <label class="ml-2 text-sm text-gray-700" for="{{ form.is_active.id_for_label }}">Active</label>
-                    </div>
-                    <div class="flex items-center">
-                        {{ form.is_featured }}
-                        <label class="ml-2 text-sm text-gray-700" for="{{ form.is_featured.id_for_label }}">Featured</label>
+
+                <div class="md:col-span-2 lg:col-span-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="{{ form.start_date.id_for_label }}">Start Date <span class="text-red-500">*</span></label>
+                            {{ form.start_date }}
+                            {% if form.start_date.errors %}<p class="text-red-600 text-xs mt-1">{{ form.start_date.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ form.end_date.id_for_label }}">End Date <span class="text-red-500">*</span></label>
+                            {{ form.end_date }}
+                            {% if form.end_date.errors %}<p class="text-red-600 text-xs mt-1">{{ form.end_date.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ form.registration_deadline.id_for_label }}">Registration Deadline <span class="text-red-500">*</span></label>
+                            {{ form.registration_deadline }}
+                            {% if form.registration_deadline.errors %}<p class="text-red-600 text-xs mt-1">{{ form.registration_deadline.errors.0 }}</p>{% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
+
             {% if form.non_field_errors %}
-                <div class="p-3 bg-red-100 text-red-800 rounded-lg text-sm">{{ form.non_field_errors.0 }}</div>
+                <div class="mt-4 p-3 bg-red-100 text-red-800 rounded-lg text-sm">{{ form.non_field_errors.0 }}</div>
             {% endif %}
-            <div class="flex items-center justify-end space-x-3 pt-4 border-t">
-                <a href="{% url 'player_tournament_list' %}" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</a>
-                <button type="submit" class="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg font-semibold hover:shadow-md transition">
-                    <i class="fas fa-save mr-2"></i>Save Tournament
-                </button>
+
+            <div class="flex flex-col md:flex-row md:items-center justify-between mt-4 pt-3 border-t border-gray-100 gap-3">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        {{ form.is_active }}
+                        <label for="{{ form.is_active.id_for_label }}">Active</label>
+                    </div>
+                    <div class="flex items-center">
+                        {{ form.is_featured }}
+                        <label for="{{ form.is_featured.id_for_label }}">Featured</label>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end space-x-3">
+                    <a href="{% url 'player_tournament_list' %}" class="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800 font-medium transition">Cancel</a>
+                    <button type="submit" class="px-5 py-1.5 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-md hover:from-indigo-700 hover:to-purple-700 transition">
+                        <i class="fas fa-save mr-2"></i>Save Tournament
+                    </button>
+                </div>
             </div>
         </form>
     </div>

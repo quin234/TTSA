@@ -61,13 +61,13 @@
                             </td>
                             <td class="text-end">
                                 {% if application.status == 'pending' %}
-                                <form method="post" action="{% url 'approve_player_plus_application' application.id %}" class="d-inline">
+                                <form method="post" action="{% url 'approve_player_plus_application' application.id %}" class="d-inline" data-confirm-message="Approve this Player Plus application?">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-success me-1" onclick="return confirm('Approve {{ application.user.username }} as Player Plus?')">Approve</button>
+                                    <button type="submit" class="btn btn-sm btn-success me-1">Approve</button>
                                 </form>
-                                <form method="post" action="{% url 'reject_player_plus_application' application.id %}" class="d-inline">
+                                <form method="post" action="{% url 'reject_player_plus_application' application.id %}" class="d-inline" data-confirm-message="Reject this Player Plus application?">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Reject application from {{ application.user.username }}?')">Reject</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
                                 </form>
                                 {% else %}
                                     <small class="text-muted">{% if application.reviewed_by %}by {{ application.reviewed_by.username }}{% endif %} {{ application.reviewed_at|date:"M d, Y H:i" }}</small>

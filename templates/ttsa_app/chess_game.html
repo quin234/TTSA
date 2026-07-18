@@ -1510,8 +1510,8 @@ class ChessEngine {
         const bookMoves = this.openingBook[fen];
         
         if (bookMoves && bookMoves.length > 0) {
-            // Return a random move from the opening book
-            return bookMoves[Math.floor(Math.random() * bookMoves.length)];
+            // Return the first book move deterministically
+            return bookMoves[0];
         }
         
         return null;
@@ -1631,11 +1631,8 @@ async function makeAIMove() {
     
     console.log('AI is making a move at difficulty:', currentDifficulty);
     
-    // Use random move immediately if no AI is available
-    const randomMove = moves[Math.floor(Math.random() * moves.length)];
-    
     try {
-        // Try to use Stockfish backend first
+        // Always ask Stockfish backend for the move
         const formData = new FormData();
         formData.append('fen', game.fen());
         formData.append('difficulty', currentDifficulty);
@@ -1646,62 +1643,87 @@ async function makeAIMove() {
         });
         
         if (!response.ok) {
-            console.log('Stockfish API returned error status:', response.status);
+            console.error('Stockfish API returned error status:', response.status);
             throw new Error(`HTTP ${response.status}`);
         }
         
         const result = await response.json();
         
-        if (result.success && result.move) {
+        if (result.success && result.move && typeof result.move === 'string' && result.move.length >= 4) {
             console.log('Stockfish move:', result.move);
-            // Validate the move before executing
-            if (typeof result.move === 'string' && result.move.length >= 4) {
-                executeAIMove(result.move);
-                return;
-            } else {
-                console.log('Invalid move format from Stockfish, using random move');
-                executeAIMove(randomMove);
-                return;
-            }
-        } else {
-            console.log('Stockfish not available or no move returned, using random move');
-            executeAIMove(randomMove);
+            executeAIMove(result.move);
             return;
         }
+        
+        console.warn('Stockfish returned invalid or no move:', result);
+        throw new Error(result.error || 'No move returned by Stockfish');
     } catch (error) {
-        console.log('Error calling Stockfish API, using random move:', error);
-        // Fallback to custom engine
+        console.error('Stockfish error, falling back to custom engine:', error);
+        // Fallback to the deterministic custom engine (never random)
         const bestMove = chessEngine.findBestMove(game, currentDifficulty);
-        if (bestMove && typeof bestMove === 'string' && bestMove.length >= 4) {
+        if (bestMove && typeof bestMove === 'string') {
             console.log('Using custom engine move:', bestMove);
             executeAIMove(bestMove);
         } else {
-            console.log('Custom engine failed, using random move');
-            executeAIMove(randomMove);
+            console.error('Custom engine could not find a move');
+            if (typeof showTTSAToast !== 'undefined') {
+                showTTSAToast('AI engine unavailable. Please refresh the page.', 'error');
+            }
         }
     }
 }
 
-function executeAIMove(moveString) {
+function executeAIMove(moveInput, isRetry = false) {
     if (!game || !board) return;
-    
-    console.log('Executing AI move:', moveString, 'Type:', typeof moveString);
-    
-    // Handle if move is an object instead of string
-    let actualMoveString = moveString;
-    if (typeof moveString === 'object' && moveString !== null) {
-        console.log('Move is an object, converting to string');
-        if (moveString.from && moveString.to) {
-            actualMoveString = moveString.from + moveString.to;
-            if (moveString.promotion) {
-                actualMoveString += moveString.promotion;
-            }
-        } else if (moveString.san) {
-            actualMoveString = moveString.san;
+
+    console.log('Executing AI move:', moveInput, 'Type:', typeof moveInput);
+
+    let move = null;
+    let input = moveInput;
+
+    // If no move was supplied, generate one. This also fixes startNewGame's
+    // executeAIMove() call that passes no arguments when the player is black.
+    if (!input) {
+        const legal = game.moves();
+        if (legal.length === 0) {
+            console.error('No legal moves to execute');
+            return;
+        }
+        if (!isRetry) {
+            const fallbackMove = chessEngine.findBestMove(game, currentDifficulty) || legal[0];
+            console.warn('No move provided; using fallback:', fallbackMove);
+            executeAIMove(fallbackMove, true);
+            return;
+        }
+        input = legal[0];
+        console.warn('Retrying with first legal move:', input);
+    }
+
+    if (typeof input === 'object' && input !== null) {
+        if (input.from && input.to) {
+            const moveArgs = { from: input.from, to: input.to };
+            if (input.promotion) moveArgs.promotion = input.promotion;
+            move = game.move(moveArgs);
+        }
+        if (!move && input.san) {
+            move = game.move(input.san);
+        }
+    } else if (typeof input === 'string') {
+        const s = input.trim();
+        // Try UCI (e.g. e2e4, e7e8q, e1g1)
+        const uciMatch = s.match(/^([a-h][1-8])([a-h][1-8])([qrbn])?$/i);
+        if (uciMatch) {
+            const moveArgs = { from: uciMatch[1], to: uciMatch[2] };
+            const promo = uciMatch[3];
+            if (promo) moveArgs.promotion = promo.toLowerCase();
+            move = game.move(moveArgs);
+        }
+        // UCI failed or wasn't UCI (e.g. c4, Nf3, O-O, cxd5) -> try SAN
+        if (!move) {
+            move = game.move(s);
         }
     }
-    
-    const move = game.move(actualMoveString);
+
     if (move) {
         moveHistory.push(move);
         
@@ -1724,13 +1746,24 @@ function executeAIMove(moveString) {
             endGame();
         }
     } else {
-        console.log('Failed to execute move:', actualMoveString, 'Original:', moveString);
-        // Try alternative move if available
-        const moves = game.moves();
-        if (moves.length > 0) {
-            const fallbackMove = moves[Math.floor(Math.random() * moves.length)];
-            console.log('Using fallback move:', fallbackMove);
-            executeAIMove(fallbackMove);
+        console.error('Failed to execute AI move:', moveInput);
+        if (!isRetry) {
+            // Use the deterministic custom engine as a one-time fallback
+            const fallbackMove = chessEngine.findBestMove(game, currentDifficulty) || game.moves()[0];
+            if (fallbackMove) {
+                console.warn('Attempting deterministic fallback move:', fallbackMove);
+                executeAIMove(fallbackMove, true);
+            } else {
+                console.error('No legal fallback moves available');
+                if (typeof showTTSAToast !== 'undefined') {
+                    showTTSAToast('AI could not make a move. Please refresh the page.', 'error');
+                }
+            }
+        } else {
+            console.error('AI fallback move also failed');
+            if (typeof showTTSAToast !== 'undefined') {
+                showTTSAToast('AI could not make a move. Please refresh the page.', 'error');
+            }
         }
     }
 }
@@ -1860,7 +1893,7 @@ function startNewGame() {
     // If player is black, make an initial AI move as white
     if (playerColor === 'black') {
         setTimeout(() => {
-            executeAIMove();
+            makeAIMove();
         }, 500);
     }
     
@@ -1902,35 +1935,40 @@ function flipBoard() {
 
 function getHint() {
     if (!game || game.turn() !== 'w') return;
-    
-    const moves = game.moves();
-    if (moves.length === 0) return;
-    
+
+    const verboseMoves = game.moves({ verbose: true });
+    if (verboseMoves.length === 0) return;
+
     // Use the chess engine to get a good move for hint
-    const settings = chessEngine.getDifficultySettings('intermediate'); // Use intermediate for hints
     const hintMove = chessEngine.findBestMove(game, 'intermediate');
-    
+
+    let fromSquare = null;
+    let toSquare = null;
+
     if (hintMove) {
-        const fromSquare = hintMove.substring(0, 2);
-        const toSquare = hintMove.substring(2, 4);
-        
-        // Highlight the hint using Chessboard.js
-        board.highlightSquare(fromSquare, 'hint');
-        board.highlightSquare(toSquare, 'hint');
-        
-        // Show hint message
-        showNotification('💡 Hint: Try moving ' + fromSquare + ' to ' + toSquare, 'info');
-    } else {
-        // Fallback to random move
-        const randomMove = moves[Math.floor(Math.random() * moves.length)];
-        const fromSquare = randomMove.substring(0, 2);
-        const toSquare = randomMove.substring(2, 4);
-        
-        board.highlightSquare(fromSquare, 'hint');
-        board.highlightSquare(toSquare, 'hint');
-        
-        showNotification('💡 Hint: Try moving ' + fromSquare + ' to ' + toSquare, 'info');
+        const match = verboseMoves.find(m => m.san === hintMove);
+        if (match) {
+            fromSquare = match.from;
+            toSquare = match.to;
+        } else if (hintMove.length >= 4) {
+            // Legacy UCI-style fallback
+            fromSquare = hintMove.substring(0, 2);
+            toSquare = hintMove.substring(2, 4);
+        }
     }
+
+    if (!fromSquare || !toSquare) {
+        // Deterministic fallback to the first legal move
+        fromSquare = verboseMoves[0].from;
+        toSquare = verboseMoves[0].to;
+    }
+
+    // Highlight the hint using Chessboard.js
+    board.highlightSquare(fromSquare, 'hint');
+    board.highlightSquare(toSquare, 'hint');
+
+    // Show hint message
+    showNotification('💡 Hint: Try moving ' + fromSquare + ' to ' + toSquare, 'info');
 }
 
 function analyzePosition() {

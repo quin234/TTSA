@@ -1816,12 +1816,12 @@ def approve_player_plus_application(request, application_id):
     """Approve a Player Plus application and upgrade the user."""
     if not request.user.is_ttsa_admin:
         messages.error(request, 'You do not have permission to approve applications.')
-        return redirect('player_plus_applications')
+        return redirect('admin_dashboard')
     
     application = get_object_or_404(PlayerPlusApplication, id=application_id, status='pending')
     application.approve(request.user)
     messages.success(request, f'Approved {application.user.username} as Player Plus.')
-    return redirect('player_plus_applications')
+    return redirect('admin_dashboard')
 
 
 @login_required
@@ -1830,10 +1830,10 @@ def reject_player_plus_application(request, application_id):
     """Reject a Player Plus application."""
     if not request.user.is_ttsa_admin:
         messages.error(request, 'You do not have permission to reject applications.')
-        return redirect('player_plus_applications')
+        return redirect('admin_dashboard')
     
     application = get_object_or_404(PlayerPlusApplication, id=application_id, status='pending')
     notes = request.POST.get('admin_notes', '')
     application.reject(request.user, notes)
     messages.success(request, f'Rejected {application.user.username}\'s application.')
-    return redirect('player_plus_applications')
+    return redirect('admin_dashboard')

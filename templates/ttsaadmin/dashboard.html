@@ -1182,30 +1182,26 @@
 
     // Delete channel
     async function deleteChannel(channelId) {
-        // Show confirmation modal or inline confirmation
-        const confirmDelete = confirm('Are you sure you want to delete this channel?');
-        if (!confirmDelete) {
-            return;
-        }
+        showTTSAAdminConfirm('Are you sure you want to delete this channel?', async function() {
+            try {
+                const response = await fetch(`/ttsa-admin/youtube-channels/${channelId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
 
-        try {
-            const response = await fetch(`/ttsa-admin/youtube-channels/${channelId}/delete/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'X-Requested-With': 'XMLHttpRequest'
+                if (response.ok) {
+                    await loadChannels();
+                    showAlert('channelAlertContainer', 'Channel deleted successfully!', 'success');
+                } else {
+                    showAlert('channelAlertContainer', 'Error deleting channel', 'danger');
                 }
-            });
-
-            if (response.ok) {
-                await loadChannels();
-                showAlert('channelAlertContainer', 'Channel deleted successfully!', 'success');
-            } else {
-                showAlert('channelAlertContainer', 'Error deleting channel', 'danger');
+            } catch (error) {
+                showAlert('channelAlertContainer', 'Error deleting channel: ' + error.message, 'danger');
             }
-        } catch (error) {
-            showAlert('channelAlertContainer', 'Error deleting channel: ' + error.message, 'danger');
-        }
+        });
     }
 
     // Sync videos from channels
@@ -1597,28 +1593,25 @@
 
     // Delete video
     async function deleteVideo(videoId) {
-        const confirmDelete = confirm('Are you sure you want to delete this video?');
-        if (!confirmDelete) {
-            return;
-        }
+        showTTSAAdminConfirm('Are you sure you want to delete this video?', async function() {
+            try {
+                const response = await fetch(`/ttsa-admin/video-lessons/${videoId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
 
-        try {
-            const response = await fetch(`/ttsa-admin/video-lessons/${videoId}/delete/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
+                if (response.ok) {
+                    await loadVideos();
+                    showAlert('videoAlertContainer', 'Video deleted successfully!', 'success');
+                } else {
+                    showAlert('videoAlertContainer', 'Error deleting video', 'danger');
                 }
-            });
-
-            if (response.ok) {
-                await loadVideos();
-                showAlert('videoAlertContainer', 'Video deleted successfully!', 'success');
-            } else {
+            } catch (error) {
                 showAlert('videoAlertContainer', 'Error deleting video', 'danger');
             }
-        } catch (error) {
-            showAlert('videoAlertContainer', 'Error deleting video', 'danger');
-        }
+        });
     }
 
     // Helper function to get CSRF token
@@ -1892,23 +1885,30 @@
     function viewPlayerDetails(playerId) {
         const player = playersData.find(p => p.id === playerId);
         if (player) {
-            alert(`Player Details:\n\nUsername: ${player.username}\nEmail: ${player.email}\nRating: ${player.rating}\nGames: ${player.games_played}\nWins: ${player.wins}\nLosses: ${player.losses}\nStatus: ${player.status}`);
+            const details = '<strong>Username:</strong> ' + player.username + '<br>' +
+                '<strong>Email:</strong> ' + player.email + '<br>' +
+                '<strong>Rating:</strong> ' + player.rating + '<br>' +
+                '<strong>Games:</strong> ' + player.games_played + '<br>' +
+                '<strong>Wins:</strong> ' + player.wins + '<br>' +
+                '<strong>Losses:</strong> ' + player.losses + '<br>' +
+                '<strong>Status:</strong> ' + player.status;
+            showTTSAAdminInfo('Player Details', details);
         }
     }
 
     // Edit player
     function editPlayer(playerId) {
-        alert('Edit player functionality coming soon');
+        showTTSAAdminToast('Edit player functionality coming soon', 'info');
     }
 
     // Delete player
     function deletePlayer(playerId) {
-        if (confirm('Are you sure you want to delete this player?')) {
+        showTTSAAdminConfirm('Are you sure you want to delete this player?', function() {
             playersData = playersData.filter(p => p.id !== playerId);
             updatePlayerStats();
             renderPlayersTable();
-            alert('Player deleted successfully');
-        }
+            showTTSAAdminToast('Player deleted successfully', 'success');
+        });
     }
 
     // Initialize players on page load
@@ -2148,7 +2148,7 @@
     
     // Delete tournament
     function deleteTournament(tournamentId) {
-        if (confirm('Are you sure you want to delete this tournament?')) {
+        showTTSAAdminConfirm('Are you sure you want to delete this tournament?', function() {
             fetch(`/ttsa-admin/tournaments/${tournamentId}/delete/`, {
                 method: 'POST',
                 headers: {
@@ -2172,7 +2172,7 @@
                 console.error('Error:', error);
                 showMessage('Error deleting tournament', 'error');
             });
-        }
+        });
     }
 
     // View tournament details
@@ -2551,9 +2551,7 @@
     // Delete current tournament
     function deleteCurrentTournament() {
         if (currentTournamentId) {
-            // Create confirmation modal instead of alert
-            const confirmDelete = confirm('Are you sure you want to delete this tournament?');
-            if (confirmDelete) {
+            showTTSAAdminConfirm('Are you sure you want to delete this tournament?', function() {
                 tournamentsData = tournamentsData.filter(t => t.id !== currentTournamentId);
                 updateTournamentStats();
                 renderTournamentsTable();
@@ -2561,7 +2559,7 @@
                 
                 // Show success message using Bootstrap alert
                 showAlert('tournamentAlertContainer', 'Tournament deleted successfully', 'success');
-            }
+            });
         }
     }
 
@@ -2729,7 +2727,7 @@
             return;
         }
         
-        if (confirm('Are you sure you want to remove this player from the tournament?')) {
+        showTTSAAdminConfirm('Are you sure you want to remove this player from the tournament?', function() {
             registeredPlayersData = registeredPlayersData.filter(p => p && p.id !== playerId);
             
             // Update tournament participants
@@ -2744,7 +2742,7 @@
             
             // Show success message using Bootstrap alert
             showAlert('tournamentAlertContainer', 'Player removed from tournament', 'success');
-        }
+        });
     }
 
     // Round Management

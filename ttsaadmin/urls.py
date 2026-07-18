@@ -42,7 +42,6 @@ urlpatterns = [
     path('api/tournaments/<int:tournament_id>/print-standings/<int:round_number>/', views.print_standings, name='print_standings_round'),
     
     # Player Plus application review
-    path('player-plus/applications/', views.player_plus_applications, name='player_plus_applications'),
     path('player-plus/applications/<int:application_id>/approve/', views.approve_player_plus_application, name='approve_player_plus_application'),
     path('player-plus/applications/<int:application_id>/reject/', views.reject_player_plus_application, name='reject_player_plus_application'),
 ]

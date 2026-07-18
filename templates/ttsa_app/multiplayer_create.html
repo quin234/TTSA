@@ -216,11 +216,11 @@ document.getElementById('createGameForm').addEventListener('submit', async funct
             // Start polling for opponent
             pollForOpponent(data.game_code);
         } else {
-            alert('Error creating game: ' + data.error);
+            showTTSAToast('Error creating game: ' + data.error, 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Error creating game. Please try again.');
+        showTTSAToast('Error creating game. Please try again.', 'error');
     }
 });
 
@@ -243,8 +243,7 @@ function joinGame() {
 }
 
 function cancelGame() {
-    if (confirm('Are you sure you want to cancel this game?')) {
-        // Call cancel API
+    showTTSAConfirm('Are you sure you want to cancel this game?', function() {
         fetch(`{% url "multiplayer_cancel_api" game_code="PLACEHOLDER" %}`.replace('PLACEHOLDER', createdGameId), {
             method: 'POST',
             headers: {
@@ -253,7 +252,7 @@ function cancelGame() {
         }).then(() => {
             window.location.reload();
         });
-    }
+    });
 }
 
 function pollForOpponent(gameCode) {

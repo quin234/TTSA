@@ -95,7 +95,7 @@
                                 <a href="{% url 'player_tournament_manage' tournament.id %}" class="inline-flex px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 transition">Manage</a>
                                 <a href="{% url 'player_tournament_manage' tournament.id %}?tab=rounds" class="inline-flex px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition">Rounds</a>
                                 <a href="{% url 'player_tournament_edit' tournament.id %}" class="inline-flex px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 transition">Edit</a>
-                                <form method="post" action="{% url 'player_tournament_delete' tournament.id %}" class="inline" onsubmit="return confirm('Are you sure you want to delete this tournament?');">
+                                <form method="post" action="{% url 'player_tournament_delete' tournament.id %}" class="inline" data-confirm-message="Are you sure you want to delete this tournament?">
                                     {% csrf_token %}
                                     <button type="submit" class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition">Delete</button>
                                 </form>

@@ -388,12 +388,6 @@
                 <i class="fas fa-video"></i>
                 <span>Video Library</span>
             </li>
-            <li class="sidebar-menu-item">
-                <a href="{% url 'player_plus_applications' %}" class="text-white text-decoration-none d-flex align-items-center gap-3 w-100">
-                    <i class="fas fa-star"></i>
-                    <span>Player Plus Applications</span>
-                </a>
-            </li>
             {% endif %}
             <li class="sidebar-menu-item" data-section="players">
                 <i class="fas fa-chess"></i>
@@ -576,6 +570,97 @@
         // Initial fetch and periodic polling
         fetchNotifications();
         setInterval(fetchNotifications, 30000); // Poll every 30 seconds
+    </script>
+
+    <!-- Reusable confirmation modal and toast notifications -->
+    <div id="ttsaAdminModal" class="modal fade show d-none" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ttsaAdminModalTitle">Confirm</h5>
+                    <button type="button" class="btn-close" onclick="closeTTSAAdminModal()"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="ttsaAdminModalBody" class="mb-0"></p>
+                </div>
+                <div class="modal-footer" id="ttsaAdminModalFooter">
+                    <button type="button" class="btn btn-secondary" id="ttsaAdminModalCancel" onclick="closeTTSAAdminModal()">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="ttsaAdminModalConfirm">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ttsaAdminToastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;"></div>
+
+    <script>
+        (function() {
+            const adminModal = document.getElementById('ttsaAdminModal');
+            const adminModalTitle = document.getElementById('ttsaAdminModalTitle');
+            const adminModalBody = document.getElementById('ttsaAdminModalBody');
+            const adminModalCancel = document.getElementById('ttsaAdminModalCancel');
+            const adminModalConfirm = document.getElementById('ttsaAdminModalConfirm');
+            let adminCallback = null;
+
+            function closeTTSAAdminModal() {
+                adminModal.classList.add('d-none');
+                adminModal.classList.remove('d-block');
+                adminCallback = null;
+            }
+
+            function openTTSAAdminModal(title, body, showCancel, confirmText, confirmClass, callback) {
+                adminModalTitle.textContent = title || 'Confirm';
+                adminModalBody.innerHTML = body || '';
+                adminCallback = callback || null;
+                adminModalConfirm.textContent = confirmText || 'Confirm';
+                adminModalConfirm.className = 'btn ' + (confirmClass || 'btn-danger');
+                if (showCancel) {
+                    adminModalCancel.classList.remove('d-none');
+                } else {
+                    adminModalCancel.classList.add('d-none');
+                }
+                adminModalConfirm.onclick = function() {
+                    if (typeof adminCallback === 'function') adminCallback();
+                    closeTTSAAdminModal();
+                };
+                adminModal.classList.remove('d-none');
+                adminModal.classList.add('d-block');
+            }
+
+            window.showTTSAAdminConfirm = function(message, callback, options) {
+                options = options || {};
+                openTTSAAdminModal(options.title || 'Confirm', message, true, options.confirmText, options.confirmClass, callback);
+            };
+
+            window.showTTSAAdminInfo = function(title, message) {
+                openTTSAAdminModal(title, message, false, 'OK', 'btn-primary');
+            };
+
+            window.showTTSAAdminToast = function(message, type) {
+                type = type || 'success';
+                const colors = { success: 'bg-success', error: 'bg-danger', info: 'bg-info', warning: 'bg-warning' };
+                const container = document.getElementById('ttsaAdminToastContainer');
+                const toast = document.createElement('div');
+                toast.className = 'toast show ' + (colors[type] || 'bg-success') + ' text-white';
+                toast.setAttribute('role', 'alert');
+                toast.innerHTML = '<div class="toast-body">' + message + '</div>';
+                container.appendChild(toast);
+                setTimeout(function() { toast.remove(); }, 3000);
+            };
+
+            // Intercept forms with a data-confirm-message attribute
+            document.addEventListener('submit', function(e) {
+                const form = e.target;
+                const message = form.dataset.confirmMessage;
+                if (!message || form.dataset.confirmed) return;
+                e.preventDefault();
+                showTTSAAdminConfirm(message, function() {
+                    form.dataset.confirmed = 'true';
+                    form.submit();
+                    form.removeAttribute('data-confirmed');
+                });
+            });
+        })();
     </script>
 </body>
 </html>
