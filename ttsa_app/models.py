@@ -362,6 +362,7 @@ class AcademyNews(models.Model):
 class MultiplayerGame(models.Model):
     GAME_TYPE_CHOICES = [
         ('standard', 'Standard Chess'),
+        ('bullet', 'Bullet (2+1)'),
         ('blitz', 'Blitz (5+0)'),
         ('rapid', 'Rapid (10+0)'),
         ('classical', 'Classical (30+0)'),
@@ -392,6 +393,9 @@ class MultiplayerGame(models.Model):
     white_player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='white_games', on_delete=models.CASCADE, db_index=True)
     black_player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='black_games', on_delete=models.CASCADE, null=True, blank=True, db_index=True)
     game_type = models.CharField(max_length=20, choices=GAME_TYPE_CHOICES, default='standard')
+    time_control = models.CharField(max_length=10, default='10+0')
+    initial_time = models.PositiveIntegerField(default=600)
+    increment_seconds = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting', db_index=True)
     result = models.CharField(max_length=20, choices=RESULT_CHOICES, null=True, blank=True)
     current_fen = models.TextField(default='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')

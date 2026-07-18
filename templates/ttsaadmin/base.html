@@ -67,6 +67,13 @@
             font-size: 1.2rem;
         }
 
+        .academy-logo-img {
+            height: 40px;
+            width: auto;
+            max-width: 140px;
+            object-fit: contain;
+        }
+
         .academy-name {
             font-size: 1.25rem;
             font-weight: 600;
@@ -347,8 +354,14 @@
             <button class="sidebar-toggle" id="sidebarToggle">
                 <i class="fas fa-bars"></i>
             </button>
-            <div class="academy-logo">TT</div>
-            <div class="academy-name">TTSA Chess Academy</div>
+            <a href="{% url 'admin_dashboard' %}" class="d-flex align-items-center gap-2 text-white text-decoration-none">
+                {% if academy_settings.logo %}
+                <img src="{{ academy_settings.logo.url }}?v={{ academy_settings.updated_at|date:'U' }}" alt="{{ academy_settings.academy_name }}" class="academy-logo-img">
+                {% else %}
+                <div class="academy-logo">TT</div>
+                {% endif %}
+                <div class="academy-name">{{ academy_settings.academy_name }}</div>
+            </a>
         </div>
         <div class="top-bar-right">
             <div class="notification-bell" id="notificationBell">
@@ -405,12 +418,8 @@
                 <i class="fas fa-graduation-cap"></i>
                 <span>Training Programs</span>
             </li>
-            <li class="sidebar-menu-item" data-section="profile">
-                <i class="fas fa-user-circle"></i>
-                <span>Profile</span>
-            </li>
             <li class="sidebar-menu-item" data-section="settings">
-                <i class="fas fa-cog"></i>
+                <i class="fas fa-user-cog"></i>
                 <span>Settings</span>
             </li>
         </ul>

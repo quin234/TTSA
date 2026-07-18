@@ -689,21 +689,9 @@ function initializeClocks() {
     // Clock will be synchronized from server
     // Before first move, show initial time (not counting down)
     if (!clockStarted) {
-        // Show initial time based on game type
-        const gameType = "{{ game.game_type|safe }}";
-        if (gameType === 'blitz') {
-            whiteTime = 300;
-            blackTime = 300;
-        } else if (gameType === 'rapid') {
-            whiteTime = 600;
-            blackTime = 600;
-        } else if (gameType === 'classical') {
-            whiteTime = 1800;
-            blackTime = 1800;
-        } else {
-            whiteTime = 600;
-            blackTime = 600;
-        }
+        const initialTime = Number("{{ game.initial_time|safe }}");
+        whiteTime = initialTime;
+        blackTime = initialTime;
     }
     updateClockDisplay();
 }

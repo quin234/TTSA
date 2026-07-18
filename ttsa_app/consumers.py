@@ -598,19 +598,8 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def initialize_clock(self, game):
         """Initialize clock on first move"""
-        # Set initial time based on game type
-        if game.game_type == 'blitz':
-            game.white_time = 300  # 5 minutes
-            game.black_time = 300
-        elif game.game_type == 'rapid':
-            game.white_time = 600  # 10 minutes
-            game.black_time = 600
-        elif game.game_type == 'classical':
-            game.white_time = 1800  # 30 minutes
-            game.black_time = 1800
-        else:  # standard
-            game.white_time = 600  # 10 minutes
-            game.black_time = 600
+        game.white_time = game.initial_time
+        game.black_time = game.initial_time
         
         game.active_clock = 'white'
         game.last_move_timestamp = timezone.now()
@@ -631,7 +620,10 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             else:
                 game.black_time = max(0, game.black_time - int(elapsed))
         
-        # Switch active clock
+        if current_turn == 'white':
+            game.white_time += game.increment_seconds
+        else:
+            game.black_time += game.increment_seconds
         game.active_clock = 'black' if current_turn == 'white' else 'white'
         game.last_move_timestamp = now
         game.save()

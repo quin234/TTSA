@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseForbidden, FileResponse
@@ -11,6 +12,7 @@ from django.views.decorators.cache import cache_page
 from django.core.cache import cache
 from functools import wraps
 import logging
+import os
 
 # Import BBP service to ensure registration
 from .bbp_pairings_service import BBPPairingsService
@@ -20,9 +22,15 @@ from .forms import (
     YouTubeChannelForm, VideoLessonForm, TournamentForm, 
     TournamentPlayerForm, TournamentGameForm, TournamentSearchForm
 )
-from .models import YouTubeChannel, SyncNotification, Tournament, TournamentPlayer, TournamentGame, TournamentRound, TournamentStanding, TournamentResult
+from .models import (
+    YouTubeChannel, SyncNotification, Tournament, TournamentPlayer, TournamentGame,
+    TournamentRound, TournamentStanding, TournamentResult, AcademySettings
+)
 from .youtube_utils import validate_and_fetch_channel_metadata, YouTubeChannelError, fetch_channel_videos
-from ttsa_app.models import VideoLesson, User, PlayerProfile, ChessGame, MultiplayerGame, PlayerPlusApplication
+from ttsa_app.models import (
+    VideoLesson, User, PlayerProfile, OrganizerProfile, ChessGame, MultiplayerGame,
+    PlayerPlusApplication
+)
 from .youtube_utils import validate_and_fetch_video_metadata, YouTubeVideoError
 from django.db import transaction
 from django.core.exceptions import ValidationError
@@ -83,7 +91,13 @@ def admin_dashboard(request):
     # Add empty tournament form for creation
     from .forms import TournamentForm
     form = TournamentForm()
-    
+
+    # Prepare settings-related context safely
+    player_profile = getattr(request.user, 'playerprofile', None)
+    organizer_profile = getattr(request.user, 'organizer_profile', None)
+    profile_photo_url = player_profile.avatar.url if player_profile and player_profile.avatar else ''
+    admin_phone = organizer_profile.contact_phone if organizer_profile else ''
+
     context = {
         'user': request.user,
         'form': form,
@@ -92,6 +106,8 @@ def admin_dashboard(request):
         'games_today': games_today,
         'upcoming_tournaments': upcoming_tournaments,
         'show_tournament_form': False,  # Don't show form by default
+        'profile_photo_url': profile_photo_url,
+        'admin_phone': admin_phone,
     }
     return render(request, 'ttsaadmin/dashboard.html', context)
 
@@ -880,8 +896,8 @@ def tournament_delete(request, tournament_id):
             })
         
         messages.success(request, f'Tournament "{tournament_name}" deleted successfully!')
-        return redirect('tournament_list')
-        
+        return redirect('player_tournament_list')
+
     except Exception as e:
         # Return JSON if requested via AJAX
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1837,3 +1853,159 @@ def reject_player_plus_application(request, application_id):
     application.reject(request.user, notes)
     messages.success(request, f'Rejected {application.user.username}\'s application.')
     return redirect('admin_dashboard')
+
+
+# Settings / Profile management
+
+@login_required
+@require_POST
+def admin_update_profile(request):
+    """Update the logged-in admin's profile information."""
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'Admin access required.'}, status=403)
+
+    user = request.user
+    first_name = request.POST.get('first_name', '').strip()
+    last_name = request.POST.get('last_name', '').strip()
+    email = request.POST.get('email', '').strip()
+    phone = request.POST.get('phone', '').strip()
+
+    if email and '@' not in email:
+        return JsonResponse({'success': False, 'error': 'Please enter a valid email address.'}, status=400)
+
+    user.first_name = first_name
+    user.last_name = last_name
+    user.email = email
+    user.save(update_fields=['first_name', 'last_name', 'email'])
+
+    organizer, _ = OrganizerProfile.objects.get_or_create(
+        user=user, defaults={'contact_email': email}
+    )
+    organizer.contact_email = email
+    organizer.contact_phone = phone
+    organizer.save(update_fields=['contact_email', 'contact_phone'])
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Profile updated successfully.',
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'email': user.email,
+        'phone': organizer.contact_phone,
+    })
+
+
+@login_required
+@require_POST
+def admin_change_password(request):
+    """Change the logged-in admin's password."""
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'Admin access required.'}, status=403)
+
+    current_password = request.POST.get('current_password', '')
+    new_password = request.POST.get('new_password', '')
+    confirm_password = request.POST.get('confirm_password', '')
+
+    if not request.user.check_password(current_password):
+        return JsonResponse({'success': False, 'error': 'Current password is incorrect.'}, status=400)
+
+    if len(new_password) < 8:
+        return JsonResponse({'success': False, 'error': 'New password must be at least 8 characters long.'}, status=400)
+
+    if new_password != confirm_password:
+        return JsonResponse({'success': False, 'error': 'New passwords do not match.'}, status=400)
+
+    request.user.set_password(new_password)
+    request.user.save()
+    update_session_auth_hash(request, request.user)
+
+    return JsonResponse({'success': True, 'message': 'Password changed successfully.'})
+
+
+@login_required
+@require_POST
+def admin_upload_profile_photo(request):
+    """Upload or replace the admin's profile photo."""
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'Admin access required.'}, status=403)
+
+    photo = request.FILES.get('profile_photo')
+    if not photo:
+        return JsonResponse({'success': False, 'error': 'No photo provided.'}, status=400)
+
+    allowed_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+    ext = os.path.splitext(photo.name)[1].lower()
+    if ext not in allowed_extensions:
+        return JsonResponse({'success': False, 'error': 'Unsupported file type. Please upload JPG, PNG, WEBP, or GIF.'}, status=400)
+
+    profile, _ = PlayerProfile.objects.get_or_create(user=request.user)
+
+    # Delete the previous avatar if it exists and is not the default.
+    if profile.avatar and profile.avatar.name != 'avatars/default.png':
+        try:
+            profile.avatar.delete(save=False)
+        except Exception:
+            logger.exception('Failed to delete old avatar')
+
+    profile.avatar = photo
+    profile.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Profile photo updated successfully.',
+        'avatar_url': profile.avatar.url,
+    })
+
+
+@login_required
+@require_POST
+def admin_update_branding(request):
+    """Update academy-wide branding (name, logo, favicon)."""
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'Admin access required.'}, status=403)
+
+    academy_name = request.POST.get('academy_name', '').strip()
+    logo = request.FILES.get('logo')
+    favicon = request.FILES.get('favicon')
+
+    if not academy_name:
+        return JsonResponse({'success': False, 'error': 'Academy name is required.'}, status=400)
+
+    settings_obj = AcademySettings.get_settings()
+    settings_obj.academy_name = academy_name
+
+    if logo:
+        ext = os.path.splitext(logo.name)[1].lower()
+        if ext not in {'.png', '.jpg', '.jpeg', '.svg', '.webp'}:
+            return JsonResponse({'success': False, 'error': 'Logo must be PNG, JPG, SVG, or WEBP.'}, status=400)
+        if settings_obj.logo:
+            try:
+                settings_obj.logo.delete(save=False)
+            except Exception:
+                logger.exception('Failed to delete old logo')
+        settings_obj.logo = logo
+
+    if favicon:
+        ext = os.path.splitext(favicon.name)[1].lower()
+        if ext not in {'.png', '.jpg', '.jpeg', '.svg', '.ico', '.webp'}:
+            return JsonResponse({'success': False, 'error': 'Favicon must be PNG, JPG, SVG, ICO, or WEBP.'}, status=400)
+        if settings_obj.favicon:
+            try:
+                settings_obj.favicon.delete(save=False)
+            except Exception:
+                logger.exception('Failed to delete old favicon')
+        settings_obj.favicon = favicon
+
+    settings_obj.save()
+
+    response_data = {
+        'success': True,
+        'message': 'Branding updated successfully.',
+        'academy_name': settings_obj.academy_name,
+    }
+    if settings_obj.logo:
+        response_data['logo_url'] = settings_obj.logo.url
+    if settings_obj.favicon:
+        response_data['favicon_url'] = settings_obj.favicon.url
+
+    return JsonResponse(response_data)

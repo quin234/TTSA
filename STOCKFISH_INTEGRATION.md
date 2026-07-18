@@ -87,16 +87,13 @@ STOCKFISH_CONFIG = {
 
 ### Difficulty Levels
 
-The system supports 6 difficulty levels mapped to Stockfish settings:
+Play vs Computer exposes three learner-focused difficulty levels mapped to Stockfish settings.  Lower levels also use `MultiPV` so the engine can deliberately pick a weaker alternative line, creating the human-like mistakes and inaccuracies learners need.
 
-| Level | Skill Level | Depth | Move Time | Nodes |
-|-------|-------------|-------|-----------|-------|
-| Beginner | 0 | 1 | 100ms | 1,000 |
-| Easy | 3 | 3 | 200ms | 5,000 |
-| Intermediate | 10 | 10 | 500ms | 100,000 |
-| Advanced | 15 | 15 | 1s | 500,000 |
-| Expert | 18 | 18 | 2s | 1,000,000 |
-| Master | 20 | 20 | 3s | 10,000,000 |
+| Level | Target Elo | Skill Level | Depth | Move Time | Nodes | MultiPV | Blunder Chance |
+|-------|------------|-------------|-------|-----------|-------|---------|----------------|
+| Beginner | 600-900 | 0 | 1 | 80ms | 100 | 5 | 60% |
+| Intermediate | 1200-1600 | 8 | 8 | 1,000ms | 8,000 | 2 | 12% |
+| Master | 2000+ | 20 | 30 | 5,000ms | unlimited | 1 | 0% |
 
 ### API Endpoint
 

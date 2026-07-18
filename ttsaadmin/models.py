@@ -503,3 +503,28 @@ class TournamentResult(models.Model):
     
     def __str__(self):
         return f"Result for {self.game}: {self.result}"
+
+
+class AcademySettings(models.Model):
+    """Singleton settings model for academy-wide branding."""
+    
+    academy_name = models.CharField(max_length=255, default='TTSA Chess Academy')
+    logo = models.ImageField(upload_to='academy/', blank=True, null=True)
+    favicon = models.ImageField(upload_to='academy/', blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Academy Settings'
+        verbose_name_plural = 'Academy Settings'
+    
+    def save(self, *args, **kwargs):
+        # Enforce a single settings row.
+        self.pk = 1
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_settings(cls):
+        settings_obj, _ = cls.objects.get_or_create(pk=1, defaults={
+            'academy_name': 'TTSA Chess Academy',
+        })
+        return settings_obj

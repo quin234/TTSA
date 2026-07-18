@@ -303,12 +303,16 @@
                 </button>
                 
                 <!-- Logo -->
-                <div class="flex items-center space-x-3">
+                <a href="{% url 'home' %}" class="flex items-center space-x-3">
+                    {% if academy_settings.logo %}
+                    <img src="{{ academy_settings.logo.url }}?v={{ academy_settings.updated_at|date:'U' }}" alt="{{ academy_settings.academy_name }}" class="h-12 w-auto" loading="lazy" width="48" height="48">
+                    {% else %}
                     <img src="{% static 'images/logo.png' %}" alt="TTSA Logo" class="h-12 w-auto" loading="lazy" width="48" height="48">
+                    {% endif %}
                     <h1 class="fredoka text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                        TTSA Chess Academy
+                        {{ academy_settings.academy_name }}
                     </h1>
-                </div>
+                </a>
                 
                 <!-- User Info -->
                 {% if user.is_authenticated %}
@@ -347,10 +351,6 @@
                                 <span>Plus</span>
                             </button>
                         {% endif %}
-                    {% elif user.can_manage_tournaments %}
-                        <a href="{% url 'player_tournament_list' %}" class="text-sm font-semibold text-purple-700 hover:text-purple-900 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition">
-                            <i class="fas fa-trophy mr-1"></i>My Tournaments
-                        </a>
                     {% endif %}
 
                     <!-- User Avatar -->
@@ -647,6 +647,42 @@
                     form.submit();
                     form.removeAttribute('data-confirmed');
                 });
+            });
+
+            // Mobile sidebar toggle
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+
+            function openMobileSidebar() {
+                if (sidebar) sidebar.classList.add('open');
+                if (mobileMenuOverlay) mobileMenuOverlay.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeMobileSidebar() {
+                if (sidebar) sidebar.classList.remove('open');
+                if (mobileMenuOverlay) mobileMenuOverlay.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+
+            if (mobileMenuToggle) {
+                mobileMenuToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        closeMobileSidebar();
+                    } else {
+                        openMobileSidebar();
+                    }
+                });
+            }
+
+            if (mobileMenuOverlay) {
+                mobileMenuOverlay.addEventListener('click', closeMobileSidebar);
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeMobileSidebar();
             });
         })();
     </script>

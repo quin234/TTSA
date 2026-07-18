@@ -28,54 +28,58 @@ STOCKFISH_CONFIG = {
 }
 
 # Difficulty level configurations
+# Play vs Computer exposes only three learner-focused levels.  Each is tuned
+# to a target Elo band using Stockfish's Skill Level together with shallow
+# search limits so weaker levels cannot "think" past their configured ceiling.
+# UCI_Elo is not used because this binary produced erratic/illegal moves with
+# it during testing; Skill Level gives stable, monotonic difficulty.
 DIFFICULTY_CONFIG = {
     'beginner': {
+        'elo_target': 750,
+        # 'description': 'Simple moves, human-like mistakes, and missed tactics (~600-900 Elo)',
         'skill_level': 0,
+        'use_uci_elo': False,
+        'uci_elo': None,
+        'limit_strength': False,
         'depth': 1,
-        'movetime': 100,  # 100ms
-        'nodes': 1000,
-        'contempt': 0,
-        'aggressiveness': 100,
-    },
-    'easy': {
-        'skill_level': 3,
-        'depth': 3,
-        'movetime': 200,  # 200ms
-        'nodes': 5000,
-        'contempt': 0,
-        'aggressiveness': 100,
+        'movetime': 80,
+        'nodes': 100,
+        'threads': 1,
+        'hash': 16,
+        'multipv': 5,
+        'blunder_chance': 0.6,
+        'second_best_only': False,
     },
     'intermediate': {
-        'skill_level': 10,
-        'depth': 10,
-        'movetime': 500,  # 500ms
-        'nodes': 100000,
-        'contempt': 0,
-        'aggressiveness': 100,
-    },
-    'advanced': {
-        'skill_level': 15,
-        'depth': 15,
-        'movetime': 1000,  # 1s
-        'nodes': 500000,
-        'contempt': 0,
-        'aggressiveness': 100,
-    },
-    'expert': {
-        'skill_level': 18,
-        'depth': 18,
-        'movetime': 2000,  # 2s
-        'nodes': 1000000,
-        'contempt': 0,
-        'aggressiveness': 100,
+        'elo_target': 1400,
+        'description': '',
+        'skill_level': 8,
+        'use_uci_elo': False,
+        'uci_elo': None,
+        'limit_strength': False,
+        'depth': 8,
+        'movetime': 1000,
+        'nodes': 8000,
+        'threads': 1,
+        'hash': 64,
+        'multipv': 2,
+        'blunder_chance': 0.12,
+        'second_best_only': True,
     },
     'master': {
+        'elo_target': 3000,
+        # 'description': 'Full-strength Stockfish, always choosing the strongest moves (2000+ Elo)',
         'skill_level': 20,
-        'depth': 20,
-        'movetime': 3000,  # 3s
-        'nodes': 10000000,
-        'contempt': 0,
-        'aggressiveness': 100,
+        'use_uci_elo': False,
+        'uci_elo': None,
+        'limit_strength': False,
+        'depth': 30,
+        'movetime': 5000,
+        'threads': 4,
+        'hash': 256,
+        'multipv': 1,
+        'blunder_chance': 0.0,
+        'second_best_only': False,
     },
 }
 

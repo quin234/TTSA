@@ -15,8 +15,7 @@ urlpatterns = [
     path('video-lessons/<int:video_id>/delete/', views.delete_video_lesson, name='delete_video_lesson'),
     path('api/validate-video/', views.validate_video_api, name='validate_video_api'),
     
-    # Tournament URLs
-    path('tournaments/', views.tournament_list, name='tournament_list'),
+    # Tournament URLs (legacy admin list removed; use /my-tournaments/ instead)
     path('tournaments/create/', views.tournament_create, name='tournament_create'),
     path('tournaments/<int:tournament_id>/', views.tournament_detail, name='tournament_detail'),
     path('tournaments/<int:tournament_id>/edit/', views.tournament_edit, name='tournament_edit'),
@@ -44,4 +43,10 @@ urlpatterns = [
     # Player Plus application review
     path('player-plus/applications/<int:application_id>/approve/', views.approve_player_plus_application, name='approve_player_plus_application'),
     path('player-plus/applications/<int:application_id>/reject/', views.reject_player_plus_application, name='reject_player_plus_application'),
+
+    # Settings / Profile management
+    path('settings/profile/update/', views.admin_update_profile, name='admin_update_profile'),
+    path('settings/profile/change-password/', views.admin_change_password, name='admin_change_password'),
+    path('settings/profile/upload-photo/', views.admin_upload_profile_photo, name='admin_upload_profile_photo'),
+    path('settings/branding/update/', views.admin_update_branding, name='admin_update_branding'),
 ]

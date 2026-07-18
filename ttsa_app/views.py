@@ -103,21 +103,20 @@ def chess_game(request):
         profile = None
         is_guest = True
     
-    # Get current difficulty info - 3 main levels
+    # Get current difficulty info - three learner-focused levels
     difficulty_info = {
-        'beginner': {'name': 'Beginner', 'description': 'Perfect for learning the basics - Stockfish skill level 0'},
-        'intermediate': {'name': 'Intermediate', 'description': 'Challenging gameplay - Stockfish skill level 10'},
-        'master': {'name': 'Master', 'description': 'Test your skills against the best - Stockfish maximum strength with multi-threaded analysis'}
+        'beginner': {'name': 'Beginner'},
+        'intermediate': {'name': 'Intermediate'},
+        'master': {'name': 'Master'}
     }
-    
+
     current_difficulty = difficulty_info.get(difficulty, difficulty_info['intermediate'])
-    
+
     context = {
         'profile': profile,
         'is_guest': is_guest,
         'difficulty': difficulty,
         'current_difficulty_name': current_difficulty['name'],
-        'current_difficulty_description': current_difficulty['description'],
         'difficulty_levels': difficulty_info
     }
     return render(request, 'ttsa_app/chess_game.html', context)
@@ -833,7 +832,7 @@ def stockfish_move(request):
             if not fen:
                 return JsonResponse({'success': False, 'error': 'No FEN provided'}, status=400)
             
-            # Map difficulty string to enum - 3 main levels
+            # Map difficulty string to enum (only the three Play vs Computer levels)
             difficulty_map = {
                 'beginner': DifficultyLevel.BEGINNER,
                 'intermediate': DifficultyLevel.INTERMEDIATE,
@@ -887,6 +886,28 @@ def stockfish_move(request):
 
 
 # Multiplayer Game Views
+MULTIPLAYER_TIME_CONTROLS = {
+    '1+0': ('bullet', 60, 0),
+    '2+1': ('bullet', 120, 1),
+    '3+2': ('blitz', 180, 2),
+    '5+0': ('blitz', 300, 0),
+    '5+3': ('blitz', 300, 3),
+    '10+0': ('rapid', 600, 0),
+    '15+10': ('rapid', 900, 10),
+    '30+0': ('rapid', 1800, 0),
+}
+
+MULTIPLAYER_COLOR_PREFERENCES = {'white', 'black', 'random'}
+
+
+def multiplayer_game_type(initial_time):
+    if initial_time <= 120:
+        return 'bullet'
+    if initial_time <= 600:
+        return 'blitz'
+    return 'rapid'
+
+
 @login_required
 def multiplayer_create(request):
     """Render the game creation page"""
@@ -894,44 +915,61 @@ def multiplayer_create(request):
 
 
 @login_required
-@csrf_exempt
+@require_POST
 def multiplayer_create_api(request):
-    """API endpoint to create a new multiplayer game"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)
-    
+    """Create a private multiplayer game for an allowed time control."""
     try:
         data = json.loads(request.body)
-        
-        # Generate unique game code
-        while True:
-            game_code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
-            if not MultiplayerGame.objects.filter(game_code=game_code).exists():
-                break
-        
-        # Handle color assignment
-        color_preference = data.get('color_preference', 'random')
-        if color_preference == 'random':
-            color_preference = random.choice(['white', 'black'])
-        
-        # Create game
-        game = MultiplayerGame.objects.create(
-            game_code=game_code,
-            white_player=request.user,
-            game_type=data.get('game_type', 'standard'),
-            visibility=data.get('visibility', 'private'),
-            rated=data.get('rated', False),
-            color_preference=color_preference
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'game_id': game.id,
-            'game_code': game_code
-        })
-        
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'success': False, 'error': 'Invalid request data'}, status=400)
+
+    time_control = data.get('time_control')
+    color_preference = data.get('color_preference', 'random')
+    if color_preference not in MULTIPLAYER_COLOR_PREFERENCES:
+        return JsonResponse({'success': False, 'error': 'Invalid color preference'}, status=400)
+
+    settings = MULTIPLAYER_TIME_CONTROLS.get(time_control)
+    if settings:
+        game_type, initial_time, increment_seconds = settings
+    elif data.get('is_custom') is True:
+        initial_minutes = data.get('initial_minutes')
+        increment_seconds = data.get('increment_seconds')
+        if (
+            isinstance(initial_minutes, bool) or isinstance(increment_seconds, bool)
+            or not isinstance(initial_minutes, int) or not isinstance(increment_seconds, int)
+            or not 1 <= initial_minutes <= 180 or not 0 <= increment_seconds <= 60
+        ):
+            return JsonResponse({'success': False, 'error': 'Choose 1–180 minutes and a 0–60 second increment'}, status=400)
+        initial_time = initial_minutes * 60
+        time_control = f'{initial_minutes}+{increment_seconds}'
+        game_type = multiplayer_game_type(initial_time)
+    else:
+        return JsonResponse({'success': False, 'error': 'Invalid time control'}, status=400)
+    for _ in range(10):
+        game_code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+        try:
+            game = MultiplayerGame.objects.create(
+                game_code=game_code,
+                white_player=request.user,
+                game_type=game_type,
+                time_control=time_control,
+                initial_time=initial_time,
+                increment_seconds=increment_seconds,
+                white_time=initial_time,
+                black_time=initial_time,
+                visibility='private',
+                rated=False,
+                color_preference=color_preference,
+            )
+            return JsonResponse({
+                'success': True,
+                'game_id': game.id,
+                'game_code': game_code,
+            })
+        except IntegrityError:
+            continue
+
+    return JsonResponse({'success': False, 'error': 'Could not create a unique game link'}, status=503)
 
 
 @login_required
@@ -939,15 +977,35 @@ def multiplayer_game(request, game_code):
     """Render the multiplayer game page"""
     game = get_object_or_404(MultiplayerGame, game_code=game_code)
     
-    # Check if user is part of this game
+    # Join waiting games atomically and randomly assign the two players' colors.
     if game.white_player != request.user and game.black_player != request.user:
-        # If game is waiting for opponent, let user join as black
         if game.status == 'waiting' and game.black_player is None:
-            game.black_player = request.user
-            game.status = 'playing'
-            game.started_at = timezone.now()
-            # Clock will start on first move, not here
-            game.save()
+            with transaction.atomic():
+                game = MultiplayerGame.objects.select_for_update().get(pk=game.pk)
+                if game.status != 'waiting' or game.black_player is not None:
+                    return render(request, 'ttsa_app/error.html', {
+                        'error': 'This game is no longer available to join'
+                    })
+                creator = game.white_player
+                if game.color_preference == 'white':
+                    game.white_player = creator
+                    game.black_player = request.user
+                elif game.color_preference == 'black':
+                    game.white_player = request.user
+                    game.black_player = creator
+                elif random.choice([True, False]):
+                    game.white_player = creator
+                    game.black_player = request.user
+                else:
+                    game.white_player = request.user
+                    game.black_player = creator
+                game.status = 'playing'
+                game.started_at = timezone.now()
+                game.white_time = game.initial_time
+                game.black_time = game.initial_time
+                game.active_clock = 'white'
+                game.last_move_timestamp = None
+                game.save()
         else:
             return render(request, 'ttsa_app/error.html', {
                 'error': 'You are not authorized to view this game'
@@ -1006,8 +1064,8 @@ def multiplayer_cancel_api(request, game_code):
     
     game = get_object_or_404(MultiplayerGame, game_code=game_code)
     
-    # Only allow creator to cancel
-    if game.white_player != request.user:
+    # Only allow the creator to cancel
+    if game.white_player != request.user and game.black_player != request.user:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
     
     # Only allow cancellation if game is still waiting

@@ -6,19 +6,6 @@
 {% block content %}
 <div class="container mx-auto px-4 py-6">
     
-    <!-- Game Header -->
-    <div class="flex items-center justify-center space-x-3 mb-6">
-        <label class="text-sm font-medium text-gray-600">Difficulty:</label>
-        <select id="difficultySelect" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none">
-            {% for key, value in difficulty_levels.items %}
-            <option value="{{ key }}" {% if difficulty == key %}selected{% endif %}>{{ value.name }}</option>
-            {% endfor %}
-        </select>
-        <button onclick="startNewGame()" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition">
-            <i class="fas fa-play mr-1"></i>New Game
-        </button>
-    </div>
-    
     <!-- Main Game Area -->
     <div class="flex flex-col items-center w-full">
         <!-- Chess Board -->
@@ -77,40 +64,59 @@
                 </div>
             </div>
             
-            <!-- Turn Indicator -->
-            <div class="mt-4 text-center">
-                <div id="turnIndicator" class="inline-flex items-center space-x-2 px-4 py-2 bg-purple-100 rounded-full">
-                    <div class="w-3 h-3 bg-white rounded-full border-2 border-purple-500"></div>
-                    <span class="font-semibold text-purple-700">White's Turn</span>
+            <!-- Difficulty Selector + New Game -->
+            <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <div class="w-full max-w-md">
+                    <div class="relative flex items-center justify-between">
+                        <div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200 rounded -translate-y-1/2 -z-10"></div>
+                        <div id="difficultyProgressBar" class="absolute top-1/2 left-0 h-1 bg-purple-600 rounded -translate-y-1/2 -z-10 transition-all duration-300" style="width: 0%;"></div>
+
+                        <button type="button" data-difficulty="beginner" data-index="0" class="difficulty-step w-10 h-10 rounded-full bg-white border-2 border-gray-300 text-gray-600 font-bold text-sm focus:outline-none transition-all duration-300 hover:border-purple-400 hover:shadow-md">1</button>
+                        <button type="button" data-difficulty="intermediate" data-index="1" class="difficulty-step w-10 h-10 rounded-full bg-white border-2 border-gray-300 text-gray-600 font-bold text-sm focus:outline-none transition-all duration-300 hover:border-purple-400 hover:shadow-md">2</button>
+                        <button type="button" data-difficulty="master" data-index="2" class="difficulty-step w-10 h-10 rounded-full bg-white border-2 border-gray-300 text-gray-600 font-bold text-sm focus:outline-none transition-all duration-300 hover:border-purple-400 hover:shadow-md">3</button>
+                    </div>
+                    <div class="flex justify-between mt-2 text-xs sm:text-sm font-medium text-gray-600">
+                        <span>Beginner</span>
+                        <span>Intermediate</span>
+                        <span>Master</span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-center gap-2">
+                    <button id="newGameButton" onclick="startNewGame()" class="px-4 py-2 text-sm rounded-lg transition whitespace-nowrap">
+                        <i class="fas fa-play mr-1"></i>New Game
+                    </button>
+                    <a href="{% url 'multiplayer_create' %}" class="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition whitespace-nowrap">
+                        <i class="fas fa-users mr-1"></i>Play with a Friend
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Game Controls -->
+            <div class="mt-4 bg-white rounded-xl shadow-lg p-4">
+                <div class="flex justify-center gap-2">
+                    <button onclick="undoMove()" class="w-10 h-10 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center justify-center" title="Undo">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button onclick="getHint()" class="w-10 h-10 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center justify-center" title="Hint">
+                        <i class="fas fa-lightbulb"></i>
+                    </button>
+                    <button onclick="analyzePosition()" class="w-10 h-10 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center justify-center" title="Analyze">
+                        <i class="fas fa-chart-line"></i>
+                    </button>
+                    <button onclick="flipBoard()" class="w-10 h-10 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition flex items-center justify-center" title="Flip Board">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button onclick="learnMove()" class="w-10 h-10 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition flex items-center justify-center" title="Learn Move">
+                        <i class="fas fa-graduation-cap"></i>
+                    </button>
+                    <button onclick="toggleSound()" id="soundToggle" class="w-10 h-10 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition flex items-center justify-center" title="Toggle Sound">
+                        <i id="soundIcon" class="fas fa-volume-up"></i>
+                    </button>
                 </div>
             </div>
             
             <!-- Game Status -->
             <div id="gameStatus" class="mt-4 text-center text-lg font-semibold text-gray-700"></div>
-        </div>
-        
-        <!-- Game Controls -->
-        <div class="bg-white rounded-xl shadow-lg p-4">
-            <div class="flex justify-center gap-2">
-                <button onclick="undoMove()" class="w-10 h-10 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center justify-center" title="Undo">
-                    <i class="fas fa-undo"></i>
-                </button>
-                <button onclick="getHint()" class="w-10 h-10 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center justify-center" title="Hint">
-                    <i class="fas fa-lightbulb"></i>
-                </button>
-                <button onclick="analyzePosition()" class="w-10 h-10 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center justify-center" title="Analyze">
-                    <i class="fas fa-chart-line"></i>
-                </button>
-                <button onclick="flipBoard()" class="w-10 h-10 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition flex items-center justify-center" title="Flip Board">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-                <button onclick="learnMove()" class="w-10 h-10 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition flex items-center justify-center" title="Learn Move">
-                    <i class="fas fa-graduation-cap"></i>
-                </button>
-                <button onclick="toggleSound()" id="soundToggle" class="w-10 h-10 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition flex items-center justify-center" title="Toggle Sound">
-                    <i id="soundIcon" class="fas fa-volume-up"></i>
-                </button>
-            </div>
         </div>
     </div>
     
@@ -171,6 +177,8 @@ let game = null;
 let board = null; // Chessboard.js instance
 let moveHistory = [];
 let currentDifficulty = 'intermediate';
+let playerColor = 'white';
+let nextPlayerColor = 'white';
 let gameTimer = null;
 let secondsElapsed = 0;
 
@@ -439,12 +447,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     currentDifficulty = urlParams.get('difficulty') || 'intermediate';
     
-    // Set difficulty dropdown
-    const difficultySelect = document.getElementById('difficultySelect');
-    if (difficultySelect) {
-        difficultySelect.value = currentDifficulty;
-    }
-    
+    // Set difficulty step selector and new-game button theme
+    updateDifficultyStepUI();
+    updateNewGameButton();
+
     console.log('Difficulty set to:', currentDifficulty);
     updateTurnIndicator();
     
@@ -467,15 +473,53 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
-function setupEventListeners() {
-    // Difficulty selector
-    const difficultySelect = document.getElementById('difficultySelect');
-    if (difficultySelect) {
-        difficultySelect.addEventListener('change', function(e) {
-            currentDifficulty = e.target.value;
-            console.log('Difficulty changed to:', currentDifficulty);
-        });
+function setDifficulty(level) {
+    currentDifficulty = level;
+    console.log('Difficulty changed to:', currentDifficulty);
+    updateDifficultyStepUI();
+    startNewGame();
+}
+
+function updateNewGameButton() {
+    const btn = document.getElementById('newGameButton');
+    if (!btn) return;
+
+    if (nextPlayerColor === 'white') {
+        btn.className = 'px-4 py-2 text-sm rounded-lg transition whitespace-nowrap bg-white text-gray-800 border border-gray-300 hover:bg-gray-100 shadow-sm';
+    } else {
+        btn.className = 'px-4 py-2 text-sm rounded-lg transition whitespace-nowrap bg-gray-800 text-white border border-gray-700 hover:bg-gray-900 shadow-sm';
     }
+    btn.innerHTML = '<i class="fas fa-chess-pawn mr-1"></i> New Game';
+}
+
+function updateDifficultyStepUI() {
+    const steps = document.querySelectorAll('.difficulty-step');
+    const progressBar = document.getElementById('difficultyProgressBar');
+    const levels = ['beginner', 'intermediate', 'master'];
+    const activeIndex = levels.indexOf(currentDifficulty);
+
+    steps.forEach((step, index) => {
+        if (index <= activeIndex) {
+            step.classList.add('bg-purple-600', 'text-white', 'border-purple-600');
+            step.classList.remove('bg-white', 'text-gray-600', 'border-gray-300');
+        } else {
+            step.classList.remove('bg-purple-600', 'text-white', 'border-purple-600');
+            step.classList.add('bg-white', 'text-gray-600', 'border-gray-300');
+        }
+    });
+
+    if (progressBar) {
+        const percentage = activeIndex / (levels.length - 1) * 100;
+        progressBar.style.width = percentage + '%';
+    }
+}
+
+function setupEventListeners() {
+    document.querySelectorAll('.difficulty-step').forEach(step => {
+        step.addEventListener('click', function() {
+            setDifficulty(this.dataset.difficulty);
+        });
+    });
 }
 
 function initializeGame() {
@@ -1865,14 +1909,16 @@ function startNewGame() {
     // Clear all highlights
     clearHighlights();
     
-    // Randomly select player color
-    const playerColor = Math.random() < 0.5 ? 'white' : 'black';
+    // Alternate player color each new game
+    playerColor = nextPlayerColor;
+    nextPlayerColor = (nextPlayerColor === 'white') ? 'black' : 'white';
+    updateNewGameButton();
     console.log('Player color:', playerColor);
-    
-    // Reset Chessboard.js board with random orientation
+
+    // Reset Chessboard.js board with the player's color on the bottom
     board.start();
     board.orientation(playerColor);
-    
+
     // Re-attach click handlers after board reset
     setTimeout(() => {
         addClickHandlers();
@@ -1934,7 +1980,7 @@ function flipBoard() {
 }
 
 function getHint() {
-    if (!game || game.turn() !== 'w') return;
+    if (!game || game.turn() !== (playerColor === 'white' ? 'w' : 'b')) return;
 
     const verboseMoves = game.moves({ verbose: true });
     if (verboseMoves.length === 0) return;
