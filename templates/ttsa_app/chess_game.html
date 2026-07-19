@@ -90,24 +90,24 @@
                     </a>
                 </div>
             </div>
-            
+
+            <!-- Rated toggle and current rating -->
+            <div class="mt-3 flex items-center justify-center gap-3 text-sm">
+                <label class="inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" id="ratedToggle" class="form-checkbox h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500">
+                    <span class="ml-2 font-medium text-gray-700">Rated</span>
+                </label>
+                <span id="ratingDisplay" class="text-xs text-gray-500">{% if profile %}Rating: {{ profile.rating }}{% endif %}</span>
+            </div>
+
             <!-- Game Controls -->
             <div class="mt-4 bg-white rounded-xl shadow-lg p-4">
                 <div class="flex justify-center gap-2">
                     <button onclick="undoMove()" class="w-10 h-10 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center justify-center" title="Undo">
                         <i class="fas fa-undo"></i>
                     </button>
-                    <button onclick="getHint()" class="w-10 h-10 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center justify-center" title="Hint">
-                        <i class="fas fa-lightbulb"></i>
-                    </button>
-                    <button onclick="analyzePosition()" class="w-10 h-10 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center justify-center" title="Analyze">
-                        <i class="fas fa-chart-line"></i>
-                    </button>
                     <button onclick="flipBoard()" class="w-10 h-10 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition flex items-center justify-center" title="Flip Board">
                         <i class="fas fa-sync-alt"></i>
-                    </button>
-                    <button onclick="learnMove()" class="w-10 h-10 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition flex items-center justify-center" title="Learn Move">
-                        <i class="fas fa-graduation-cap"></i>
                     </button>
                     <button onclick="toggleSound()" id="soundToggle" class="w-10 h-10 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition flex items-center justify-center" title="Toggle Sound">
                         <i id="soundIcon" class="fas fa-volume-up"></i>
@@ -117,9 +117,10 @@
             
             <!-- Game Status -->
             <div id="gameStatus" class="mt-4 text-center text-lg font-semibold text-gray-700"></div>
+            <p id="ratingResult" class="mt-1 text-center text-sm text-gray-600"></p>
         </div>
     </div>
-    
+
     <!-- Pawn Promotion Modal -->
     <div id="promotionModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all">
@@ -181,6 +182,8 @@ let playerColor = 'white';
 let nextPlayerColor = 'white';
 let gameTimer = null;
 let secondsElapsed = 0;
+let isRated = false;
+const playerRating = {{ profile.rating|default:1500 }};
 
 // Click-to-move functionality
 let selectedSquare = null;
@@ -520,6 +523,13 @@ function setupEventListeners() {
             setDifficulty(this.dataset.difficulty);
         });
     });
+
+    const ratedToggle = document.getElementById('ratedToggle');
+    if (ratedToggle) {
+        ratedToggle.addEventListener('change', function() {
+            isRated = this.checked;
+        });
+    }
 }
 
 function initializeGame() {
@@ -1861,6 +1871,60 @@ function endGame() {
         document.getElementById('gameResultMessage').textContent = message;
         modal.classList.remove('hidden');
     }
+
+    // Persist the game and update rating if rated
+    saveGame(result);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function saveGame(result) {
+    const formData = new FormData();
+    formData.append('player_color', playerColor);
+    formData.append('difficulty', currentDifficulty);
+    formData.append('pgn', game.pgn());
+    formData.append('result', result);
+    formData.append('moves_count', game.history().length);
+    formData.append('time_elapsed', secondsElapsed);
+    formData.append('is_rated', isRated ? 'true' : 'false');
+
+    fetch('/api/save-game/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && !data.guest) {
+            const ratingResult = document.getElementById('ratingResult');
+            const ratingDisplay = document.getElementById('ratingDisplay');
+            if (ratingResult && typeof data.new_rating !== 'undefined' && typeof data.rating_change !== 'undefined') {
+                const sign = data.rating_change >= 0 ? '+' : '';
+                ratingResult.textContent = `${data.new_rating} (${sign}${data.rating_change})`;
+            }
+            if (ratingDisplay && typeof data.new_rating !== 'undefined') {
+                ratingDisplay.textContent = `Rating: ${data.new_rating}`;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error saving game:', error);
+    });
 }
 
 function addClickHandlers() {
@@ -1954,7 +2018,13 @@ function startNewGame() {
     if (gameStatus) {
         gameStatus.textContent = '';
     }
-    
+
+    // Clear previous rating result
+    const ratingResult = document.getElementById('ratingResult');
+    if (ratingResult) {
+        ratingResult.textContent = '';
+    }
+
     console.log('New game started successfully');
 }
 

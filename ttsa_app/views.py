@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
-from .forms import CustomUserCreationForm, PlayerPlusApplicationForm
+from .forms import CustomUserCreationForm, PlayerPlusApplicationForm, ProfileForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseForbidden
@@ -15,6 +15,10 @@ from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
 import logging
+import random
+import json
+import secrets
+import string
 from .models import (
     User, PlayerProfile, OrganizerProfile, PlayerPlusApplication, Achievement, PlayerAchievement, ChessGame,
     Lesson, PlayerLesson, Puzzle,	PlayerPuzzle, Leaderboard,
@@ -25,10 +29,17 @@ from ttsaadmin.forms import TournamentForm, TournamentPlayerForm
 from ttsaadmin.pairing_manager import get_pairing_manager
 from ttsaadmin.pairing_converter import PairingDataConverter
 from .stockfish_service import stockfish_service, DifficultyLevel
-import random
-import json
-import secrets
-import string
+from .stockfish_config import get_difficulty_config
+
+ELO_K_FACTOR = 32
+
+
+def calculate_elo_change(player_rating, opponent_rating, result):
+    """Return the Elo rating change for a single game."""
+    score = {'win': 1, 'draw': 0.5, 'loss': 0}.get(result, 0.5)
+    expected = 1 / (1 + 10 ** ((opponent_rating - player_rating) / 400))
+    return round(ELO_K_FACTOR * (score - expected))
+
 
 logger = logging.getLogger(__name__)
 
@@ -366,16 +377,18 @@ def news(request):
 @login_required
 def settings_view(request):
     profile = request.user.playerprofile
-    
+
     if request.method == 'POST':
-        # Handle settings update
-        profile.bio = request.POST.get('bio', '')
-        if 'avatar' in request.FILES:
-            profile.avatar = request.FILES['avatar']
-        profile.save()
-        messages.success(request, 'Settings updated successfully!')
+        form = ProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Settings updated successfully!')
+            return redirect('settings')
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, error)
         return redirect('settings')
-    
+
     context = {
         'profile': profile,
     }
@@ -588,42 +601,55 @@ def save_game(request):
         else:
             profile = None
             is_guest = True
-        
+
         data = request.POST
-        
+
         if is_guest:
             # For guests, just return success without saving to database
             # Progress will be saved in localStorage
             return JsonResponse({'success': True, 'guest': True, 'message': 'Game saved locally'})
-        
+
+        result = data.get('result', 'ongoing')
+        is_rated = data.get('is_rated', 'false').lower() == 'true'
+
         game = ChessGame.objects.create(
             player=profile,
             player_color=data.get('player_color', 'white'),
             difficulty_level=data.get('difficulty', 'beginner'),
             pgn=data.get('pgn', ''),
-            result=data.get('result', 'ongoing'),
+            result=result,
+            is_rated=is_rated,
             moves_count=int(data.get('moves_count', 0)),
             time_elapsed=timedelta(seconds=int(data.get('time_elapsed', 0)))
         )
-        
-        # Update player stats
-        if data.get('result') == 'win':
-            profile.rating += 25
+
+        rating_change = 0
+        if is_rated and result in ('win', 'draw', 'loss'):
+            opponent_rating = get_difficulty_config(game.difficulty_level).get('elo_target', 1500)
+            rating_change = calculate_elo_change(profile.rating, opponent_rating, result)
+            profile.rating += rating_change
+
+        # Update coins / experience regardless of rated status
+        if result == 'win':
             profile.coins += 10
             profile.experience_points += 50
-        elif data.get('result') == 'draw':
-            profile.rating += 10
+        elif result == 'draw':
             profile.coins += 5
             profile.experience_points += 25
-        elif data.get('result') == 'loss':
-            profile.rating -= 15
+        elif result == 'loss':
             profile.experience_points += 10
-        
+
         profile.last_played = timezone.now().date()
         profile.save()
-        
-        return JsonResponse({'success': True, 'game_id': game.id, 'guest': False})
-    
+
+        return JsonResponse({
+            'success': True,
+            'game_id': game.id,
+            'guest': False,
+            'new_rating': profile.rating,
+            'rating_change': rating_change,
+        })
+
     return JsonResponse({'success': False}, status=400)
 
 

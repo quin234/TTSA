@@ -820,6 +820,38 @@ class TournamentStandingsConsumer(AsyncWebsocketConsumer):
             return None
 
 
+class AdminDashboardConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.user = self.scope['user']
+        if not self.user.is_authenticated or not self.user.is_ttsa_admin:
+            await self.close()
+            return
+
+        self.group_name = 'admin_dashboard'
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def dashboard_updated(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'dashboard_update',
+            'timestamp': event['timestamp'],
+        }))
+
+
+def broadcast_dashboard_update():
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        'admin_dashboard',
+        {
+            'type': 'dashboard_updated',
+            'timestamp': timezone.now().isoformat(),
+        },
+    )
+
+
 def broadcast_tournament_standings(tournament_id, update_type='game_result'):
     """
     Helper function to broadcast tournament standings updates

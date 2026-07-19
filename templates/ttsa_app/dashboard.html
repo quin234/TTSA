@@ -54,29 +54,6 @@
             </div>
         </div>
         
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-600 text-sm">Lessons</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ completed_lessons }}/{{ total_lessons }}</p>
-                </div>
-                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-book text-green-600"></i>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-600 text-sm">Achievements</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ achievements.count }}</p>
-                </div>
-                <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-trophy text-purple-600"></i>
-                </div>
-            </div>
-        </div>
     </div>
     
     <!-- Main Content Grid -->
@@ -126,26 +103,6 @@
                 {% endif %}
             </div>
             
-            <!-- Achievements -->
-            <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
-                <h2 class="fredoka text-xl font-bold text-gray-800 mb-4">Recent Achievements</h2>
-                {% if achievements %}
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {% for player_achievement in achievements|slice:":6" %}
-                        <div class="text-center p-3 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg">
-                            <div class="text-3xl mb-2">{{ player_achievement.achievement.icon }}</div>
-                            <p class="font-semibold text-sm">{{ player_achievement.achievement.name }}</p>
-                            <p class="text-xs text-gray-600">{{ player_achievement.earned_at|date:"M d" }}</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <div class="text-center py-8">
-                        <i class="fas fa-medal text-6xl text-gray-300 mb-4"></i>
-                        <p class="text-gray-600">No achievements yet. Keep playing to unlock them!</p>
-                    </div>
-                {% endif %}
-            </div>
         </div>
         
         <!-- Sidebar -->
@@ -156,9 +113,6 @@
                 <div class="space-y-3">
                     <a href="{% url 'chess_game' %}" class="block w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition text-center font-semibold">
                         <i class="fas fa-play mr-2"></i>Quick Game
-                    </a>
-                    <a href="{% url 'lessons' %}" class="block w-full px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-center font-semibold">
-                        <i class="fas fa-book-open mr-2"></i>Continue Learning
                     </a>
                     <a href="{% url 'puzzles' %}" class="block w-full px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-center font-semibold">
                         <i class="fas fa-puzzle-piece mr-2"></i>Daily Puzzle

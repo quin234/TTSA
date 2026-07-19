@@ -378,8 +378,12 @@
                 {% elif user.is_player_plus %}
                 <span class="badge bg-info ms-1">Player Plus</span>
                 {% endif %}
-                <div class="profile-icon">
-                    <i class="fas fa-user"></i>
+                <div class="profile-icon" style="overflow: hidden;">
+                    {% if user.playerprofile.avatar %}
+                        <img src="{{ user.playerprofile.avatar.url }}" alt="{{ user.username }}" class="img-fluid" style="width: 100%; height: 100%; object-fit: cover;">
+                    {% else %}
+                        <i class="fas fa-user"></i>
+                    {% endif %}
                 </div>
             </div>
         </div>

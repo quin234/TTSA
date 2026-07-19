@@ -137,6 +137,7 @@ class Tournament(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True, db_constraint=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True, db_index=True)
     
     class Meta:
         ordering = ['-created_at']
@@ -150,6 +151,18 @@ class Tournament(models.Model):
     
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        if self.status == 'completed' and self.completed_at is None:
+            self.completed_at = timezone.now()
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {'completed_at'}
+        elif self.status != 'completed' and self.completed_at is not None:
+            self.completed_at = None
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {'completed_at'}
+        super().save(*args, **kwargs)
     
     def clean(self):
         """Validate tournament data"""

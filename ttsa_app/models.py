@@ -60,9 +60,9 @@ class User(AbstractUser):
 
 
 class PlayerProfile(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_constraint=False)
     avatar = models.ImageField(upload_to='avatars/', default='avatars/default.png')
-    rating = models.IntegerField(default=800)
+    rating = models.IntegerField(default=1500)
     coins = models.IntegerField(default=100)
     level = models.IntegerField(default=1)
     experience_points = models.IntegerField(default=0)
@@ -76,7 +76,7 @@ class PlayerProfile(models.Model):
 
 class OrganizerProfile(models.Model):
     """Profile for PLAYER_PLUS users who can organize tournaments."""
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='organizer_profile')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='organizer_profile', db_constraint=False)
     organization_name = models.CharField(max_length=255, blank=True, db_index=True)
     contact_phone = models.CharField(max_length=20, blank=True)
     contact_email = models.EmailField(blank=True)
@@ -103,14 +103,14 @@ class PlayerPlusApplication(models.Model):
         ('rejected', 'Rejected'),
     ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='player_plus_applications', db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='player_plus_applications', db_index=True, db_constraint=False)
     full_name = models.CharField(max_length=255)
     phone_number = models.CharField(max_length=20)
     additional_info = models.TextField(max_length=1000, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
     submitted_at = models.DateTimeField(auto_now_add=True, db_index=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
-    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_player_plus_applications')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_player_plus_applications', db_constraint=False)
     admin_notes = models.TextField(max_length=1000, blank=True)
 
     class Meta:
@@ -205,6 +205,7 @@ class ChessGame(models.Model):
         ('draw', 'Draw'),
         ('ongoing', 'Ongoing')
     ], default='ongoing', db_index=True)
+    is_rated = models.BooleanField(default=False)
     moves_count = models.IntegerField(default=0)
     time_elapsed = models.DurationField(default=timezone.timedelta)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -347,7 +348,7 @@ class AcademyNews(models.Model):
     content = models.TextField()
     image = models.ImageField(upload_to='news/', blank=True, null=True)
     published_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True, db_constraint=False)
     
     class Meta:
         ordering = ['-published_at']
@@ -390,8 +391,8 @@ class MultiplayerGame(models.Model):
     ]
     
     game_code = models.CharField(max_length=8, unique=True, db_index=True)
-    white_player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='white_games', on_delete=models.CASCADE, db_index=True)
-    black_player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='black_games', on_delete=models.CASCADE, null=True, blank=True, db_index=True)
+    white_player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='white_games', on_delete=models.CASCADE, db_index=True, db_constraint=False)
+    black_player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='black_games', on_delete=models.CASCADE, null=True, blank=True, db_index=True, db_constraint=False)
     game_type = models.CharField(max_length=20, choices=GAME_TYPE_CHOICES, default='standard')
     time_control = models.CharField(max_length=10, default='10+0')
     initial_time = models.PositiveIntegerField(default=600)
@@ -430,7 +431,7 @@ class MultiplayerGame(models.Model):
 
 class GameMove(models.Model):
     game = models.ForeignKey(MultiplayerGame, related_name='moves', on_delete=models.CASCADE, db_index=True)
-    player = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True)
+    player = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True, db_constraint=False)
     move_from = models.CharField(max_length=2)
     move_to = models.CharField(max_length=2)
     piece = models.CharField(max_length=1)

@@ -8,9 +8,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='multiplayergame',
-            name='color_preference',
-            field=models.CharField(blank=True, max_length=10, null=True),
-        ),
+        # No-op: color_preference was already added in the initial migration.
     ]

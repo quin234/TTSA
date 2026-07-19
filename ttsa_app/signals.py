@@ -1,6 +1,40 @@
-from django.db.models.signals import post_save
+from django.db import transaction
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
-from .models import User, PlayerProfile, OrganizerProfile, Leaderboard
+from .models import ChessGame, MultiplayerGame, User, PlayerProfile, OrganizerProfile, Leaderboard
+from ttsaadmin.models import Tournament
+
+
+def schedule_dashboard_update():
+    from .consumers import broadcast_dashboard_update
+
+    transaction.on_commit(broadcast_dashboard_update)
+
+
+@receiver(post_save, sender=User)
+def update_dashboard_for_user(sender, instance, **kwargs):
+    schedule_dashboard_update()
+
+
+@receiver(post_save, sender=PlayerProfile)
+def update_dashboard_for_player_profile(sender, instance, **kwargs):
+    schedule_dashboard_update()
+
+
+@receiver(post_save, sender=ChessGame)
+def update_dashboard_for_computer_game(sender, instance, **kwargs):
+    schedule_dashboard_update()
+
+
+@receiver(post_save, sender=MultiplayerGame)
+def update_dashboard_for_multiplayer_game(sender, instance, **kwargs):
+    schedule_dashboard_update()
+
+
+@receiver(post_save, sender=Tournament)
+@receiver(post_delete, sender=Tournament)
+def update_dashboard_for_tournament(sender, instance, **kwargs):
+    schedule_dashboard_update()
 
 
 @receiver(post_save, sender=User)

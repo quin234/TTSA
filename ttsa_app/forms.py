@@ -1,6 +1,11 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
+from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import UploadedFile
 from .models import User, PlayerProfile, Message, PlayerPlusApplication
+
+
+MAX_AVATAR_SIZE = 1024 * 1024  # 1 MB
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -36,6 +41,14 @@ class ProfileForm(forms.ModelForm):
         widgets = {
             'bio': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Tell us about yourself...'}),
         }
+
+    def clean_avatar(self):
+        avatar = self.cleaned_data.get('avatar')
+        if avatar and isinstance(avatar, UploadedFile) and avatar.size > MAX_AVATAR_SIZE:
+            raise ValidationError(
+                f'Avatar must be less than 1 MB. Your file is {avatar.size / (1024 * 1024):.2f} MB.'
+            )
+        return avatar
 
 
 class MessageForm(forms.ModelForm):

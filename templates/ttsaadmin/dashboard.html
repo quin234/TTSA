@@ -8,108 +8,108 @@
     <!-- Dashboard Section -->
     <div id="section-dashboard" class="content-section">
         <!-- Two Column Layout -->
-        <div class="row mb-4">
+        <div class="row g-3 mb-3 dashboard-metrics">
             <!-- Left Column: Upcoming Tournaments -->
-            <div class="col-md-8">
-                <div class="card mb-4">
-                    <div class="card-header bg-white">
-                        <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Upcoming Tournaments</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Tournament Name</th>
-                                        <th>Category</th>
-                                        <th>Date</th>
-                                        <th>Venue</th>
-                                        <th>Participants</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for tournament in upcoming_tournaments %}
-                                    <tr>
-                                        <td>
-                                            <strong>{{ tournament.name }}</strong>
-                                            {% if tournament.is_featured %}
-                                                <i class="fas fa-star text-warning ms-1" title="Featured"></i>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ tournament.get_category_display|title }}</td>
-                                        <td>{{ tournament.start_date|date:"M d, Y H:i" }}</td>
-                                        <td>{{ tournament.venue }}</td>
-                                        <td>
-                                            {{ tournament.current_players }}/{{ tournament.max_players }}
-                                            {% if tournament.available_slots > 0 %}
-                                                <small class="text-muted">({{ tournament.available_slots }} slots)</small>
-                                            {% else %}
-                                                <small class="text-success">(Full)</small>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if tournament.status == 'upcoming' %}
-                                                <span class="badge bg-primary">{{ tournament.status|title }}</span>
-                                            {% elif tournament.status == 'ongoing' %}
-                                                <span class="badge bg-warning">{{ tournament.status|title }}</span>
-                                            {% elif tournament.status == 'completed' %}
-                                                <span class="badge bg-success">{{ tournament.status|title }}</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">{{ tournament.status|title }}</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr>
-                                        <td colspan="6" class="text-center text-muted">
-                                            <i class="fas fa-trophy fa-2x mb-2 d-block"></i>
-                                            No upcoming tournaments found.
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card dashboard-stat-card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="dashboard-stat-icon text-primary bg-primary-subtle"><i class="fas fa-user-plus"></i></div>
+                        <div>
+                            <div id="dashboardNewAccounts" class="dashboard-stat-value">{{ total_users }}</div>
+                            <div class="dashboard-stat-label">New Accounts</div>
+                            <div class="dashboard-stat-period">Last 7 days</div>
                         </div>
                     </div>
                 </div>
             </div>
-            
             <!-- Right Column: Stats -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header bg-white">
-                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Statistics</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row text-center">
-                            <div class="col-6 mb-4">
-                                <div class="p-3 border rounded">
-                                    <h3 class="mb-1">{{ total_users }}</h3>
-                                    <p class="mb-0 small text-muted">Total Users</p>
-                                </div>
-                            </div>
-                            <div class="col-6 mb-4">
-                                <div class="p-3 border rounded">
-                                    <h3 class="mb-1">{{ active_players }}</h3>
-                                    <p class="mb-0 small text-muted">Active Players</p>
-                                </div>
-                            </div>
-                            <div class="col-6 mb-4">
-                                <div class="p-3 border rounded">
-                                    <h3 class="mb-1">{{ games_today }}</h3>
-                                    <p class="mb-0 small text-muted">Games Today</p>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="p-3 border rounded">
-                                    <h3 class="mb-1">{{ upcoming_tournaments|length }}</h3>
-                                    <p class="mb-0 small text-muted">Tournaments</p>
-                                </div>
-                            </div>
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card dashboard-stat-card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="dashboard-stat-icon text-success bg-success-subtle"><i class="fas fa-robot"></i></div>
+                        <div>
+                            <div id="dashboardComputerGames" class="dashboard-stat-value">{{ active_players }}</div>
+                            <div class="dashboard-stat-label">Games vs Computer</div>
+                            <div class="dashboard-stat-period">Last 7 days</div>
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card dashboard-stat-card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="dashboard-stat-icon text-info bg-info-subtle"><i class="fas fa-user-friends"></i></div>
+                        <div>
+                            <div id="dashboardMultiplayerGames" class="dashboard-stat-value">{{ games_today }}</div>
+                            <div class="dashboard-stat-label">Multiplayer Games</div>
+                            <div class="dashboard-stat-period">Last 7 days</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card dashboard-stat-card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="dashboard-stat-icon text-warning bg-warning-subtle"><i class="fas fa-trophy"></i></div>
+                        <div>
+                            <div id="dashboardCompletedTournaments" class="dashboard-stat-value">{{ completed_tournaments }}</div>
+                            <div class="dashboard-stat-label">Completed Tournaments</div>
+                            <div class="dashboard-stat-period">Last 7 days</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card dashboard-tournaments-card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
+                <h5 class="mb-0"><i class="fas fa-trophy text-warning me-2"></i>Upcoming Tournaments</h5>
+                <span class="small text-muted">Scheduled in the next 7 days</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 dashboard-tournaments-table">
+                    <thead>
+                        <tr>
+                            <th>Tournament</th>
+                            <th>Category</th>
+                            <th>Start</th>
+                            <th>Venue</th>
+                            <th>Players</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashboardUpcomingTournaments">
+                        {% for tournament in upcoming_tournaments %}
+                        <tr>
+                            <td>
+                                <strong>{{ tournament.name }}</strong>
+                                {% if tournament.is_featured %}
+                                    <i class="fas fa-star text-warning ms-1" title="Featured"></i>
+                                {% endif %}
+                            </td>
+                            <td>{{ tournament.get_category_display|title }}</td>
+                            <td class="text-nowrap">{{ tournament.start_date|date:"M d, Y H:i" }}</td>
+                            <td>{{ tournament.venue }}</td>
+                            <td class="text-nowrap">
+                                {{ tournament.current_players }}/{{ tournament.max_players }}
+                                {% if tournament.available_slots > 0 %}
+                                    <small class="text-muted">({{ tournament.available_slots }} slots)</small>
+                                {% else %}
+                                    <small class="text-success">(Full)</small>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-primary">{{ tournament.status|title }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                <i class="fas fa-trophy fa-lg mb-2 d-block"></i>
+                                No tournaments are scheduled in the next 7 days.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -312,27 +312,27 @@
         <!-- Stats Overview -->
         <div class="row mb-4">
             <div class="col-md-3 mb-3">
-                <div class="card stat-card p-3">
+                <div class="card player-stat-card border shadow-sm p-3">
                     <h4 class="mb-1" id="totalPlayers">0</h4>
-                    <p class="mb-0 opacity-75">Total Players</p>
+                    <p class="mb-0 text-muted">Total Players</p>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card stat-card p-3" style="background: linear-gradient(135deg, #27ae60, #2ecc71);">
+                <div class="card player-stat-card border shadow-sm p-3">
                     <h4 class="mb-1" id="activePlayers">0</h4>
-                    <p class="mb-0 opacity-75">Active Players</p>
+                    <p class="mb-0 text-muted">Active Players</p>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card stat-card p-3" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                <div class="card player-stat-card border shadow-sm p-3">
                     <h4 class="mb-1" id="totalGames">0</h4>
-                    <p class="mb-0 opacity-75">Total Games Played</p>
+                    <p class="mb-0 text-muted">Total Games Played</p>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card stat-card p-3" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+                <div class="card player-stat-card border shadow-sm p-3">
                     <h4 class="mb-1" id="avgRating">0</h4>
-                    <p class="mb-0 opacity-75">Average Rating</p>
+                    <p class="mb-0 text-muted">Average Rating</p>
                 </div>
             </div>
         </div>
@@ -376,23 +376,6 @@
                     </table>
                 </div>
                 
-                <!-- Pagination -->
-                <nav class="mt-3">
-                    <ul class="pagination justify-content-center" id="playersPagination">
-                        <li class="page-item disabled">
-                            <a class="page-link" href="#">Previous</a>
-                        </li>
-                        <li class="page-item active">
-                            <a class="page-link" href="#">1</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="#">2</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="#">Next</a>
-                        </li>
-                    </ul>
-                </nav>
             </div>
         </div>
     </div>
@@ -910,7 +893,7 @@
                             <div class="mb-3 text-start">
                                 <label for="profilePhotoInput" class="form-label small text-muted fw-medium">Upload Photo</label>
                                 <input class="form-control" type="file" name="profile_photo" id="profilePhotoInput" accept="image/jpeg,image/png,image/webp,image/gif">
-                                <div class="form-text">JPG, PNG, WEBP or GIF.</div>
+                                <div class="form-text">JPG, PNG, WEBP or GIF. Max 1 MB.</div>
                             </div>
                             <button type="submit" class="btn btn-outline-primary px-4">Upload Photo</button>
                         </form>
@@ -1049,6 +1032,111 @@
 </div>
 
 <script>
+    const dashboardDataUrl = "{% url 'admin_dashboard_data' %}";
+    const dashboardWebSocketUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/admin/dashboard/`;
+    let dashboardWebSocket;
+    let dashboardReconnectTimer;
+
+    function createDashboardCell(content, className = '') {
+        const cell = document.createElement('td');
+        cell.className = className;
+        cell.textContent = content;
+        return cell;
+    }
+
+    function renderUpcomingTournaments(tournaments) {
+        const tableBody = document.getElementById('dashboardUpcomingTournaments');
+        if (!tableBody) return;
+
+        tableBody.replaceChildren();
+        if (!tournaments.length) {
+            const row = document.createElement('tr');
+            const cell = createDashboardCell('No tournaments are scheduled in the next 7 days.', 'text-center text-muted py-4');
+            cell.colSpan = 6;
+            row.appendChild(cell);
+            tableBody.appendChild(row);
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        tournaments.forEach((tournament) => {
+            const row = document.createElement('tr');
+            const nameCell = document.createElement('td');
+            const name = document.createElement('strong');
+            name.textContent = tournament.name;
+            nameCell.appendChild(name);
+            if (tournament.is_featured) {
+                const featuredIcon = document.createElement('i');
+                featuredIcon.className = 'fas fa-star text-warning ms-1';
+                featuredIcon.title = 'Featured';
+                nameCell.appendChild(featuredIcon);
+            }
+            row.appendChild(nameCell);
+            row.appendChild(createDashboardCell(tournament.category));
+            row.appendChild(createDashboardCell(tournament.start_date, 'text-nowrap'));
+            row.appendChild(createDashboardCell(tournament.venue));
+            const players = tournament.available_slots > 0
+                ? `${tournament.current_players}/${tournament.max_players} (${tournament.available_slots} slots)`
+                : `${tournament.current_players}/${tournament.max_players} (Full)`;
+            row.appendChild(createDashboardCell(players, 'text-nowrap'));
+            const statusCell = document.createElement('td');
+            const status = document.createElement('span');
+            status.className = 'badge bg-primary';
+            status.textContent = tournament.status;
+            statusCell.appendChild(status);
+            row.appendChild(statusCell);
+            fragment.appendChild(row);
+        });
+        tableBody.appendChild(fragment);
+    }
+
+    async function refreshDashboard() {
+        try {
+            const response = await fetch(dashboardDataUrl, {
+                credentials: 'same-origin',
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            });
+            if (!response.ok) return;
+
+            const data = await response.json();
+            if (!data.success) return;
+
+            document.getElementById('dashboardNewAccounts').textContent = data.stats.new_accounts;
+            document.getElementById('dashboardComputerGames').textContent = data.stats.computer_games;
+            document.getElementById('dashboardMultiplayerGames').textContent = data.stats.multiplayer_games;
+            document.getElementById('dashboardCompletedTournaments').textContent = data.stats.completed_tournaments;
+            document.getElementById('totalPlayers').textContent = data.stats.total_players;
+            document.getElementById('activePlayers').textContent = data.stats.active_players;
+            document.getElementById('totalGames').textContent = data.stats.total_games_played;
+            document.getElementById('avgRating').textContent = data.stats.average_rating;
+            renderUpcomingTournaments(data.upcoming_tournaments);
+        } catch (error) {
+            console.error('Error refreshing dashboard:', error);
+        }
+    }
+
+    function connectDashboardWebSocket() {
+        dashboardWebSocket = new WebSocket(dashboardWebSocketUrl);
+        dashboardWebSocket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type === 'dashboard_update') {
+                refreshDashboard();
+                loadPlayers();
+            }
+        };
+        dashboardWebSocket.onclose = () => {
+            window.clearTimeout(dashboardReconnectTimer);
+            dashboardReconnectTimer = window.setTimeout(connectDashboardWebSocket, 5000);
+        };
+    }
+
+    refreshDashboard();
+    connectDashboardWebSocket();
+    window.setInterval(() => {
+        refreshDashboard();
+        loadPlayers();
+    }, 30000);
+
     // Dashboard-specific navigation functionality
     const contentSections = document.querySelectorAll('.content-section');
 
@@ -1781,168 +1869,46 @@
 
     // Players Management
     let playersData = [];
-    let playersCurrentPage = 1;
-    const playersPerPage = 10;
 
-    // Load players (mock data for frontend)
-    function loadPlayers() {
-        // Mock data - replace with actual API call
-        playersData = [
-            {
-                id: 1,
-                username: 'chessmaster123',
-                email: 'chess@example.com',
-                games_played: 156,
-                wins: 89,
-                losses: 67,
-                rating: 1850,
-                status: 'active',
-                joined: '2024-01-15'
-            },
-            {
-                id: 2,
-                username: 'kingslayer',
-                email: 'king@example.com',
-                games_played: 234,
-                wins: 145,
-                losses: 89,
-                rating: 1920,
-                status: 'active',
-                joined: '2024-02-20'
-            },
-            {
-                id: 3,
-                username: 'queenattack',
-                email: 'queen@example.com',
-                games_played: 89,
-                wins: 45,
-                losses: 44,
-                rating: 1750,
-                status: 'active',
-                joined: '2024-03-10'
-            },
-            {
-                id: 4,
-                username: 'bishopmove',
-                email: 'bishop@example.com',
-                games_played: 312,
-                wins: 178,
-                losses: 134,
-                rating: 1980,
-                status: 'active',
-                joined: '2024-01-05'
-            },
-            {
-                id: 5,
-                username: 'knightjump',
-                email: 'knight@example.com',
-                games_played: 67,
-                wins: 32,
-                losses: 35,
-                rating: 1680,
-                status: 'inactive',
-                joined: '2024-04-12'
-            },
-            {
-                id: 6,
-                username: 'rookpower',
-                email: 'rook@example.com',
-                games_played: 198,
-                wins: 112,
-                losses: 86,
-                rating: 1890,
-                status: 'active',
-                joined: '2024-02-28'
-            },
-            {
-                id: 7,
-                username: 'pawnpusher',
-                email: 'pawn@example.com',
-                games_played: 45,
-                wins: 18,
-                losses: 27,
-                rating: 1550,
-                status: 'active',
-                joined: '2024-05-01'
-            },
-            {
-                id: 8,
-                username: 'castleking',
-                email: 'castle@example.com',
-                games_played: 276,
-                wins: 156,
-                losses: 120,
-                rating: 1950,
-                status: 'active',
-                joined: '2024-01-20'
-            },
-            {
-                id: 9,
-                username: 'checkmate',
-                email: 'mate@example.com',
-                games_played: 423,
-                wins: 267,
-                losses: 156,
-                rating: 2050,
-                status: 'active',
-                joined: '2023-12-15'
-            },
-            {
-                id: 10,
-                username: 'stalemate',
-                email: 'stale@example.com',
-                games_played: 134,
-                wins: 67,
-                losses: 67,
-                rating: 1800,
-                status: 'inactive',
-                joined: '2024-03-25'
-            },
-            {
-                id: 11,
-                username: 'enpassant',
-                email: 'pass@example.com',
-                games_played: 89,
-                wins: 45,
-                losses: 44,
-                rating: 1720,
-                status: 'active',
-                joined: '2024-04-18'
-            },
-            {
-                id: 12,
-                username: 'fianchetto',
-                email: 'fian@example.com',
-                games_played: 156,
-                wins: 89,
-                losses: 67,
-                rating: 1840,
-                status: 'active',
-                joined: '2024-02-10'
-            }
-        ];
+    async function loadPlayers() {
+        const tableBody = document.getElementById('playersTableBody');
+        try {
+            const response = await fetch("{% url 'admin_players_data' %}", {
+                credentials: 'same-origin',
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            });
+            if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
 
-        // Update stats
-        updatePlayerStats();
-        
-        // Render table
-        renderPlayersTable();
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load players');
+
+            playersData = data.players;
+            renderPlayersTable();
+        } catch (error) {
+            console.error('Error loading players:', error);
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="10" class="text-center py-4">
+                        <i class="fas fa-exclamation-circle fa-2x text-danger mb-2"></i>
+                        <p class="text-muted mb-0">Unable to load players.</p>
+                    </td>
+                </tr>
+            `;
+        }
     }
 
     // Update player statistics
     function updatePlayerStats() {
-        const totalPlayers = playersData.length;
-        const activePlayers = playersData.filter(p => p.status === 'active').length;
-        const totalGames = playersData.reduce((sum, p) => sum + p.games_played, 0);
-        const avgRating = Math.round(playersData.reduce((sum, p) => sum + p.rating, 0) / totalPlayers);
-
-        document.getElementById('totalPlayers').textContent = totalPlayers;
-        document.getElementById('activePlayers').textContent = activePlayers;
-        document.getElementById('totalGames').textContent = totalGames;
-        document.getElementById('avgRating').textContent = avgRating;
+        refreshDashboard();
     }
 
     // Render players table
+    function escapeHtml(value) {
+        const element = document.createElement('span');
+        element.textContent = value;
+        return element.innerHTML;
+    }
+
     function renderPlayersTable() {
         const tableBody = document.getElementById('playersTableBody');
         
@@ -1974,17 +1940,17 @@
                             <div class="profile-icon me-2" style="width: 35px; height: 35px; font-size: 0.9rem;">
                                 <i class="fas fa-user"></i>
                             </div>
-                            <strong>${player.username}</strong>
+                            <strong>${escapeHtml(player.username)}</strong>
                         </div>
                     </td>
-                    <td>${player.email}</td>
+                    <td>${escapeHtml(player.email)}</td>
                     <td>${player.games_played}</td>
                     <td><span class="text-success">${player.wins}</span></td>
                     <td><span class="text-danger">${player.losses}</span></td>
                     <td>${winRate}%</td>
                     <td><strong>${player.rating}</strong></td>
                     <td>${statusBadge}</td>
-                    <td>${player.joined}</td>
+                    <td>${escapeHtml(player.joined)}</td>
                     <td>
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-outline-primary" onclick="viewPlayerDetails(${player.id})">
@@ -2052,12 +2018,7 @@
 
     // Delete player
     function deletePlayer(playerId) {
-        showTTSAAdminConfirm('Are you sure you want to delete this player?', function() {
-            playersData = playersData.filter(p => p.id !== playerId);
-            updatePlayerStats();
-            renderPlayersTable();
-            showTTSAAdminToast('Player deleted successfully', 'success');
-        });
+        showTTSAAdminToast('Player deletion is not available from this dashboard.', 'info');
     }
 
     // Initialize players on page load
@@ -3786,6 +3747,11 @@ startPingInterval();
                 showAlert('photoAlert', 'Please select a photo.', 'warning');
                 return;
             }
+            const file = input.files[0];
+            if (file.size > 1024 * 1024) {
+                showAlert('photoAlert', 'Profile photo must be less than 1 MB.', 'warning');
+                return;
+            }
             const formData = new FormData(profilePhotoForm);
             try {
                 const response = await fetch("{% url 'admin_upload_profile_photo' %}", {
@@ -4040,6 +4006,86 @@ loadTournaments();
 #submitResultsBtn:hover {
     background-color: #157347;
     border-color: #146c43;
+}
+
+.dashboard-stat-card {
+    border-radius: 0.65rem;
+}
+
+.dashboard-stat-card .card-body {
+    min-height: 104px;
+    padding: 1rem;
+}
+
+.dashboard-stat-icon {
+    align-items: center;
+    border-radius: 0.6rem;
+    display: inline-flex;
+    flex: 0 0 2.5rem;
+    font-size: 1rem;
+    height: 2.5rem;
+    justify-content: center;
+    width: 2.5rem;
+}
+
+.dashboard-stat-value {
+    color: #212529;
+    font-size: 1.55rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.dashboard-stat-label {
+    color: #343a40;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.dashboard-stat-period {
+    color: #6c757d;
+    font-size: 0.73rem;
+    margin-top: 0.15rem;
+}
+
+.dashboard-tournaments-card {
+    border-radius: 0.65rem;
+    overflow: hidden;
+}
+
+.dashboard-tournaments-card .card-header {
+    border-bottom: 1px solid #edf0f2;
+}
+
+.dashboard-tournaments-table {
+    font-size: 0.85rem;
+}
+
+.dashboard-tournaments-table th {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.65rem 1rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.dashboard-tournaments-table td {
+    padding: 0.7rem 1rem;
+}
+
+@media (max-width: 575.98px) {
+    .dashboard-stat-card .card-body {
+        min-height: auto;
+        padding: 0.85rem;
+    }
+
+    .dashboard-tournaments-table th,
+    .dashboard-tournaments-table td {
+        padding: 0.65rem 0.75rem;
+    }
 }
 </style>
 

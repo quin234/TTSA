@@ -300,6 +300,8 @@ let selectedSquare = null;
 let gameTimer = null;
 let secondsElapsed = 0;
 let firstMoveMade = false;
+let pendingLocalMove = null;
+let gameEndSoundPlayed = false;
 
 // Chess clock variables - will be synchronized with server
 let whiteTime = 600; // 10 minutes in seconds (default, will be updated based on game type)
@@ -492,6 +494,7 @@ function onSquareClick(square) {
                 highlightCheck();
                 
                 // Send move to server
+                pendingLocalMove = move;
                 sendMoveToServer(fromSquare, square, move);
                 
                 // Keep the move locally - server will broadcast confirmation to both players
@@ -821,8 +824,27 @@ function handleWebSocketMessage(data) {
         case 'move':
             // Apply the move to the chess.js instance using the FEN from server
             try {
+                let soundMove = null;
+                if (
+                    pendingLocalMove
+                    && data.move
+                    && pendingLocalMove.from === data.move.from
+                    && pendingLocalMove.to === data.move.to
+                ) {
+                    soundMove = pendingLocalMove;
+                    pendingLocalMove = null;
+                } else if (data.move && data.move.from && data.move.to) {
+                    soundMove = game.move({
+                        from: data.move.from,
+                        to: data.move.to,
+                        promotion: data.move.promotion || 'q'
+                    });
+                }
                 game.load(data.fen);
                 board.position(data.fen);
+                if (soundMove && typeof chessSounds !== 'undefined') {
+                    chessSounds.playMoveSound(soundMove, {in_check: game.in_check()});
+                }
                 updateTurnIndicator();
                 updateMoveHistory();
                 
@@ -928,6 +950,8 @@ function handleWebSocketMessage(data) {
             lastServerSync = Date.now();
             clockStarted = false;
             firstMoveMade = false;
+            pendingLocalMove = null;
+            gameEndSoundPlayed = false;
             updateClockDisplay();
             
             // Update player info if colors swapped
@@ -1031,6 +1055,10 @@ function handleGameEnd() {
 }
 
 function showGameOver(result, reason) {
+    if (!gameEndSoundPlayed && typeof chessSounds !== 'undefined') {
+        chessSounds.playEndSound(result === 'draw' ? 'draw' : 'checkmate');
+        gameEndSoundPlayed = true;
+    }
     const modal = document.getElementById('gameOverModal');
     const icon = document.getElementById('gameResultIcon');
     const title = document.getElementById('gameResultTitle');

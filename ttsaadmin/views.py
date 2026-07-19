@@ -73,20 +73,23 @@ def admin_dashboard(request):
     from ttsa_app.models import PlayerProfile, ChessGame, MultiplayerGame
     
     # Get statistics
-    total_users = User.objects.count()
-    active_players = PlayerProfile.objects.filter(
-        last_played__gte=timezone.now() - timedelta(days=30)
+    now = timezone.now()
+    seven_days_ago = now - timedelta(days=7)
+    next_seven_days = now + timedelta(days=7)
+    total_users = User.objects.filter(date_joined__gte=seven_days_ago).count()
+    active_players = ChessGame.objects.filter(created_at__gte=seven_days_ago).count()
+    games_today = MultiplayerGame.objects.filter(created_at__gte=seven_days_ago).count()
+    completed_tournaments = Tournament.objects.filter(status='completed').filter(
+        Q(completed_at__gte=seven_days_ago, completed_at__lte=now) |
+        Q(completed_at__isnull=True, end_date__gte=seven_days_ago, end_date__lte=now)
     ).count()
-    
-    # Games today (both single player and multiplayer)
-    today = timezone.now().date()
-    games_today = ChessGame.objects.filter(created_at__date=today).count() + \
-                  MultiplayerGame.objects.filter(created_at__date=today).count()
     
     # Get upcoming tournaments (ongoing, upcoming, and completed tournaments)
     upcoming_tournaments = Tournament.objects.select_related('created_by').filter(
-        status__in=['ongoing', 'upcoming', 'completed']
-    ).order_by('start_date')[:10]
+        status='upcoming',
+        start_date__gte=now,
+        start_date__lte=next_seven_days,
+    ).order_by('start_date')
     
     # Add empty tournament form for creation
     from .forms import TournamentForm
@@ -104,12 +107,139 @@ def admin_dashboard(request):
         'total_users': total_users,
         'active_players': active_players,
         'games_today': games_today,
+        'completed_tournaments': completed_tournaments,
         'upcoming_tournaments': upcoming_tournaments,
         'show_tournament_form': False,  # Don't show form by default
         'profile_photo_url': profile_photo_url,
         'admin_phone': admin_phone,
     }
     return render(request, 'ttsaadmin/dashboard.html', context)
+
+
+@login_required
+def admin_dashboard_data(request):
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'TTSA Admin access required'}, status=403)
+
+    from datetime import timedelta
+
+    now = timezone.now()
+    seven_days_ago = now - timedelta(days=7)
+    next_seven_days = now + timedelta(days=7)
+    upcoming_tournaments = Tournament.objects.filter(
+        status='upcoming',
+        start_date__gte=now,
+        start_date__lte=next_seven_days,
+    ).order_by('start_date')
+
+    tournaments = [
+        {
+            'id': tournament.id,
+            'name': tournament.name,
+            'category': tournament.get_category_display(),
+            'start_date': timezone.localtime(tournament.start_date).strftime('%b %d, %Y %H:%M'),
+            'venue': tournament.venue,
+            'current_players': tournament.current_players,
+            'max_players': tournament.max_players,
+            'available_slots': tournament.available_slots,
+            'is_featured': tournament.is_featured,
+            'status': tournament.get_status_display(),
+        }
+        for tournament in upcoming_tournaments
+    ]
+
+    return JsonResponse({
+        'success': True,
+        'stats': {
+            'new_accounts': User.objects.filter(date_joined__gte=seven_days_ago).count(),
+            'computer_games': ChessGame.objects.filter(created_at__gte=seven_days_ago).count(),
+            'multiplayer_games': MultiplayerGame.objects.filter(created_at__gte=seven_days_ago).count(),
+            'completed_tournaments': Tournament.objects.filter(status='completed').filter(
+                Q(completed_at__gte=seven_days_ago, completed_at__lte=now) |
+                Q(completed_at__isnull=True, end_date__gte=seven_days_ago, end_date__lte=now)
+            ).count(),
+            'total_players': PlayerProfile.objects.filter(user__role__in=['player', 'player_plus']).count(),
+            'active_players': PlayerProfile.objects.filter(
+                user__role__in=['player', 'player_plus'],
+                last_played__gte=(now - timedelta(days=30)).date(),
+            ).count(),
+            'total_games_played': ChessGame.objects.count() + MultiplayerGame.objects.count(),
+            'average_rating': round(
+                PlayerProfile.objects.filter(user__role__in=['player', 'player_plus']).aggregate(
+                    average_rating=Avg('rating')
+                )['average_rating'] or 0
+            ),
+        },
+        'upcoming_tournaments': tournaments,
+    })
+
+
+@login_required
+def admin_players_data(request):
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'TTSA Admin access required'}, status=403)
+
+    from datetime import timedelta
+
+    profiles = list(
+        PlayerProfile.objects.select_related('user').filter(
+            user__role__in=['player', 'player_plus']
+        ).order_by('-user__date_joined')
+    )
+    player_stats = {
+        profile.id: {'games_played': 0, 'wins': 0, 'losses': 0}
+        for profile in profiles
+    }
+
+    for game in ChessGame.objects.filter(
+        player_id__in=player_stats,
+        result__in=['win', 'loss', 'draw'],
+    ).values('player_id').annotate(
+        games_played=Count('id'),
+        wins=Count('id', filter=Q(result='win')),
+        losses=Count('id', filter=Q(result='loss')),
+    ):
+        player_stats[game['player_id']] = {
+            'games_played': game['games_played'],
+            'wins': game['wins'],
+            'losses': game['losses'],
+        }
+
+    user_to_profile = {profile.user_id: profile.id for profile in profiles}
+    multiplayer_games = MultiplayerGame.objects.filter(
+        status='completed'
+    ).values('white_player_id', 'black_player_id', 'result')
+    for game in multiplayer_games:
+        for player_id, won in (
+            (game['white_player_id'], game['result'] == 'white'),
+            (game['black_player_id'], game['result'] == 'black'),
+        ):
+            profile_id = user_to_profile.get(player_id)
+            if profile_id is None:
+                continue
+            player_stats[profile_id]['games_played'] += 1
+            if won:
+                player_stats[profile_id]['wins'] += 1
+            elif game['result'] in ['white', 'black']:
+                player_stats[profile_id]['losses'] += 1
+
+    active_since = (timezone.now() - timedelta(days=30)).date()
+    players = [
+        {
+            'id': profile.user_id,
+            'username': profile.user.username,
+            'email': profile.user.email,
+            'games_played': player_stats[profile.id]['games_played'],
+            'wins': player_stats[profile.id]['wins'],
+            'losses': player_stats[profile.id]['losses'],
+            'rating': profile.rating,
+            'status': 'active' if profile.last_played >= active_since else 'inactive',
+            'joined': timezone.localtime(profile.user.date_joined).strftime('%b %d, %Y'),
+        }
+        for profile in profiles
+    ]
+
+    return JsonResponse({'success': True, 'players': players})
 
 
 @login_required
@@ -1937,6 +2067,10 @@ def admin_upload_profile_photo(request):
     ext = os.path.splitext(photo.name)[1].lower()
     if ext not in allowed_extensions:
         return JsonResponse({'success': False, 'error': 'Unsupported file type. Please upload JPG, PNG, WEBP, or GIF.'}, status=400)
+
+    MAX_PROFILE_PHOTO_SIZE = 1024 * 1024  # 1 MB
+    if photo.size > MAX_PROFILE_PHOTO_SIZE:
+        return JsonResponse({'success': False, 'error': 'Profile photo must be less than 1 MB.'}, status=400)
 
     profile, _ = PlayerProfile.objects.get_or_create(user=request.user)
 

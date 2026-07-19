@@ -3,6 +3,8 @@ from . import views
 
 urlpatterns = [
     path('', views.admin_dashboard, name='admin_dashboard'),
+    path('api/dashboard/', views.admin_dashboard_data, name='admin_dashboard_data'),
+    path('api/players/', views.admin_players_data, name='admin_players_data'),
     path('youtube-channels/add/', views.add_youtube_channel, name='add_youtube_channel'),
     path('youtube-channels/', views.youtube_channels_list, name='youtube_channels_list'),
     path('youtube-channels/<int:channel_id>/delete/', views.delete_youtube_channel, name='delete_youtube_channel'),
