@@ -85,11 +85,16 @@ class Tournament(models.Model):
     """Model for chess tournaments"""
     
     STATUS_CHOICES = [
-       
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+        ('registration', 'Open for Registration'),
         ('upcoming', 'Upcoming'),
+        ('in_progress', 'In Progress'),
         ('ongoing', 'Ongoing'),
         ('completed', 'Completed'),
+        ('finished', 'Finished'),
         ('cancelled', 'Cancelled'),
+        ('closed', 'Closed'),
     ]
     
     CATEGORY_CHOICES = [

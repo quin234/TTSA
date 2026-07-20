@@ -67,8 +67,13 @@ class PlayerProfile(models.Model):
     level = models.IntegerField(default=1)
     experience_points = models.IntegerField(default=0)
     learning_streak = models.IntegerField(default=0)
-    last_played = models.DateField(default=timezone.now)
+    last_played = models.DateField(default=timezone.now, db_index=True)
     bio = models.TextField(max_length=500, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['-last_played']),
+        ]
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
@@ -311,6 +316,14 @@ class Leaderboard(models.Model):
     monthly_points = models.IntegerField(default=0)
     all_time_points = models.IntegerField(default=0)
     
+    class Meta:
+        indexes = [
+            models.Index(fields=['weekly_rank']),
+            models.Index(fields=['monthly_rank']),
+            models.Index(fields=['all_time_rank']),
+            models.Index(fields=['player', '-all_time_points']),
+        ]
+    
     def __str__(self):
         return f"{self.player.user.username} - Rank: {self.weekly_rank}"
 
@@ -474,8 +487,8 @@ class VideoLesson(models.Model):
         ('intermediate', 'Intermediate'),
         ('advanced', 'Advanced'),
     ], db_index=True)
-    views = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
+    views = models.IntegerField(default=0, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     order = models.IntegerField(default=0)
     
     class Meta:
@@ -483,6 +496,7 @@ class VideoLesson(models.Model):
         indexes = [
             models.Index(fields=['category', 'difficulty', 'order']),
             models.Index(fields=['title']),
+            models.Index(fields=['-created_at']),
         ]
     
     def __str__(self):

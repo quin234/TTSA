@@ -189,7 +189,15 @@ document.addEventListener('DOMContentLoaded', function() {
         profileForm.addEventListener('submit', function(e) {
             if (avatarInput.files && avatarInput.files[0] && avatarInput.files[0].size > 1024 * 1024) {
                 e.preventDefault();
-                alert('Avatar must be less than 1 MB. Please choose a smaller image.');
+                if (typeof showTTSAToast === 'function') {
+                    showTTSAToast('Avatar must be less than 1 MB. Please choose a smaller image.', 'error');
+                } else {
+                    // Fallback for environments where the base toast helper isn't loaded
+                    const err = document.createElement('div');
+                    err.className = 'alert alert-danger';
+                    err.textContent = 'Avatar must be less than 1 MB. Please choose a smaller image.';
+                    profileForm.prepend(err);
+                }
                 return false;
             }
         });

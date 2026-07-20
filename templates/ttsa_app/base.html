@@ -22,7 +22,60 @@
     
     <!-- jQuery (required for Chessboard.js) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
+
+    <!-- Global CSRF and HTML-escaping utilities -->
+    <script>
+    (function() {
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        // jQuery AJAX
+        if (window.jQuery) {
+            jQuery.ajaxSetup({
+                beforeSend: function(xhr, settings) {
+                    if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain && csrftoken) {
+                        xhr.setRequestHeader('X-CSRFToken', csrftoken);
+                    }
+                }
+            });
+        }
+
+        // Fetch API
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            let [resource, init] = args;
+            init = init || {};
+            const method = (init.method || 'GET').toUpperCase();
+            if (csrftoken && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS' && method !== 'TRACE') {
+                init.headers = init.headers || {};
+                if (Object.prototype.toString.call(init.headers) === '[object Object]' && !init.headers['X-CSRFToken']) {
+                    init.headers['X-CSRFToken'] = csrftoken;
+                }
+            }
+            return originalFetch(resource, init);
+        };
+
+        // Shared HTML-escaping helper
+        window.escapeHtml = function(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+            return String(text == null ? '' : text).replace(/[&<>"']/g, function(m) { return map[m]; });
+        };
+    })();
+    </script>
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}?v=2">
     

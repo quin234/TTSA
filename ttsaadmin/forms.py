@@ -252,7 +252,8 @@ class TournamentForm(forms.ModelForm):
         self.fields['end_date'].required = True
         self.fields['registration_deadline'].required = True
         self.fields['max_players'].required = True
-    
+        self.fields['entry_fee'].required = False
+
     class Meta:
         model = Tournament
         fields = [

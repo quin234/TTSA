@@ -9,16 +9,17 @@ from django.utils import timezone
 from datetime import timedelta
 from functools import wraps
 from django.db import models, transaction, IntegrityError
-from django.db.models import Q, Max
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.db.models import Q, Max, F
+from django.views.decorators.http import require_POST, require_GET
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
 import logging
 import random
 import json
 import secrets
 import string
+from .decorators import rate_limit
 from .models import (
     User, PlayerProfile, OrganizerProfile, PlayerPlusApplication, Achievement, PlayerAchievement, ChessGame,
     Lesson, PlayerLesson, Puzzle,	PlayerPuzzle, Leaderboard,
@@ -225,11 +226,16 @@ def achievements(request):
     profile = request.user.playerprofile
     player_achievements = PlayerAchievement.objects.filter(player=profile).select_related('achievement')
     all_achievements = Achievement.objects.all()
-    
+
+    # Build a constant-time lookup to avoid N+1 queries
+    player_achievement_map = {
+        pa.achievement_id: pa for pa in player_achievements
+    }
+
     # Create a list of achievement data with progress info
     achievements_with_progress = []
     for achievement in all_achievements:
-        player_ach = player_achievements.filter(achievement=achievement).first()
+        player_ach = player_achievement_map.get(achievement.id)
         if player_ach:
             achievements_with_progress.append({
                 'achievement': achievement,
@@ -292,10 +298,9 @@ def video_lessons(request):
     else:
         selected_video = first_video
     
-    # Increment view count for selected video
+    # Increment view count for selected video atomically
     if selected_video and request.user.is_authenticated:
-        selected_video.views += 1
-        selected_video.save()
+        VideoLesson.objects.filter(pk=selected_video.pk).update(views=F('views') + 1)
     
     context = {
         'videos': videos,
@@ -396,56 +401,70 @@ def settings_view(request):
 
 
 @login_required
+@rate_limit(rate='5/m')
 def change_username(request):
     if request.method == 'POST':
-        new_username = request.POST.get('new_username')
-        password = request.POST.get('password')
-        
+        new_username = request.POST.get('new_username', '').strip()
+        password = request.POST.get('password', '')
+
+        if not new_username or len(new_username) < 3 or len(new_username) > 150:
+            messages.error(request, 'Username must be between 3 and 150 characters.')
+            return redirect('settings')
+
         # Verify current password
         user = authenticate(request, username=request.user.username, password=password)
         if user is None:
             messages.error(request, 'Current password is incorrect.')
             return redirect('settings')
-        
+
         # Check if username is already taken
-        if User.objects.filter(username=new_username).exists():
+        if User.objects.filter(username=new_username).exclude(pk=user.pk).exists():
             messages.error(request, 'Username is already taken.')
             return redirect('settings')
-        
+
         # Change username
         user.username = new_username
         user.save()
         messages.success(request, 'Username changed successfully!')
         return redirect('settings')
-    
+
     return redirect('settings')
 
 
 @login_required
+@rate_limit(rate='5/m')
 def change_password(request):
     if request.method == 'POST':
         current_password = request.POST.get('current_password')
         new_password = request.POST.get('new_password')
         confirm_password = request.POST.get('confirm_password')
-        
+
         # Verify current password
         user = authenticate(request, username=request.user.username, password=current_password)
         if user is None:
             messages.error(request, 'Current password is incorrect.')
             return redirect('settings')
-        
+
         # Check if new passwords match
         if new_password != confirm_password:
             messages.error(request, 'New passwords do not match.')
             return redirect('settings')
-        
+
+        # Validate the new password against configured validators
+        try:
+            validate_password(new_password, user)
+        except ValidationError as e:
+            for error in e.messages:
+                messages.error(request, error)
+            return redirect('settings')
+
         # Change password
         user.set_password(new_password)
         user.save()
         update_session_auth_hash(request, user)
         messages.success(request, 'Password changed successfully!')
         return redirect('settings')
-    
+
     return redirect('settings')
 
 
@@ -505,27 +524,29 @@ def user_role_api(request):
     })
 
 
+@rate_limit(rate='10/m')
 def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
         user = authenticate(request, username=username, password=password)
-        
+
         if user is not None:
             login(request, user)
             messages.success(request, f'Welcome back, {username}!')
-            
+
             # Redirect TTSA admins to admin dashboard
             if user.is_ttsa_admin:
                 return redirect('admin_dashboard')
-            
+
             return redirect('chess_game')
         else:
             messages.error(request, 'Invalid username or password.')
-    
+
     return render(request, 'ttsa_app/login.html')
 
 
+@rate_limit(rate='10/m')
 def signup(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
@@ -592,26 +613,27 @@ def signup(request):
 
 
 # API Views
+@require_POST
 def save_game(request):
-    if request.method == 'POST':
-        # Handle both authenticated and guest users
-        if request.user.is_authenticated:
-            profile = request.user.playerprofile
-            is_guest = False
-        else:
-            profile = None
-            is_guest = True
+    # Handle both authenticated and guest users
+    if request.user.is_authenticated:
+        profile = request.user.playerprofile
+        is_guest = False
+    else:
+        profile = None
+        is_guest = True
 
-        data = request.POST
+    data = request.POST
 
-        if is_guest:
-            # For guests, just return success without saving to database
-            # Progress will be saved in localStorage
-            return JsonResponse({'success': True, 'guest': True, 'message': 'Game saved locally'})
+    if is_guest:
+        # For guests, just return success without saving to database
+        # Progress will be saved in localStorage
+        return JsonResponse({'success': True, 'guest': True, 'message': 'Game saved locally'})
 
-        result = data.get('result', 'ongoing')
-        is_rated = data.get('is_rated', 'false').lower() == 'true'
+    result = data.get('result', 'ongoing')
+    is_rated = data.get('is_rated', 'false').lower() == 'true'
 
+    with transaction.atomic():
         game = ChessGame.objects.create(
             player=profile,
             player_color=data.get('player_color', 'white'),
@@ -653,46 +675,46 @@ def save_game(request):
     return JsonResponse({'success': False}, status=400)
 
 
-@csrf_exempt
+@require_POST
 def complete_lesson(request, lesson_id):
-    if request.method == 'POST':
-        # Handle both authenticated and guest users
-        if request.user.is_authenticated:
-            profile = request.user.playerprofile
-            is_guest = False
-        else:
-            profile = None
-            is_guest = True
-        
-        lesson = get_object_or_404(Lesson, id=lesson_id)
-        
-        if is_guest:
-            # For guests, just return success without saving to database
-            # Progress will be saved in localStorage
-            return JsonResponse({'success': True, 'guest': True, 'coins': lesson.points_reward, 'message': 'Lesson completed locally'})
-        
-        player_lesson, created = PlayerLesson.objects.get_or_create(player=profile, lesson=lesson)
-        
+    # Handle both authenticated and guest users
+    if request.user.is_authenticated:
+        profile = request.user.playerprofile
+        is_guest = False
+    else:
+        profile = None
+        is_guest = True
+
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+
+    if is_guest:
+        # For guests, just return success without saving to database
+        # Progress will be saved in localStorage
+        return JsonResponse({'success': True, 'guest': True, 'coins': lesson.points_reward, 'message': 'Lesson completed locally'})
+
+    with transaction.atomic():
+        player_lesson, created = PlayerLesson.objects.select_for_update().get_or_create(
+            player=profile, lesson=lesson
+        )
+
         if not player_lesson.completed:
             player_lesson.completed = True
             player_lesson.score = int(request.POST.get('score', 100))
             player_lesson.completed_at = timezone.now()
             player_lesson.save()
-            
+
             # Award coins and experience
             profile.coins += lesson.points_reward
             profile.experience_points += lesson.points_reward * 2
             profile.last_played = timezone.now().date()
             profile.save()
-            
-            # Check for lesson-related achievements
-            check_lesson_achievements(profile)
-            
-            return JsonResponse({'success': True, 'guest': False, 'coins': lesson.points_reward})
-        
-        return JsonResponse({'success': False, 'message': 'Lesson already completed'})
-    
-    return JsonResponse({'success': False}, status=400)
+
+    # Check for lesson-related achievements outside the transaction
+    if player_lesson.completed:
+        check_lesson_achievements(profile)
+        return JsonResponse({'success': True, 'guest': False, 'coins': lesson.points_reward})
+
+    return JsonResponse({'success': False, 'message': 'Lesson already completed'})
 
 
 def check_lesson_achievements(profile):
@@ -727,188 +749,180 @@ def check_lesson_achievements(profile):
                 )
 
 
-@csrf_exempt
+@require_GET
 def lesson_progress(request):
     """API endpoint to get lesson progress for a user"""
-    if request.method == 'GET':
-        if not request.user.is_authenticated:
-            return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
-        
-        profile = request.user.playerprofile
-        completed_lessons = PlayerLesson.objects.filter(
-            player=profile, 
-            completed=True
-        ).select_related('lesson')
-        
-        total_lessons = Lesson.objects.count()
-        
-        lessons_data = []
-        for player_lesson in completed_lessons:
-            lessons_data.append({
-                'id': player_lesson.lesson.id,
-                'title': player_lesson.lesson.title,
-                'category': player_lesson.lesson.category,
-                'difficulty': player_lesson.lesson.difficulty,
-                'score': player_lesson.score,
-                'completed_at': player_lesson.completed_at.isoformat() if player_lesson.completed_at else None,
-                'points_reward': player_lesson.lesson.points_reward
-            })
-        
-        return JsonResponse({
-            'success': True,
-            'completed_lessons': lessons_data,
-            'total_completed': len(lessons_data),
-            'total_lessons': total_lessons,
-            'progress_percentage': round((len(lessons_data) / total_lessons * 100) if total_lessons > 0 else 0, 2)
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+
+    profile = request.user.playerprofile
+    completed_lessons = PlayerLesson.objects.filter(
+        player=profile,
+        completed=True
+    ).select_related('lesson')
+
+    total_lessons = Lesson.objects.count()
+
+    lessons_data = []
+    for player_lesson in completed_lessons:
+        lessons_data.append({
+            'id': player_lesson.lesson.id,
+            'title': player_lesson.lesson.title,
+            'category': player_lesson.lesson.category,
+            'difficulty': player_lesson.lesson.difficulty,
+            'score': player_lesson.score,
+            'completed_at': player_lesson.completed_at.isoformat() if player_lesson.completed_at else None,
+            'points_reward': player_lesson.lesson.points_reward
         })
-    
-    return JsonResponse({'success': False}, status=400)
+
+    return JsonResponse({
+        'success': True,
+        'completed_lessons': lessons_data,
+        'total_completed': len(lessons_data),
+        'total_lessons': total_lessons,
+        'progress_percentage': round((len(lessons_data) / total_lessons * 100) if total_lessons > 0 else 0, 2)
+    })
 
 
-@csrf_exempt
+@require_GET
 def lesson_recommendations(request):
     """API endpoint to get recommended lessons based on user progress"""
-    if request.method == 'GET':
-        if not request.user.is_authenticated:
-            return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
-        
-        profile = request.user.playerprofile
-        
-        # Get completed lesson IDs
-        completed_lesson_ids = PlayerLesson.objects.filter(
-            player=profile, 
-            completed=True
-        ).values_list('lesson_id', flat=True)
-        
-        # Get incomplete lessons, ordered by difficulty and category
-        recommended_lessons = Lesson.objects.exclude(
-            id__in=completed_lesson_ids
-        ).order_by('difficulty', 'order', 'category')[:5]
-        
-        lessons_data = []
-        for lesson in recommended_lessons:
-            lessons_data.append({
-                'id': lesson.id,
-                'title': lesson.title,
-                'description': lesson.description,
-                'category': lesson.category,
-                'difficulty': lesson.difficulty,
-                'points_reward': lesson.points_reward
-            })
-        
-        return JsonResponse({
-            'success': True,
-            'recommended_lessons': lessons_data
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+
+    profile = request.user.playerprofile
+
+    # Get completed lesson IDs
+    completed_lesson_ids = PlayerLesson.objects.filter(
+        player=profile,
+        completed=True
+    ).values_list('lesson_id', flat=True)
+
+    # Get incomplete lessons, ordered by difficulty and category
+    recommended_lessons = Lesson.objects.exclude(
+        id__in=completed_lesson_ids
+    ).order_by('difficulty', 'order', 'category')[:5]
+
+    lessons_data = []
+    for lesson in recommended_lessons:
+        lessons_data.append({
+            'id': lesson.id,
+            'title': lesson.title,
+            'description': lesson.description,
+            'category': lesson.category,
+            'difficulty': lesson.difficulty,
+            'points_reward': lesson.points_reward
         })
-    
-    return JsonResponse({'success': False}, status=400)
+
+    return JsonResponse({
+        'success': True,
+        'recommended_lessons': lessons_data
+    })
 
 
+@require_POST
 def solve_puzzle(request, puzzle_id):
-    if request.method == 'POST':
-        # Handle both authenticated and guest users
-        if request.user.is_authenticated:
-            profile = request.user.playerprofile
-            is_guest = False
-        else:
-            profile = None
-            is_guest = True
-        
-        puzzle = get_object_or_404(Puzzle, id=puzzle_id)
-        
-        if is_guest:
-            # For guests, just return success without saving to database
-            # Progress will be saved in localStorage
-            coins = 5 if puzzle.difficulty == 'beginner' else 10
-            return JsonResponse({'success': True, 'guest': True, 'coins': coins, 'message': 'Puzzle solved locally'})
-        
-        player_puzzle, created = PlayerPuzzle.objects.get_or_create(player=profile, puzzle=puzzle)
-        
+    # Handle both authenticated and guest users
+    if request.user.is_authenticated:
+        profile = request.user.playerprofile
+        is_guest = False
+    else:
+        profile = None
+        is_guest = True
+
+    puzzle = get_object_or_404(Puzzle, id=puzzle_id)
+
+    if is_guest:
+        # For guests, just return success without saving to database
+        # Progress will be saved in localStorage
+        coins = 5 if puzzle.difficulty == 'beginner' else 10
+        return JsonResponse({'success': True, 'guest': True, 'coins': coins, 'message': 'Puzzle solved locally'})
+
+    with transaction.atomic():
+        player_puzzle, created = PlayerPuzzle.objects.select_for_update().get_or_create(
+            player=profile, puzzle=puzzle
+        )
+
         solution = request.POST.get('solution', '')
         if solution == puzzle.solution and not player_puzzle.solved:
             player_puzzle.solved = True
             player_puzzle.solved_at = timezone.now()
             player_puzzle.save()
-            
+
             # Award coins and experience
             coins = 5 if puzzle.difficulty == 'beginner' else 10
             profile.coins += coins
             profile.experience_points += coins * 2
             profile.save()
-            
+
             return JsonResponse({'success': True, 'guest': False, 'coins': coins})
-        
+
         player_puzzle.attempts += 1
         player_puzzle.save()
-        
-        return JsonResponse({'success': False, 'attempts': player_puzzle.attempts})
-    
-    return JsonResponse({'success': False}, status=400)
+
+    return JsonResponse({'success': False, 'attempts': player_puzzle.attempts})
 
 
-@csrf_exempt
+@require_POST
 def stockfish_move(request):
     """API endpoint to get best move from Stockfish engine"""
-    if request.method == 'POST':
-        try:
-            # Get parameters from request
-            fen = request.POST.get('fen', '')
-            difficulty_str = request.POST.get('difficulty', 'intermediate')
-            
-            if not fen:
-                return JsonResponse({'success': False, 'error': 'No FEN provided'}, status=400)
-            
-            # Map difficulty string to enum (only the three Play vs Computer levels)
-            difficulty_map = {
-                'beginner': DifficultyLevel.BEGINNER,
-                'intermediate': DifficultyLevel.INTERMEDIATE,
-                'master': DifficultyLevel.MASTER
-            }
-            
-            difficulty = difficulty_map.get(difficulty_str.lower(), DifficultyLevel.INTERMEDIATE)
-            
-            # Check if Stockfish is available
-            if not stockfish_service.is_engine_available():
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Stockfish engine not available',
-                    'fallback': True
-                }, status=503)
-            
-            # Start engine if not running
-            if not stockfish_service.is_engine_ready():
-                if not stockfish_service.start_engine():
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Failed to start Stockfish engine',
-                        'fallback': True
-                    }, status=503)
-            
-            # Get best move from Stockfish
-            best_move = stockfish_service.get_best_move(fen, difficulty)
-            
-            if best_move:
-                return JsonResponse({
-                    'success': True,
-                    'move': best_move,
-                    'engine': 'stockfish',
-                    'difficulty': difficulty.value
-                })
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'No best move found',
-                    'fallback': True
-                }, status=500)
-                
-        except Exception as e:
+    try:
+        # Get parameters from request
+        fen = request.POST.get('fen', '')
+        difficulty_str = request.POST.get('difficulty', 'intermediate')
+
+        if not fen:
+            return JsonResponse({'success': False, 'error': 'No FEN provided'}, status=400)
+
+        # Map difficulty string to enum (only the three Play vs Computer levels)
+        difficulty_map = {
+            'beginner': DifficultyLevel.BEGINNER,
+            'intermediate': DifficultyLevel.INTERMEDIATE,
+            'master': DifficultyLevel.MASTER
+        }
+
+        difficulty = difficulty_map.get(difficulty_str.lower(), DifficultyLevel.INTERMEDIATE)
+
+        # Check if Stockfish is available
+        if not stockfish_service.is_engine_available():
             return JsonResponse({
                 'success': False,
-                'error': str(e),
+                'error': 'Stockfish engine not available',
+                'fallback': True
+            }, status=503)
+
+        # Start engine if not running
+        if not stockfish_service.is_engine_ready():
+            if not stockfish_service.start_engine():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Failed to start Stockfish engine',
+                    'fallback': True
+                }, status=503)
+
+        # Get best move from Stockfish
+        best_move = stockfish_service.get_best_move(fen, difficulty)
+
+        if best_move:
+            return JsonResponse({
+                'success': True,
+                'move': best_move,
+                'engine': 'stockfish',
+                'difficulty': difficulty.value
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'No best move found',
                 'fallback': True
             }, status=500)
-    
-    return JsonResponse({'success': False}, status=400)
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'fallback': True
+        }, status=500)
 
 
 # Multiplayer Game Views
@@ -1070,11 +1084,10 @@ def multiplayer_game(request, game_code):
 
 
 @login_required
-@csrf_exempt
 def multiplayer_status_api(request, game_code):
     """API endpoint to check game status"""
     game = get_object_or_404(MultiplayerGame, game_code=game_code)
-    
+
     return JsonResponse({
         'opponent_joined': game.black_player is not None,
         'status': game.status
@@ -1082,25 +1095,22 @@ def multiplayer_status_api(request, game_code):
 
 
 @login_required
-@csrf_exempt
+@require_POST
 def multiplayer_cancel_api(request, game_code):
     """API endpoint to cancel a waiting game"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)
-    
     game = get_object_or_404(MultiplayerGame, game_code=game_code)
-    
+
     # Only allow the creator to cancel
     if game.white_player != request.user and game.black_player != request.user:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
-    
+
     # Only allow cancellation if game is still waiting
     if game.status != 'waiting':
         return JsonResponse({'success': False, 'error': 'Game already started'}, status=400)
-    
+
     game.status = 'abandoned'
     game.save()
-    
+
     return JsonResponse({'success': True})
 
 
@@ -1112,280 +1122,265 @@ def tournaments_view(request):
     return render(request, 'ttsa_app/tournaments.html', {'profile': profile})
 
 
-@csrf_exempt
+@require_GET
 def tournaments_api(request):
     """API endpoint for tournaments data - public access for viewing tournaments"""
-    
-    if request.method == 'GET':
-        from ttsaadmin.models import Tournament
-        from django.db.models import Q
-        from django.utils import timezone
-        
-        # Get all active tournaments, excluding closed ones
-        tournaments = Tournament.objects.filter(
-            is_active=True
-        ).exclude(
-            status='closed'
-        ).select_related('created_by').prefetch_related('players')
-        
-        # Apply filters from GET params
-        search = request.GET.get('search')
-        if search:
-            tournaments = tournaments.filter(
-                Q(name__icontains=search) |
-                Q(venue__icontains=search) |
-                Q(description__icontains=search)
-            )
-        
-        category = request.GET.get('category')
-        if category:
-            tournaments = tournaments.filter(category=category)
-        
-        # Order by start date
-        tournaments = tournaments.order_by('start_date')
-        
-        # Categorize tournaments
-        upcoming = []
-        ongoing = []
-        completed = []
-        
-        for tournament in tournaments:
-            # Check if current user is registered
-            is_registered = False
-            if hasattr(request, 'user') and request.user.is_authenticated:
-                try:
-                    profile = request.user.playerprofile
-                    is_registered = TournamentPlayer.objects.filter(
-                        player_name=profile.user.username, 
-                        tournament=tournament
-                    ).exists()
-                except (PlayerProfile.DoesNotExist, AttributeError):
-                    pass
-            
-            tournament_data = {
-                'id': tournament.id,
-                'name': tournament.name,
-                'venue': tournament.venue,
-                'category': tournament.category,
-                'format': tournament.format,
-                'rounds': tournament.rounds,
-                'time_control': tournament.time_control,
-                'start_date': tournament.start_date.isoformat(),
-                'end_date': tournament.end_date.isoformat(),
-                'registration_deadline': tournament.registration_deadline.isoformat(),
-                'entry_fee': float(tournament.entry_fee),
-                'max_players': tournament.max_players,
-                'current_players': tournament.current_players,
-                'available_slots': tournament.available_slots,
-                'status': tournament.status,
-                'is_active': tournament.is_active,
-                'is_featured': tournament.is_featured,
-                'created_by': tournament.created_by.username,
-                'created_at': tournament.created_at.isoformat(),
-                'updated_at': tournament.updated_at.isoformat(),
-                'is_registration_open': tournament.is_registration_open,
-                'is_full': tournament.is_full,
-                'is_registered': is_registered,
-            }
-            
-            # Categorize based on status and dates
-            now = timezone.now()
-            
-            # Upcoming: tournaments that haven't started yet
-            if tournament.status in ['published', 'registration', 'upcoming'] and tournament.start_date > now:
-                upcoming.append(tournament_data)
-            # Ongoing: tournaments currently in progress
-            elif tournament.status in ['in_progress', 'ongoing'] or (tournament.start_date <= now <= tournament.end_date):
-                ongoing.append(tournament_data)
-            # Completed: tournaments that have finished
-            elif tournament.status in ['completed', 'finished'] or tournament.end_date < now:
-                completed.append(tournament_data)
-            # Handle edge case: tournaments with 'upcoming' status but past start date should be ongoing
-            elif tournament.status == 'upcoming' and tournament.start_date <= now:
-                ongoing.append(tournament_data)
-        
-        return JsonResponse({
-            'success': True,
-            'upcoming': upcoming,
-            'ongoing': ongoing,
-            'completed': completed,
-        })
-    
-    return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    from ttsaadmin.models import Tournament
+    from django.db.models import Q
+    from django.utils import timezone
+
+    # Get all active tournaments, excluding closed ones
+    tournaments = Tournament.objects.filter(
+        is_active=True
+    ).exclude(
+        status='closed'
+    ).select_related('created_by').prefetch_related('players')
+
+    # Apply filters from GET params
+    search = request.GET.get('search')
+    if search:
+        tournaments = tournaments.filter(
+            Q(name__icontains=search) |
+            Q(venue__icontains=search) |
+            Q(description__icontains=search)
+        )
+
+    category = request.GET.get('category')
+    if category:
+        tournaments = tournaments.filter(category=category)
+
+    # Order by start date
+    tournaments = tournaments.order_by('start_date')
+
+    # Pre-compute current user's registered tournament IDs (avoids N+1)
+    registered_tournament_ids = set()
+    if request.user.is_authenticated:
+        registered_tournament_ids = set(
+            TournamentPlayer.objects.filter(
+                player_name=request.user.username,
+                tournament__in=tournaments,
+                status='registered'
+            ).values_list('tournament_id', flat=True)
+        )
+
+    # Categorize tournaments
+    upcoming = []
+    ongoing = []
+    completed = []
+
+    now = timezone.now()
+    for tournament in tournaments:
+        is_registered = tournament.id in registered_tournament_ids
+
+        tournament_data = {
+            'id': tournament.id,
+            'name': tournament.name,
+            'venue': tournament.venue,
+            'category': tournament.category,
+            'format': tournament.format,
+            'rounds': tournament.rounds,
+            'time_control': tournament.time_control,
+            'start_date': tournament.start_date.isoformat(),
+            'end_date': tournament.end_date.isoformat(),
+            'registration_deadline': tournament.registration_deadline.isoformat(),
+            'entry_fee': float(tournament.entry_fee),
+            'max_players': tournament.max_players,
+            'current_players': tournament.current_players,
+            'available_slots': tournament.available_slots,
+            'status': tournament.status,
+            'is_active': tournament.is_active,
+            'is_featured': tournament.is_featured,
+            'created_by': tournament.created_by.username,
+            'created_at': tournament.created_at.isoformat(),
+            'updated_at': tournament.updated_at.isoformat(),
+            'is_registration_open': tournament.is_registration_open,
+            'is_full': tournament.is_full,
+            'is_registered': is_registered,
+        }
+
+        # Categorize based on status and dates
+        if tournament.status in ['published', 'registration', 'upcoming'] and tournament.start_date > now:
+            upcoming.append(tournament_data)
+        elif tournament.status in ['in_progress', 'ongoing'] or (tournament.start_date <= now <= tournament.end_date):
+            ongoing.append(tournament_data)
+        elif tournament.status in ['completed', 'finished'] or tournament.end_date < now:
+            completed.append(tournament_data)
+        elif tournament.status == 'upcoming' and tournament.start_date <= now:
+            ongoing.append(tournament_data)
+
+    return JsonResponse({
+        'success': True,
+        'upcoming': upcoming,
+        'ongoing': ongoing,
+        'completed': completed,
+    })
 
 
-@csrf_exempt
 @login_required
+@require_POST
 def tournament_register_api(request, tournament_id):
     """API endpoint for tournament registration"""
-    
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
-    
     try:
-        from ttsaadmin.models import Tournament, TournamentPlayer
+        from ttsaadmin.models import TournamentPlayer
         from django.utils import timezone
-        
-        # Get tournament
-        tournament = get_object_or_404(Tournament, id=tournament_id)
-        
-        # Validate tournament status and eligibility
-        if tournament.status not in ['upcoming', 'published', 'registration']:
-            return JsonResponse({
-                'success': False, 
-                'error': 'Registration is not available for this tournament'
-            }, status=400)
-        
-        # Check if registration is still open
-        if not tournament.is_registration_open:
-            return JsonResponse({
-                'success': False, 
-                'error': 'Registration deadline has passed'
-            }, status=400)
-        
-        # Check if tournament is full
-        if tournament.is_full:
-            return JsonResponse({
-                'success': False, 
-                'error': 'Tournament is full'
-            }, status=400)
-        
-        # Get player profile
-        try:
-            profile = request.user.playerprofile
-        except PlayerProfile.DoesNotExist:
-            return JsonResponse({
-                'success': False, 
-                'error': 'Player profile not found. Please complete your profile first.'
-            }, status=400)
-        
-        # Check if already registered
-        existing_registration = TournamentPlayer.objects.filter(
-            player_name=profile.user.username, 
-            tournament=tournament
-        ).first()
-        
-        if existing_registration:
-            if existing_registration.status == 'registered':
+
+        with transaction.atomic():
+            # Lock the tournament row to prevent capacity races
+            tournament = get_object_or_404(
+                Tournament.objects.select_for_update(), id=tournament_id
+            )
+
+            # Validate tournament status and eligibility
+            if tournament.status not in ['upcoming', 'published', 'registration']:
                 return JsonResponse({
-                    'success': False, 
-                    'error': 'You are already registered for this tournament'
+                    'success': False,
+                    'error': 'Registration is not available for this tournament'
                 }, status=400)
-            else:
-                # Re-activate cancelled registration if exists
-                existing_registration.status = 'registered'
-                existing_registration.registered_at = timezone.now()
-                existing_registration.save(update_fields=['status', 'registered_at'])
-                
-                # Update tournament current players count
-                tournament.current_players += 1
-                tournament.save(update_fields=['current_players'])
-                
+
+            # Re-check capacity and deadline under lock
+            if not tournament.is_registration_open:
                 return JsonResponse({
-                    'success': True,
-                    'message': 'Registration reactivated successfully!',
-                    'registration_id': existing_registration.id
-                })
-        
-        # Note: PlayerProfile doesn't have category field, using 'open' as default
-        # All players can register for 'open' tournaments, category restrictions handled at tournament level
-        
-        # Create registration
-        registration = TournamentPlayer.objects.create(
-            player_name=profile.user.username,
-            rating=profile.rating or 1200,
-            email=profile.user.email,
-            phone=getattr(profile, 'phone', '') or '',
-            category='open',  # Default category since PlayerProfile doesn't have category field
-            tournament=tournament,
-            status='registered',
-            registered_at=timezone.now()
-        )
-        
-        # Update tournament current players count
-        tournament.current_players += 1
-        tournament.save(update_fields=['current_players'])
-        
+                    'success': False,
+                    'error': 'Registration deadline has passed'
+                }, status=400)
+
+            if tournament.is_full:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Tournament is full'
+                }, status=400)
+
+            # Get player profile
+            try:
+                profile = request.user.playerprofile
+            except PlayerProfile.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Player profile not found. Please complete your profile first.'
+                }, status=400)
+
+            # Check if already registered
+            existing_registration = TournamentPlayer.objects.filter(
+                player_name=profile.user.username,
+                tournament=tournament
+            ).first()
+
+            if existing_registration:
+                if existing_registration.status == 'registered':
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'You are already registered for this tournament'
+                    }, status=400)
+                else:
+                    # Re-activate cancelled registration if exists
+                    existing_registration.status = 'registered'
+                    existing_registration.registered_at = timezone.now()
+                    existing_registration.save(update_fields=['status', 'registered_at'])
+
+                    # Update tournament current players count
+                    tournament.current_players += 1
+                    tournament.save(update_fields=['current_players'])
+
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Registration reactivated successfully!',
+                        'registration_id': existing_registration.id
+                    })
+
+            # Create registration
+            registration = TournamentPlayer.objects.create(
+                player_name=profile.user.username,
+                rating=profile.rating or 1200,
+                email=profile.user.email,
+                phone=getattr(profile, 'phone', '') or '',
+                category='open',
+                tournament=tournament,
+                status='registered',
+                registered_at=timezone.now()
+            )
+
+            # Update tournament current players count
+            tournament.current_players += 1
+            tournament.save(update_fields=['current_players'])
+
         return JsonResponse({
             'success': True,
             'message': f'Successfully registered for {tournament.name}!',
             'registration_id': registration.id
         })
-        
+
     except Exception as e:
+        logger.error(f"Error registering for tournament: {e}")
         return JsonResponse({
-            'success': False, 
-            'error': str(e)
+            'success': False,
+            'error': 'An error occurred while processing your registration.'
         }, status=500)
 
 
-@csrf_exempt
 @login_required
+@require_POST
 def tournament_unregister_api(request, tournament_id):
     """API endpoint for tournament withdrawal"""
-    
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
-    
     try:
-        from ttsaadmin.models import Tournament, TournamentPlayer
-        
-        # Get tournament
-        tournament = get_object_or_404(Tournament, id=tournament_id)
-        
-        # Get player profile
-        profile = get_object_or_404(PlayerProfile, user=request.user)
-        
-        # Find registration
-        registration = TournamentPlayer.objects.filter(
-            player_name=profile.user.username, 
-            tournament=tournament
-        ).first()
-        
-        if not registration:
-            return JsonResponse({
-                'success': False, 
-                'error': 'You are not registered for this tournament'
-            }, status=400)
-        
-        # Check if tournament has already started
-        if tournament.start_date <= timezone.now():
-            return JsonResponse({
-                'success': False, 
-                'error': 'Cannot withdraw after tournament has started'
-            }, status=400)
-        
-        # Update registration status
-        registration.status = 'withdrawn'
-        registration.withdrawn_at = timezone.now()
-        registration.save()
-        
-        # Update tournament current players count
-        tournament.current_players = max(0, tournament.current_players - 1)
-        tournament.save()
-        
+        from ttsaadmin.models import TournamentPlayer
+
+        with transaction.atomic():
+            # Lock the tournament row to keep the player count consistent
+            tournament = get_object_or_404(
+                Tournament.objects.select_for_update(), id=tournament_id
+            )
+
+            # Get player profile
+            profile = get_object_or_404(PlayerProfile, user=request.user)
+
+            # Find registration
+            registration = TournamentPlayer.objects.filter(
+                player_name=profile.user.username,
+                tournament=tournament
+            ).first()
+
+            if not registration:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'You are not registered for this tournament'
+                }, status=400)
+
+            # Check if tournament has already started
+            if tournament.start_date <= timezone.now():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot withdraw after tournament has started'
+                }, status=400)
+
+            # Update registration status
+            registration.status = 'withdrawn'
+            registration.withdrawn_at = timezone.now()
+            registration.save()
+
+            # Update tournament current players count
+            tournament.current_players = max(0, tournament.current_players - 1)
+            tournament.save(update_fields=['current_players'])
+
         return JsonResponse({
             'success': True,
             'message': f'Successfully withdrawn from {tournament.name}'
         })
-        
+
     except Exception as e:
+        logger.error(f"Error withdrawing from tournament: {e}")
         return JsonResponse({
-            'success': False, 
-            'error': str(e)
+            'success': False,
+            'error': 'An error occurred while processing your withdrawal.'
         }, status=500)
 
 
 @login_required
+@require_GET
 def my_tournaments_api(request):
     """API endpoint for user's tournament registrations"""
-    
-    if request.method != 'GET':
-        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
-    
     try:
         profile = get_object_or_404(PlayerProfile, user=request.user)
-        
+
         registrations = TournamentPlayer.objects.filter(
             player_name=profile.user.username
         ).select_related('tournament').order_by('-registered_at')
@@ -1863,7 +1858,7 @@ def player_tournament_manage(request, tournament_id):
 
 @login_required
 @player_plus_tournament_access
-@csrf_exempt
+@require_GET
 def player_tournament_api_data(request, tournament_id):
     """API endpoint for tournament data (owner or admin)."""
     tournament = get_object_or_404(Tournament, id=tournament_id)

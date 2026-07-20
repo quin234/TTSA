@@ -1,10 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.password_validation import validate_password
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseForbidden, FileResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Sum, Avg, F, Max
 from django.utils import timezone
@@ -16,6 +16,7 @@ import os
 
 # Import BBP service to ensure registration
 from .bbp_pairings_service import BBPPairingsService
+from ttsa_app.decorators import rate_limit
 
 logger = logging.getLogger(__name__)
 from .forms import (
@@ -318,13 +319,10 @@ def youtube_channels_list(request):
     return redirect('admin_dashboard')
 
 
-@csrf_exempt
 @login_required
+@require_POST
 def validate_channel_api(request):
     """API endpoint for validating YouTube channel before submission"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Only POST method allowed'})
-    
     try:
         import json
         data = json.loads(request.body)
@@ -450,13 +448,10 @@ def video_library(request):
     return redirect('admin_dashboard')
 
 
-@csrf_exempt
 @login_required
+@require_POST
 def validate_video_api(request):
     """API endpoint for validating YouTube video before submission"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Only POST method allowed'})
-    
     try:
         import json
         data = json.loads(request.body)
@@ -491,13 +486,10 @@ def validate_video_api(request):
         return JsonResponse({'success': False, 'error': f'An error occurred: {str(e)}'})
 
 
-@csrf_exempt
 @login_required
+@require_POST
 def delete_video_lesson(request, video_id):
     """API endpoint for deleting a video lesson"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Only POST method allowed'})
-    
     try:
         video = VideoLesson.objects.get(id=video_id)
         video.delete()
@@ -523,13 +515,10 @@ def delete_video_lesson(request, video_id):
         return redirect('video_library')
 
 
-@csrf_exempt
 @login_required
+@require_POST
 def delete_youtube_channel(request, channel_id):
     """API endpoint for deleting a YouTube channel"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Only POST method allowed'})
-    
     try:
         channel = YouTubeChannel.objects.get(id=channel_id)
         channel.delete()
@@ -555,13 +544,10 @@ def delete_youtube_channel(request, channel_id):
         return redirect('youtube_channels_list')
 
 
-@csrf_exempt
 @login_required
+@require_POST
 def sync_channel_videos(request):
     """API endpoint to sync videos from YouTube channels (limited to 100 videos)"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Only POST method allowed'})
-    
     try:
         import json
         data = json.loads(request.body)
@@ -635,13 +621,10 @@ def sync_channel_videos(request):
         return JsonResponse({'success': False, 'error': f'An error occurred: {str(e)}'})
 
 
-@csrf_exempt
 @login_required
+@require_GET
 def get_notifications(request):
     """API endpoint to get user notifications"""
-    if request.method != 'GET':
-        return JsonResponse({'success': False, 'error': 'Only GET method allowed'})
-    
     try:
         notifications = SyncNotification.objects.filter(
             user=request.user,
@@ -672,13 +655,10 @@ def get_notifications(request):
         return JsonResponse({'success': False, 'error': f'An error occurred: {str(e)}'})
 
 
-@csrf_exempt
 @login_required
+@require_POST
 def mark_notification_read(request, notification_id):
     """API endpoint to mark notification as read"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Only POST method allowed'})
-    
     try:
         notification = SyncNotification.objects.get(id=notification_id, user=request.user)
         notification.is_read = True
@@ -2039,11 +2019,13 @@ def admin_change_password(request):
     if not request.user.check_password(current_password):
         return JsonResponse({'success': False, 'error': 'Current password is incorrect.'}, status=400)
 
-    if len(new_password) < 8:
-        return JsonResponse({'success': False, 'error': 'New password must be at least 8 characters long.'}, status=400)
-
     if new_password != confirm_password:
         return JsonResponse({'success': False, 'error': 'New passwords do not match.'}, status=400)
+
+    try:
+        validate_password(new_password, request.user)
+    except ValidationError as e:
+        return JsonResponse({'success': False, 'error': ' '.join(e.messages)}, status=400)
 
     request.user.set_password(new_password)
     request.user.save()

@@ -416,7 +416,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const descriptionEl = document.getElementById('move-description');
         if (currentMoveIndex > 0 && currentMoveIndex <= lessonMoves.length) {
             const move = lessonMoves[currentMoveIndex - 1];
-            descriptionEl.innerHTML = `<p class="text-gray-800 font-semibold text-lg">${move.description}</p>`;
+            const safeDescription = typeof escapeHtml === 'function' ? escapeHtml(move.description) : move.description.replace(/</g, '&lt;');
+            descriptionEl.innerHTML = `<p class="text-gray-800 font-semibold text-lg">${safeDescription}</p>`;
             // Speak the description and wait for completion
             await speak(move.description);
         } else if (currentMoveIndex === 0) {

@@ -98,8 +98,8 @@ try:
         
         # Test with invalid status (should fail)
         invalid_data['format'] = 'swiss'    # Fix format
-        invalid_data['status'] = 'upcoming' # Invalid status - was removed
-        
+        invalid_data['status'] = 'archived' # Invalid status
+
         form = TournamentForm(data=invalid_data)
         if not form.is_valid():
             print("✓ Invalid status correctly rejected")

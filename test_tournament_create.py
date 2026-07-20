@@ -14,11 +14,11 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ttsa_project.settings')
 django.setup()
 
 from django.test import RequestFactory
-from django.contrib.auth.models import User
+from ttsa_app.models import User
 from ttsaadmin.forms import TournamentForm
 from ttsaadmin.models import Tournament
 from datetime import datetime, timedelta
-import pytz
+from django.utils import timezone
 
 def test_tournament_creation():
     """Test tournament creation with valid data"""
@@ -31,7 +31,7 @@ def test_tournament_creation():
     )
     
     # Create test data
-    utc_now = datetime.now(pytz.UTC)
+    utc_now = timezone.now()
     start_date = utc_now + timedelta(days=7)
     end_date = start_date + timedelta(days=2)
     registration_deadline = start_date - timedelta(days=1)

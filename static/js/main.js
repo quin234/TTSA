@@ -188,9 +188,11 @@ function showModal(title, content, actions = []) {
         box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
         animation: slideIn 0.3s ease;
     `;
-    
+
+    const safeTitle = typeof escapeHtml === 'function' ? escapeHtml(title) : title;
+
     modalContent.innerHTML = `
-        <h2 class="text-2xl font-bold mb-4">${title}</h2>
+        <h2 class="text-2xl font-bold mb-4">${safeTitle}</h2>
         <div class="mb-6">${content}</div>
         <div class="flex space-x-3 justify-end">
             ${actions.map(action => `
@@ -224,9 +226,10 @@ function closeModal(modal) {
 }
 
 function confirmAction(message, onConfirm, onCancel = null) {
+    const safeMessage = typeof escapeHtml === 'function' ? escapeHtml(message) : message.replace(/</g, '&lt;');
     const modal = showModal(
         'Confirm Action',
-        `<p>${message}</p>`,
+        `<p>${safeMessage}</p>`,
         [
             {
                 text: 'Cancel',
@@ -246,11 +249,12 @@ function confirmAction(message, onConfirm, onCancel = null) {
 
 // Loading States
 function showLoading(element, text = 'Loading...') {
+    const safeText = typeof escapeHtml === 'function' ? escapeHtml(text) : text.replace(/</g, '&lt;');
     const loadingDiv = document.createElement('div');
     loadingDiv.className = 'loading-container';
     loadingDiv.innerHTML = `
         <div class="loading"></div>
-        <span class="ml-2">${text}</span>
+        <span class="ml-2">${safeText}</span>
     `;
     loadingDiv.style.cssText = `
         display: flex;

@@ -99,10 +99,11 @@ function loadTournamentData() {
 // Show error message
 function showError(message) {
     const grid = document.getElementById('tournamentsGrid');
+    const safeMessage = typeof escapeHtml === 'function' ? escapeHtml(message) : message.replace(/</g, '&lt;');
     grid.innerHTML = `
         <div class="col-span-full text-center py-8">
             <i class="fas fa-exclamation-triangle fa-2x text-red-400 mb-2"></i>
-            <p class="text-red-600">${message}</p>
+            <p class="text-red-600">${safeMessage}</p>
         </div>
     `;
 }
@@ -200,14 +201,14 @@ function renderAllTournaments() {
                             ${tournament.category.charAt(0).toUpperCase() + tournament.category.slice(1)}
                         </span>
                     </div>
-                    <h3 class="font-semibold text-gray-900 text-sm line-clamp-2 leading-tight">${tournament.name}</h3>
+                    <h3 class="font-semibold text-gray-900 text-sm line-clamp-2 leading-tight">${escapeHtml(tournament.name)}</h3>
                 </div>
                 
                 <!-- Details -->
                 <div class="p-3 space-y-2">
                     <div class="flex items-center text-xs text-gray-600">
                         <i class="fas fa-map-marker-alt w-4 text-gray-400 mr-2"></i>
-                        <span class="truncate">${tournament.venue}</span>
+                        <span class="truncate">${escapeHtml(tournament.venue)}</span>
                     </div>
                     <div class="flex items-center text-xs text-gray-600">
                         <i class="fas fa-calendar w-4 text-gray-400 mr-2"></i>
@@ -278,10 +279,11 @@ function registerForTournament(tournamentId) {
         // Create a custom confirmation dialog instead of using a blocking alert
         const confirmDialog = document.createElement('div');
         confirmDialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        const safeName = typeof escapeHtml === 'function' ? escapeHtml(tournament.name) : tournament.name.replace(/</g, '&lt;');
         confirmDialog.innerHTML = `
             <div class="bg-white rounded-lg p-6 max-w-md mx-4">
                 <h3 class="text-lg font-semibold mb-4">Confirm Tournament Registration</h3>
-                <p class="text-gray-600 mb-4">Are you sure you want to register for "${tournament.name}"?</p>
+                <p class="text-gray-600 mb-4">Are you sure you want to register for "${safeName}"?</p>
                 <div class="text-sm text-gray-500 mb-4">
                     <p>Entry fee: $${tournament.entry_fee}</p>
                     <p>Date: ${tournament.date}</p>
@@ -353,7 +355,7 @@ function viewTournamentDetails(tournamentId) {
     const tournament = allTournamentsData.find(t => t.id === tournamentId);
     if (tournament) {
         // For now, just show a simple message - this could be expanded to show a modal with full details
-        showSuccessMessage(`Viewing details for "${tournament.name}" - Feature coming soon!`);
+        showSuccessMessage(`Viewing details for "${escapeHtml(tournament.name)}" - Feature coming soon!`);
     }
 }
 
@@ -371,14 +373,15 @@ function showSuccessMessage(message) {
     // Create toast notification
     const toast = document.createElement('div');
     toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+    const safeMessage = typeof escapeHtml === 'function' ? escapeHtml(message) : message.replace(/</g, '&lt;');
     toast.innerHTML = `
         <div class="flex items-center">
             <i class="fas fa-check-circle mr-2"></i>
-            <span>${message}</span>
+            <span>${safeMessage}</span>
         </div>
     `;
     document.body.appendChild(toast);
-    
+
     // Remove after 3 seconds
     setTimeout(() => {
         toast.remove();
@@ -390,14 +393,15 @@ function showErrorMessage(message) {
     // Create toast notification
     const toast = document.createElement('div');
     toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+    const safeMessage = typeof escapeHtml === 'function' ? escapeHtml(message) : message.replace(/</g, '&lt;');
     toast.innerHTML = `
         <div class="flex items-center">
             <i class="fas fa-exclamation-circle mr-2"></i>
-            <span>${message}</span>
+            <span>${safeMessage}</span>
         </div>
     `;
     document.body.appendChild(toast);
-    
+
     // Remove after 3 seconds
     setTimeout(() => {
         toast.remove();
