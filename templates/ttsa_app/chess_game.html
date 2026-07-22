@@ -1,7 +1,79 @@
 {% extends 'ttsa_app/base.html' %}
 {% load static %}
 
-{% block title %}Play Chess - TTSA Academy{% endblock %}
+{% block title %}TTSA - Taita Taveta Sports Academy | Free Chess & Scrabble Training in Kenya{% endblock %}
+
+{% block meta_description %}Taita Taveta Sports Academy (TTSA) is a community-based sports academy in Kenya offering free Chess and Scrabble training, free physical tournaments, and free online participation. Play chess now at ttsa.co.ke{% endblock %}
+
+{% block meta_keywords %}TTSA, Taita Taveta Sports Academy, chess Kenya, scrabble Kenya, free chess training, free scrabble training, free tournaments Kenya, community sports academy Kenya, chess academy Taita Taveta, play chess online free, ttsa.co.ke, chess tournament Kenya, scrabble tournament Kenya{% endblock %}
+
+{% block canonical_url %}https://ttsa.co.ke/game/{% endblock %}
+
+{% block og_title %}TTSA - Taita Taveta Sports Academy | Free Chess & Scrabble Training in Kenya{% endblock %}
+
+{% block og_description %}Join Taita Taveta Sports Academy - a community-based sports academy in Kenya offering free Chess and Scrabble training, free physical tournaments, and free participation. Play online at ttsa.co.ke{% endblock %}
+
+{% block extra_head %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SportsOrganization",
+  "name": "Taita Taveta Sports Academy",
+  "alternateName": "TTSA",
+  "url": "https://ttsa.co.ke",
+  "description": "A community-based sports academy in Kenya offering free Chess and Scrabble training, free physical tournaments, and free participation in tournaments.",
+  "sport": ["Chess", "Scrabble"],
+  "address": {
+    "@type": "PostalAddress",
+    "addressRegion": "Taita Taveta",
+    "addressCountry": "KE"
+  },
+  "areaServed": {
+    "@type": "Country",
+    "name": "Kenya"
+  },
+  "isAccessibleForFree": true,
+  "keywords": "TTSA, Taita Taveta Sports Academy, chess, scrabble, free training, free tournaments, Kenya",
+  "sameAs": [
+    "https://ttsa.co.ke"
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Taita Taveta Sports Academy",
+  "alternateName": "TTSA",
+  "url": "https://ttsa.co.ke",
+  "description": "Official website of Taita Taveta Sports Academy - free Chess and Scrabble training and tournaments in Kenya.",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://ttsa.co.ke/game/?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Play Chess - TTSA Taita Taveta Sports Academy",
+  "description": "Play chess online for free at Taita Taveta Sports Academy. Community-based sports academy in Kenya offering free Chess and Scrabble training and tournaments.",
+  "url": "https://ttsa.co.ke/game/",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "TTSA",
+    "url": "https://ttsa.co.ke"
+  },
+  "about": {
+    "@type": "SportsOrganization",
+    "name": "Taita Taveta Sports Academy",
+    "sport": ["Chess", "Scrabble"]
+  }
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-6">
@@ -1832,7 +1904,10 @@ function endGame() {
     let result, icon, title, message;
     
     if (game.in_checkmate()) {
-        if (game.turn() === 'b') {
+        const playerTurn = playerColor === 'white' ? 'w' : 'b';
+        const playerWon = game.turn() !== playerTurn;
+
+        if (playerWon) {
             result = 'win';
             icon = '🏆';
             title = 'Victory!';

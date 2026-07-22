@@ -7,6 +7,27 @@
     
     {% load static %}
     
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{% block meta_description %}Taita Taveta Sports Academy (TTSA) - A community-based sports academy in Kenya offering free Chess and Scrabble training, free physical tournaments, and free participation. Play chess online at ttsa.co.ke{% endblock %}">
+    <meta name="keywords" content="{% block meta_keywords %}TTSA, Taita Taveta Sports Academy, chess Kenya, scrabble Kenya, free chess training, free tournaments, community sports academy, chess academy Kenya, play chess online Kenya, ttsa.co.ke{% endblock %}">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Taita Taveta Sports Academy">
+    <link rel="canonical" href="{% block canonical_url %}https://ttsa.co.ke/game/{% endblock %}">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Taita Taveta Sports Academy">
+    <meta property="og:title" content="{% block og_title %}TTSA - Taita Taveta Sports Academy | Free Chess & Scrabble Training in Kenya{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Community-based sports academy in Kenya offering free Chess and Scrabble training, free physical tournaments, and free online participation. Join now at ttsa.co.ke{% endblock %}">
+    <meta property="og:url" content="https://ttsa.co.ke/game/">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="TTSA - Taita Taveta Sports Academy | Free Chess & Scrabble Training">
+    <meta name="twitter:description" content="Community-based sports academy in Kenya offering free Chess and Scrabble training and tournaments.">
+    
+    {% block extra_head %}{% endblock %}
+    
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
     <link rel="shortcut icon" href="{% static 'favicon.svg' %}">

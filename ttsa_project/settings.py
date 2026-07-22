@@ -34,7 +34,7 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config(
     'ALLOWED_HOSTS',
-    default='localhost,127.0.0.1,smartcampus.co.ke,www.smartcampus.co.ke',
+    default='localhost,127.0.0.1,ttsa.co.ke,www.ttsa.co.ke',
     cast=Csv()
 )
 
@@ -198,7 +198,7 @@ CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
 CSRF_COOKIE_SAMESITE = config('CSRF_COOKIE_SAMESITE', default='Lax')
 CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
-    default='https://smartcampus.co.ke,https://www.smartcampus.co.ke',
+    default='https://ttsa.co.ke,https://www.ttsa.co.ke',
     cast=Csv()
 )
 

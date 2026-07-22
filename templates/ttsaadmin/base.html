@@ -241,6 +241,8 @@
             align-items: center;
             gap: 1rem;
             border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: inherit;
+            text-decoration: none;
         }
 
         .sidebar-menu-item:hover {
@@ -404,6 +406,12 @@
             <li class="sidebar-menu-item" data-section="video-library">
                 <i class="fas fa-video"></i>
                 <span>Video Library</span>
+            </li>
+            <li>
+                <a href="{% url 'player_plus_applications' %}" class="sidebar-menu-item" data-section="player-plus-applications">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Player Plus Requests</span>
+                </a>
             </li>
             {% endif %}
             <li class="sidebar-menu-item" data-section="players">

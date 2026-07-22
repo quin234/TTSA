@@ -77,3 +77,24 @@ class StockfishDifficultyAPITests(TestCase):
 
     def test_master_difficulty_passed_to_engine(self):
         self._make_move('master', DifficultyLevel.MASTER)
+
+    def test_game_page_csrf_cookie_allows_stockfish_request(self):
+        client = Client(enforce_csrf_checks=True)
+        game_response = client.get('/game/')
+
+        self.assertEqual(game_response.status_code, 200)
+        self.assertIn('csrftoken', game_response.cookies)
+
+        csrf_token = game_response.cookies['csrftoken'].value
+        fen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'
+        with patch.object(stockfish_service, 'is_engine_available', return_value=True), \
+             patch.object(stockfish_service, 'is_engine_ready', return_value=True), \
+             patch.object(stockfish_service, 'get_best_move', return_value='e7e5'):
+            response = client.post(
+                '/api/stockfish-move/',
+                {'fen': fen, 'difficulty': 'intermediate'},
+                HTTP_X_CSRFTOKEN=csrf_token,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['move'], 'e7e5')

@@ -10,6 +10,7 @@ from datetime import timedelta
 from functools import wraps
 from django.db import models, transaction, IntegrityError
 from django.db.models import Q, Max, F
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST, require_GET
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
@@ -98,12 +99,13 @@ def player_plus_tournament_access(view_func):
 
 
 def home(request):
-    # Always redirect to chess game page for instant access
-    return redirect('chess_game')
+    # Permanent redirect to chess game page - ensures search engines index /game/ as the landing page
+    return redirect('chess_game', permanent=True)
 
 
 
 
+@ensure_csrf_cookie
 def chess_game(request):
     difficulty = request.GET.get('difficulty', 'intermediate')
     
