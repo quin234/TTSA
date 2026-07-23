@@ -3,6 +3,72 @@ from unittest.mock import patch
 
 from ttsa_app.stockfish_config import get_difficulty_config, DIFFICULTY_CONFIG
 from ttsa_app.stockfish_service import DifficultyLevel, stockfish_service
+from ttsa_app.models import GuestSession, MultiplayerGame
+
+
+class GuestMultiplayerTests(TestCase):
+    def test_guest_can_create_private_multiplayer_game(self):
+        response = self.client.get('/multiplayer/create/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Playing as a guest')
+        self.assertIn('multiplayer_guest_token', self.client.session)
+
+        guest_session = GuestSession.objects.get()
+        self.assertFalse(guest_session.user.is_active)
+        self.assertFalse(guest_session.user.has_usable_password())
+
+        response = self.client.post(
+            '/api/multiplayer/create/',
+            data='{"time_control":"5+0","color_preference":"random","guest_name":"Guest Player"}',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        game = MultiplayerGame.objects.get(game_code=response.json()['game_code'])
+        self.assertEqual(game.white_player, guest_session.user)
+        guest_session.refresh_from_db()
+        self.assertEqual(guest_session.display_name, 'Guest Player')
+
+    def test_guest_game_creation_requires_valid_csrf_token(self):
+        client = Client(enforce_csrf_checks=True)
+        page_response = client.get('/multiplayer/create/')
+        csrf_token = page_response.cookies['csrftoken'].value
+
+        rejected_response = client.post(
+            '/api/multiplayer/create/',
+            data='{"time_control":"5+0","color_preference":"random"}',
+            content_type='application/json',
+        )
+        accepted_response = client.post(
+            '/api/multiplayer/create/',
+            data='{"time_control":"5+0","color_preference":"random"}',
+            content_type='application/json',
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(rejected_response.status_code, 403)
+        self.assertEqual(accepted_response.status_code, 200)
+
+    def test_second_guest_can_join_shared_game_link(self):
+        self.client.get('/multiplayer/create/')
+        response = self.client.post(
+            '/api/multiplayer/create/',
+            data='{"time_control":"5+0","color_preference":"random"}',
+            content_type='application/json',
+        )
+        game_code = response.json()['game_code']
+
+        joining_client = Client()
+        response = joining_client.get(f'/multiplayer/game/{game_code}/')
+
+        self.assertEqual(response.status_code, 200)
+        game = MultiplayerGame.objects.get(game_code=game_code)
+        self.assertEqual(game.status, 'playing')
+        self.assertIsNotNone(game.black_player)
+        self.assertNotEqual(game.white_player_id, game.black_player_id)
+        self.assertTrue(GuestSession.objects.filter(user=game.black_player).exists())
 
 
 class DifficultyConfigTests(TestCase):

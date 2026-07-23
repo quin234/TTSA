@@ -4,9 +4,10 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 from django.db import transaction
 from datetime import timedelta
-from .models import MultiplayerGame, GameMove
+from .models import MultiplayerGame, GameMove, GuestSession
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
@@ -18,13 +19,23 @@ except ImportError:
     CHESS_AVAILABLE = False
 
 
+def player_display_name(player):
+    try:
+        return player.guest_session.display_name
+    except GuestSession.DoesNotExist:
+        return player.username
+
+
 class MultiplayerGameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.game_code = self.scope['url_route']['kwargs']['game_code']
         self.game_group_name = f'game_{self.game_code}'
         
-        # Get user in async-safe way
-        self.user = await sync_to_async(lambda: self.scope['user'])()
+        self.user = await self.get_multiplayer_user()
+        if not self.user:
+            await self.close()
+            return
+        self.player_name = await self.get_player_name(self.user)
 
         # Verify user is part of the game
         game = await self.get_game()
@@ -52,12 +63,14 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             self.game_group_name,
             {
                 'type': 'player_joined',
-                'username': self.user.username,
+                'username': self.player_name,
                 'user_id': self.user.id
             }
         )
 
     async def disconnect(self, close_code):
+        if not getattr(self, 'user', None):
+            return
         # Leave game group
         await self.channel_layer.group_discard(self.game_group_name, self.channel_name)
 
@@ -66,7 +79,7 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             self.game_group_name,
             {
                 'type': 'player_left',
-                'username': self.user.username,
+                'username': self.player_name,
                 'user_id': self.user.id
             }
         )
@@ -98,7 +111,7 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             await self.handle_timeout(data)
 
     async def handle_move(self, data):
-        print(f"handle_move called by user: {self.user.username}")
+        print(f"handle_move called by user: {self.player_name}")
         game = await self.get_game()
         if not game or game.status != 'playing':
             print(f"Game not found or not playing: {game}")
@@ -171,7 +184,7 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
                 'type': 'broadcast_move',
                 'move': move_data,
                 'fen': chess_game.fen(),
-                'player': self.user.username,
+                'player': self.player_name,
                 'white_time': game.white_time,
                 'black_time': game.black_time,
                 'active_clock': game.active_clock
@@ -218,7 +231,7 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             self.game_group_name,
             {
                 'type': 'draw_offered',
-                'from_user': self.user.username,
+                'from_user': self.player_name,
                 'to_user_id': opponent.id
             }
         )
@@ -266,7 +279,7 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             {
                 'type': 'player_resigned',
                 'winner': winner,
-                'resigned_player': self.user.username
+                'resigned_player': self.player_name
             }
         )
 
@@ -310,8 +323,8 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             self.game_group_name,
             {
                 'type': 'rematch_started',
-                'white_player': game.white_player.username,
-                'black_player': game.black_player.username
+                'white_player': player_display_name(game.white_player),
+                'black_player': player_display_name(game.black_player)
             }
         )
 
@@ -324,7 +337,7 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             self.game_group_name,
             {
                 'type': 'chat_message',
-                'username': self.user.username,
+                'username': self.player_name,
                 'message': message
             }
         )
@@ -509,9 +522,30 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_game(self):
         try:
-            return MultiplayerGame.objects.select_related('white_player', 'black_player').get(game_code=self.game_code)
+            return MultiplayerGame.objects.select_related(
+                'white_player__guest_session', 'black_player__guest_session'
+            ).get(game_code=self.game_code)
         except MultiplayerGame.DoesNotExist:
             return None
+
+    @database_sync_to_async
+    def get_multiplayer_user(self):
+        user = self.scope['user']
+        if user.is_authenticated:
+            return user
+        token = self.scope['session'].get('multiplayer_guest_token')
+        if not token:
+            return None
+        token_digest = salted_hmac('multiplayer-guest-session', token).hexdigest()
+        guest_session = GuestSession.objects.select_related('user').filter(
+            token_digest=token_digest,
+            expires_at__gt=timezone.now(),
+        ).first()
+        return guest_session.user if guest_session else None
+
+    @database_sync_to_async
+    def get_player_name(self, player):
+        return player_display_name(player)
 
     @database_sync_to_async
     def update_game(self, game):

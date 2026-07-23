@@ -15,6 +15,7 @@ from django.views.decorators.http import require_POST, require_GET
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
+from django.utils.crypto import salted_hmac
 import logging
 import random
 import json
@@ -24,7 +25,7 @@ from .decorators import rate_limit
 from .models import (
     User, PlayerProfile, OrganizerProfile, PlayerPlusApplication, Achievement, PlayerAchievement, ChessGame,
     Lesson, PlayerLesson, Puzzle,	PlayerPuzzle, Leaderboard,
-    Friend, Message, AcademyNews, MultiplayerGame, GameMove, VideoLesson
+    Friend, Message, AcademyNews, MultiplayerGame, GameMove, VideoLesson, GuestSession
 )
 from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentRound, TournamentStanding
 from ttsaadmin.forms import TournamentForm, TournamentPlayerForm
@@ -940,6 +941,79 @@ MULTIPLAYER_TIME_CONTROLS = {
 }
 
 MULTIPLAYER_COLOR_PREFERENCES = {'white', 'black', 'random'}
+GUEST_TOKEN_SESSION_KEY = 'multiplayer_guest_token'
+GUEST_SESSION_LIFETIME = timedelta(days=7)
+
+
+def guest_token_digest(token):
+    return salted_hmac('multiplayer-guest-session', token).hexdigest()
+
+
+def normalize_guest_name(value):
+    if not isinstance(value, str):
+        return None
+    name = ' '.join(value.split())
+    if not 3 <= len(name) <= 24 or not all(character.isalnum() or character in ' _-' for character in name):
+        return None
+    return name
+
+
+def get_multiplayer_player(request, guest_name=None):
+    if request.user.is_authenticated:
+        return request.user
+
+    token = request.session.get(GUEST_TOKEN_SESSION_KEY)
+    if token:
+        guest_session = GuestSession.objects.select_related('user').filter(
+            token_digest=guest_token_digest(token),
+            expires_at__gt=timezone.now(),
+        ).first()
+        if guest_session:
+            if guest_name and guest_name != guest_session.display_name:
+                guest_session.display_name = guest_name
+                guest_session.save(update_fields=['display_name'])
+            return guest_session.user
+
+    request.session.cycle_key()
+    for _ in range(5):
+        token = secrets.token_urlsafe(32)
+        generated_name = f'Guest-{token[:6].upper()}'
+        try:
+            with transaction.atomic():
+                guest_user = User(username=f'guest-{token[:16]}', is_active=False)
+                guest_user.set_unusable_password()
+                guest_user.save()
+                GuestSession.objects.create(
+                    user=guest_user,
+                    token_digest=guest_token_digest(token),
+                    display_name=guest_name or generated_name,
+                    expires_at=timezone.now() + GUEST_SESSION_LIFETIME,
+                )
+            request.session[GUEST_TOKEN_SESSION_KEY] = token
+            request.session.set_expiry(GUEST_SESSION_LIFETIME)
+            return guest_user
+        except IntegrityError:
+            continue
+    raise RuntimeError('Unable to start a guest session')
+
+
+def multiplayer_player_name(player):
+    try:
+        return player.guest_session.display_name
+    except GuestSession.DoesNotExist:
+        return player.username
+
+
+def multiplayer_player_profile(player):
+    try:
+        if player.guest_session:
+            return type('obj', (object,), {'rating': 'Guest', 'avatar': type('obj', (object,), {'url': ''})()})
+    except GuestSession.DoesNotExist:
+        pass
+    try:
+        return player.playerprofile
+    except PlayerProfile.DoesNotExist:
+        return PlayerProfile.objects.create(user=player)
 
 
 def multiplayer_game_type(initial_time):
@@ -950,20 +1024,37 @@ def multiplayer_game_type(initial_time):
     return 'rapid'
 
 
-@login_required
+@ensure_csrf_cookie
 def multiplayer_create(request):
     """Render the game creation page"""
-    return render(request, 'ttsa_app/multiplayer_create.html')
+    try:
+        player = get_multiplayer_player(request)
+    except RuntimeError:
+        return render(request, 'ttsa_app/error.html', {'error': 'Unable to start a guest session'})
+    return render(request, 'ttsa_app/multiplayer_create.html', {
+        'guest_name': multiplayer_player_name(player) if not request.user.is_authenticated else '',
+        'is_guest_player': not request.user.is_authenticated,
+    })
 
 
-@login_required
 @require_POST
+@rate_limit(rate='10/m')
 def multiplayer_create_api(request):
     """Create a private multiplayer game for an allowed time control."""
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({'success': False, 'error': 'Invalid request data'}, status=400)
+
+    guest_name = None
+    if not request.user.is_authenticated and 'guest_name' in data:
+        guest_name = normalize_guest_name(data.get('guest_name'))
+        if guest_name is None:
+            return JsonResponse({'success': False, 'error': 'Use 3–24 letters, numbers, spaces, hyphens, or underscores for your guest name'}, status=400)
+    try:
+        player = get_multiplayer_player(request, guest_name)
+    except RuntimeError:
+        return JsonResponse({'success': False, 'error': 'Unable to start a guest session'}, status=503)
 
     time_control = data.get('time_control')
     color_preference = data.get('color_preference', 'random')
@@ -992,7 +1083,7 @@ def multiplayer_create_api(request):
         try:
             game = MultiplayerGame.objects.create(
                 game_code=game_code,
-                white_player=request.user,
+                white_player=player,
                 game_type=game_type,
                 time_control=time_control,
                 initial_time=initial_time,
@@ -1014,13 +1105,16 @@ def multiplayer_create_api(request):
     return JsonResponse({'success': False, 'error': 'Could not create a unique game link'}, status=503)
 
 
-@login_required
 def multiplayer_game(request, game_code):
     """Render the multiplayer game page"""
+    try:
+        player = get_multiplayer_player(request)
+    except RuntimeError:
+        return render(request, 'ttsa_app/error.html', {'error': 'Unable to start a guest session'})
     game = get_object_or_404(MultiplayerGame, game_code=game_code)
     
     # Join waiting games atomically and randomly assign the two players' colors.
-    if game.white_player != request.user and game.black_player != request.user:
+    if game.white_player != player and game.black_player != player:
         if game.status == 'waiting' and game.black_player is None:
             with transaction.atomic():
                 game = MultiplayerGame.objects.select_for_update().get(pk=game.pk)
@@ -1031,15 +1125,15 @@ def multiplayer_game(request, game_code):
                 creator = game.white_player
                 if game.color_preference == 'white':
                     game.white_player = creator
-                    game.black_player = request.user
+                    game.black_player = player
                 elif game.color_preference == 'black':
-                    game.white_player = request.user
+                    game.white_player = player
                     game.black_player = creator
                 elif random.choice([True, False]):
                     game.white_player = creator
-                    game.black_player = request.user
+                    game.black_player = player
                 else:
-                    game.white_player = request.user
+                    game.white_player = player
                     game.black_player = creator
                 game.status = 'playing'
                 game.started_at = timezone.now()
@@ -1055,40 +1149,36 @@ def multiplayer_game(request, game_code):
     
     # Determine user's color
     my_color = None
-    if game.white_player == request.user:
+    if game.white_player == player:
         my_color = 'white'
-    elif game.black_player == request.user:
+    elif game.black_player == player:
         my_color = 'black'
     
-    # Get player profiles for ratings
-    from .models import PlayerProfile
-    try:
-        white_profile = game.white_player.playerprofile
-    except PlayerProfile.DoesNotExist:
-        white_profile = PlayerProfile.objects.create(user=game.white_player)
-    
-    # Handle case where black_player is None (game waiting for opponent)
+    white_profile = multiplayer_player_profile(game.white_player)
     if game.black_player:
-        try:
-            black_profile = game.black_player.playerprofile
-        except PlayerProfile.DoesNotExist:
-            black_profile = PlayerProfile.objects.create(user=game.black_player)
+        black_profile = multiplayer_player_profile(game.black_player)
     else:
-        # Create a placeholder profile for display
         black_profile = type('obj', (object,), {'rating': 0, 'avatar': type('obj', (object,), {'url': ''})()})
     
     return render(request, 'ttsa_app/multiplayer_game.html', {
         'game': game,
         'my_color': my_color,
         'white_profile': white_profile,
-        'black_profile': black_profile
+        'black_profile': black_profile,
+        'white_player_name': multiplayer_player_name(game.white_player),
+        'black_player_name': multiplayer_player_name(game.black_player) if game.black_player else 'Waiting for opponent',
     })
 
 
-@login_required
 def multiplayer_status_api(request, game_code):
     """API endpoint to check game status"""
+    try:
+        player = get_multiplayer_player(request)
+    except RuntimeError:
+        return JsonResponse({'success': False, 'error': 'Unable to start a guest session'}, status=503)
     game = get_object_or_404(MultiplayerGame, game_code=game_code)
+    if game.white_player != player and game.black_player != player:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
     return JsonResponse({
         'opponent_joined': game.black_player is not None,
@@ -1096,14 +1186,17 @@ def multiplayer_status_api(request, game_code):
     })
 
 
-@login_required
 @require_POST
 def multiplayer_cancel_api(request, game_code):
     """API endpoint to cancel a waiting game"""
+    try:
+        player = get_multiplayer_player(request)
+    except RuntimeError:
+        return JsonResponse({'success': False, 'error': 'Unable to start a guest session'}, status=503)
     game = get_object_or_404(MultiplayerGame, game_code=game_code)
 
     # Only allow the creator to cancel
-    if game.white_player != request.user and game.black_player != request.user:
+    if game.white_player != player and game.black_player != player:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
     # Only allow cancellation if game is still waiting

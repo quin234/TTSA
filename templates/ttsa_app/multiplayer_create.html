@@ -13,6 +13,19 @@
 
         <!-- Time controls -->
         <div class="p-5 sm:p-6">
+            {% if is_guest_player %}
+            <div class="mb-5 rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-user-clock mt-0.5 text-indigo-600"></i>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold text-indigo-950">Playing as a guest</p>
+                        <p class="mt-1 text-xs text-indigo-800">Your temporary name is kept for this browser session. You can change it before creating a game.</p>
+                        <label for="guestName" class="sr-only">Guest name</label>
+                        <input id="guestName" type="text" maxlength="24" value="{{ guest_name }}" class="mt-3 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" autocomplete="nickname">
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             <div class="mb-3 flex items-center justify-between">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">Time control</h2>
                 <span id="selectionStatus" class="text-xs font-medium text-gray-400">Select a card</span>
@@ -310,6 +323,10 @@ async function createGame(payload, label, trigger) {
     trigger.disabled = true;
     document.getElementById('selectionStatus').textContent = 'Creating game…';
 
+    const requestPayload = {...payload};
+    const guestNameInput = document.getElementById('guestName');
+    if (guestNameInput) requestPayload.guest_name = guestNameInput.value;
+
     try {
         const response = await fetch('{% url "multiplayer_create_api" %}', {
             method: 'POST',
@@ -317,7 +334,7 @@ async function createGame(payload, label, trigger) {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(requestPayload)
         });
         const data = await response.json();
 

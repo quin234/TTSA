@@ -108,8 +108,8 @@
                         <div class="w-8 h-8 bg-white border-2 border-gray-800 rounded-full flex items-center justify-center">
                             <i class="fas fa-chess-king text-gray-800"></i>
                         </div>
-                        <span class="font-semibold text-gray-800">{{ game.white_player.username }}</span>
-                        {% if game.white_player.id == user.id %}
+                        <span class="font-semibold text-gray-800">{{ white_player_name }}</span>
+                        {% if my_color == 'white' %}
                         <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">You</span>
                         {% endif %}
                     </div>
@@ -121,8 +121,8 @@
                         <div class="w-8 h-8 bg-gray-800 border-2 border-gray-400 rounded-full flex items-center justify-center">
                             <i class="fas fa-chess-king text-white"></i>
                         </div>
-                        <span class="font-semibold text-gray-800">{{ game.black_player.username }}</span>
-                        {% if game.black_player.id == user.id %}
+                        <span class="font-semibold text-gray-800">{{ black_player_name }}</span>
+                        {% if my_color == 'black' %}
                         <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">You</span>
                         {% endif %}
                     </div>
@@ -662,13 +662,13 @@ function sendMoveToServer(from, to, move) {
 
 function initializePlayerProfiles() {
     const whitePlayer = {
-        name: "{{ game.white_player.username }}",
+        name: "{{ white_player_name|escapejs }}",
         rating: "{{ white_profile.rating }}",
         avatar: "{{ white_profile.avatar.url|default:'' }}"
     };
     
     const blackPlayer = {
-        name: "{{ game.black_player.username }}",
+        name: "{{ black_player_name|escapejs }}",
         rating: "{{ black_profile.rating }}",
         avatar: "{{ black_profile.avatar.url|default:'' }}"
     };

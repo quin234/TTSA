@@ -59,6 +59,22 @@ class User(AbstractUser):
         return self.player_plus_applications.filter(status='pending').exists()
 
 
+class GuestSession(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='guest_session')
+    token_digest = models.CharField(max_length=64, unique=True, db_index=True)
+    display_name = models.CharField(max_length=24)
+    expires_at = models.DateTimeField(db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['expires_at', '-created_at']),
+        ]
+
+    def __str__(self):
+        return self.display_name
+
+
 class PlayerProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_constraint=False)
     avatar = models.ImageField(upload_to='avatars/', default='avatars/default.png')

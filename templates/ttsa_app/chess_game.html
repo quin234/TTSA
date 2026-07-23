@@ -3,7 +3,7 @@
 
 {% block title %}TTSA - Taita Taveta Sports Academy | Free Chess & Scrabble Training in Kenya{% endblock %}
 
-{% block meta_description %}Taita Taveta Sports Academy (TTSA) is a community-based sports academy in Kenya offering free Chess and Scrabble training, free physical tournaments, and free online participation. Play chess now at ttsa.co.ke{% endblock %}
+{% block meta_description %}Taita Taveta Sports Academy (TTSA) is a community-based sports academy in Kenya offering Chess and Scrabble training, free physical tournaments, and free participation in tournaments.{% endblock %}
 
 {% block meta_keywords %}TTSA, Taita Taveta Sports Academy, chess Kenya, scrabble Kenya, free chess training, free scrabble training, free tournaments Kenya, community sports academy Kenya, chess academy Taita Taveta, play chess online free, ttsa.co.ke, chess tournament Kenya, scrabble tournament Kenya{% endblock %}
 
@@ -11,17 +11,28 @@
 
 {% block og_title %}TTSA - Taita Taveta Sports Academy | Free Chess & Scrabble Training in Kenya{% endblock %}
 
-{% block og_description %}Join Taita Taveta Sports Academy - a community-based sports academy in Kenya offering free Chess and Scrabble training, free physical tournaments, and free participation. Play online at ttsa.co.ke{% endblock %}
+{% block og_description %}Taita Taveta Sports Academy is a community-based sports academy in Kenya offering Chess and Scrabble training, free physical tournaments, and free participation in tournaments.{% endblock %}
+
+{% block og_url %}https://ttsa.co.ke/game/{% endblock %}
 
 {% block extra_head %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SportsOrganization",
+  "@id": "https://ttsa.co.ke/#organization",
   "name": "Taita Taveta Sports Academy",
   "alternateName": "TTSA",
-  "url": "https://ttsa.co.ke",
-  "description": "A community-based sports academy in Kenya offering free Chess and Scrabble training, free physical tournaments, and free participation in tournaments.",
+  "url": "https://ttsa.co.ke/",
+  "logo": {
+    "@type": "ImageObject",
+    "url": "https://ttsa.co.ke/static/images/logo.png",
+    "contentUrl": "https://ttsa.co.ke/static/images/logo.png",
+    "width": 1254,
+    "height": 1254
+  },
+  "image": "https://ttsa.co.ke/static/images/logo.png",
+  "description": "A community-based sports academy in Kenya offering Chess and Scrabble training, free physical tournaments, and free participation in tournaments.",
   "sport": ["Chess", "Scrabble"],
   "address": {
     "@type": "PostalAddress",
@@ -33,24 +44,20 @@
     "name": "Kenya"
   },
   "isAccessibleForFree": true,
-  "keywords": "TTSA, Taita Taveta Sports Academy, chess, scrabble, free training, free tournaments, Kenya",
-  "sameAs": [
-    "https://ttsa.co.ke"
-  ]
+  "keywords": "TTSA, Taita Taveta Sports Academy, chess, scrabble, free training, free tournaments, Kenya"
 }
 </script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": "https://ttsa.co.ke/#website",
   "name": "Taita Taveta Sports Academy",
   "alternateName": "TTSA",
-  "url": "https://ttsa.co.ke",
-  "description": "Official website of Taita Taveta Sports Academy - free Chess and Scrabble training and tournaments in Kenya.",
-  "potentialAction": {
-    "@type": "SearchAction",
-    "target": "https://ttsa.co.ke/game/?q={search_term_string}",
-    "query-input": "required name=search_term_string"
+  "url": "https://ttsa.co.ke/",
+  "description": "Official website of Taita Taveta Sports Academy, a community-based sports academy in Kenya offering Chess and Scrabble training and free physical tournaments.",
+  "publisher": {
+    "@id": "https://ttsa.co.ke/#organization"
   }
 }
 </script>
@@ -61,84 +68,43 @@
   "name": "Play Chess - TTSA Taita Taveta Sports Academy",
   "description": "Play chess online for free at Taita Taveta Sports Academy. Community-based sports academy in Kenya offering free Chess and Scrabble training and tournaments.",
   "url": "https://ttsa.co.ke/game/",
+  "primaryImageOfPage": {
+    "@type": "ImageObject",
+    "url": "https://ttsa.co.ke/static/images/logo.png"
+  },
   "isPartOf": {
-    "@type": "WebSite",
-    "name": "TTSA",
-    "url": "https://ttsa.co.ke"
+    "@id": "https://ttsa.co.ke/#website"
   },
   "about": {
-    "@type": "SportsOrganization",
-    "name": "Taita Taveta Sports Academy",
-    "sport": ["Chess", "Scrabble"]
+    "@id": "https://ttsa.co.ke/#organization"
   }
 }
 </script>
 {% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-6">
+<div class="chess-game-page container mx-auto px-4 py-6">
     
     <!-- Main Game Area -->
     <div class="flex flex-col items-center w-full">
         <!-- Chess Board -->
-        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 w-full max-w-4xl">
-            <!-- Chessboard.js Board with external notation -->
+        <div class="chess-game-panel bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 w-full max-w-4xl">
+            <!-- Chessboard.js Board with internal notation -->
             <div class="flex justify-center">
-                <div class="relative" style="width: 100%; max-width: 600px;">
-                    <!-- Column letters (top) -->
-                    <div class="flex justify-around mb-1">
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">a</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">b</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">c</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">d</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">e</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">f</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">g</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">h</span>
-                    </div>
-                    <div class="flex">
-                        <!-- Row numbers (left) -->
-                        <div class="flex flex-col justify-around mr-1">
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">8</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">7</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">6</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">5</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">4</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">3</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">2</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">1</span>
-                        </div>
-                        <!-- Chessboard -->
-                        <div id="myBoard" class="flex-1"></div>
-                        <!-- Row numbers (right) -->
-                        <div class="flex flex-col justify-around ml-1">
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">8</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">7</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">6</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">5</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">4</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">3</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">2</span>
-                            <span class="h-1/8 text-center text-sm font-semibold text-gray-600">1</span>
-                        </div>
-                    </div>
-                    <!-- Column letters (bottom) -->
-                    <div class="flex justify-around mt-1">
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">a</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">b</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">c</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">d</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">e</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">f</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">g</span>
-                        <span class="w-1/8 text-center text-sm font-semibold text-gray-600">h</span>
-                    </div>
+                <div class="chess-board-shell relative w-full">
+                    <!-- Rank and file coordinates are rendered inside edge squares -->
+                    <!-- Coordinates use each square's algebraic data attribute -->
+                    <!-- Coordinate labels follow the current board orientation -->
+                    <!-- Chessboard -->
+                    <div id="myBoard" class="w-full" aria-label="Interactive chessboard with coordinates"></div>
+                    <!-- Coordinate labels do not receive pointer events -->
+                    <!-- Pieces and square controls remain fully interactive -->
                 </div>
             </div>
             
             <!-- Difficulty Selector + New Game -->
-            <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
-                <div class="w-full max-w-md">
+            <div class="game-options mt-6 flex flex-wrap items-center justify-center gap-4">
+                <div class="difficulty-selector w-full max-w-md">
                     <div class="relative flex items-center justify-between">
                         <div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200 rounded -translate-y-1/2 -z-10"></div>
                         <div id="difficultyProgressBar" class="absolute top-1/2 left-0 h-1 bg-purple-600 rounded -translate-y-1/2 -z-10 transition-all duration-300" style="width: 0%;"></div>
@@ -153,18 +119,18 @@
                         <span>Master</span>
                     </div>
                 </div>
-                <div class="flex items-center justify-center gap-2">
+                <div class="game-actions flex items-center justify-center gap-2">
                     <button id="newGameButton" onclick="startNewGame()" class="px-4 py-2 text-sm rounded-lg transition whitespace-nowrap">
                         <i class="fas fa-play mr-1"></i>New Game
                     </button>
                     <a href="{% url 'multiplayer_create' %}" class="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition whitespace-nowrap">
-                        <i class="fas fa-users mr-1"></i>Play with a Friend
+                        <i class="fas fa-users mr-1"></i>{% if user.is_authenticated %}Play with a Friend{% else %}Play as Guest{% endif %}
                     </a>
                 </div>
             </div>
 
             <!-- Rated toggle and current rating -->
-            <div class="mt-3 flex items-center justify-center gap-3 text-sm">
+            <div class="rated-options mt-3 flex items-center justify-center gap-3 text-sm">
                 <label class="inline-flex items-center cursor-pointer select-none">
                     <input type="checkbox" id="ratedToggle" class="form-checkbox h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500">
                     <span class="ml-2 font-medium text-gray-700">Rated</span>
@@ -173,7 +139,7 @@
             </div>
 
             <!-- Game Controls -->
-            <div class="mt-4 bg-white rounded-xl shadow-lg p-4">
+            <div class="game-controls mt-4 bg-white rounded-xl shadow-lg p-4">
                 <div class="flex justify-center gap-2">
                     <button onclick="undoMove()" class="w-10 h-10 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center justify-center" title="Undo">
                         <i class="fas fa-undo"></i>
@@ -188,7 +154,7 @@
             </div>
             
             <!-- Game Status -->
-            <div id="gameStatus" class="mt-4 text-center text-lg font-semibold text-gray-700"></div>
+            <div id="gameStatus" class="game-status mt-4 text-center text-lg font-semibold text-gray-700"></div>
             <p id="ratingResult" class="mt-1 text-center text-sm text-gray-600"></p>
         </div>
     </div>
@@ -253,6 +219,8 @@ let currentDifficulty = 'intermediate';
 let playerColor = 'white';
 let nextPlayerColor = 'white';
 let gameTimer = null;
+let boardResizeObserver = null;
+let boardResizeFrame = null;
 let secondsElapsed = 0;
 let isRated = false;
 const playerRating = {{ profile.rating|default:1500 }};
@@ -470,6 +438,53 @@ function updateCheckHighlight() {
     }
 }
 
+function resizeChessBoard() {
+    if (!board) return;
+
+    if (boardResizeFrame) {
+        cancelAnimationFrame(boardResizeFrame);
+    }
+
+    boardResizeFrame = requestAnimationFrame(() => {
+        board.resize();
+        renderBoardCoordinates();
+        boardResizeFrame = null;
+    });
+}
+
+function renderBoardCoordinates() {
+    if (!board) return;
+
+    const orientation = board.orientation();
+    const bottomRank = orientation === 'white' ? '1' : '8';
+    const leftFile = orientation === 'white' ? 'a' : 'h';
+
+    document.querySelectorAll('#myBoard .board-coordinate').forEach(label => label.remove());
+    document.querySelectorAll('#myBoard .square-55d63').forEach(square => {
+        const squareId = square.dataset.square;
+        if (!squareId) return;
+
+        const file = squareId.charAt(0);
+        const rank = squareId.charAt(1);
+
+        if (file === leftFile) {
+            const rankLabel = document.createElement('span');
+            rankLabel.className = 'board-coordinate board-coordinate-rank';
+            rankLabel.textContent = rank;
+            rankLabel.setAttribute('aria-hidden', 'true');
+            square.appendChild(rankLabel);
+        }
+
+        if (rank === bottomRank) {
+            const fileLabel = document.createElement('span');
+            fileLabel.className = 'board-coordinate board-coordinate-file';
+            fileLabel.textContent = file.toUpperCase();
+            fileLabel.setAttribute('aria-hidden', 'true');
+            square.appendChild(fileLabel);
+        }
+    });
+}
+
 function highlightMovePath(from, to) {
     console.log('highlightMovePath called with:', from, to);
     // Clear previous move highlights
@@ -515,7 +530,19 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     board = Chessboard('myBoard', config);
-    
+    renderBoardCoordinates();
+
+    const boardShell = document.querySelector('.chess-board-shell');
+    if (boardShell && 'ResizeObserver' in window) {
+        boardResizeObserver = new ResizeObserver(resizeChessBoard);
+        boardResizeObserver.observe(boardShell);
+    }
+    window.addEventListener('resize', resizeChessBoard, { passive: true });
+    window.addEventListener('orientationchange', () => setTimeout(resizeChessBoard, 150));
+
+    // Ensure the board fits its responsive container on the first paint
+    setTimeout(resizeChessBoard, 0);
+
     setupEventListeners();
     
     // Get difficulty from URL parameter
@@ -2060,6 +2087,7 @@ function startNewGame() {
 
     // Re-attach click handlers after board reset
     setTimeout(() => {
+        renderBoardCoordinates();
         addClickHandlers();
     }, 100);
     
@@ -2121,6 +2149,7 @@ function flipBoard() {
     console.log('Flipping board...');
     if (board) {
         board.flip();
+        renderBoardCoordinates();
     }
 }
 

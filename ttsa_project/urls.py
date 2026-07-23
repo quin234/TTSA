@@ -22,7 +22,7 @@ from django.http import HttpResponse
 from django.views.decorators.cache import cache_page
 
 
-@cache_page(86400)
+@cache_page(86400, key_prefix='seo-v2')
 def robots_txt(request):
     lines = [
         "User-agent: *",
@@ -36,15 +36,19 @@ def robots_txt(request):
     return HttpResponse("\n".join(lines), content_type="text/plain")
 
 
-@cache_page(86400)
+@cache_page(86400, key_prefix='seo-v2')
+def google_site_verification(request):
+    verification_path = settings.BASE_DIR / 'googlea3eacb9da093fb9c.html'
+    return HttpResponse(
+        verification_path.read_text(encoding='utf-8'),
+        content_type='text/html',
+    )
+
+
+@cache_page(86400, key_prefix='seo-v2')
 def sitemap_xml(request):
     xml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://ttsa.co.ke/</loc>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
   <url>
     <loc>https://ttsa.co.ke/game/</loc>
     <changefreq>daily</changefreq>
@@ -77,6 +81,11 @@ def sitemap_xml(request):
 urlpatterns = [
     path('robots.txt', robots_txt, name='robots_txt'),
     path('sitemap.xml', sitemap_xml, name='sitemap_xml'),
+    path(
+        'googlea3eacb9da093fb9c.html',
+        google_site_verification,
+        name='google_site_verification',
+    ),
     path('admin/', admin.site.urls),
     path('ttsa-admin/', include('ttsaadmin.urls')),
     path('', include('ttsa_app.urls')),
