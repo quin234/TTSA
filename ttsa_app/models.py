@@ -85,10 +85,14 @@ class PlayerProfile(models.Model):
     learning_streak = models.IntegerField(default=0)
     last_played = models.DateField(default=timezone.now, db_index=True)
     bio = models.TextField(max_length=500, blank=True)
+    id_number = models.CharField(max_length=50, blank=True, null=True, db_index=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True, db_index=True)
 
     class Meta:
         indexes = [
             models.Index(fields=['-last_played']),
+            models.Index(fields=['id_number']),
+            models.Index(fields=['phone_number']),
         ]
 
     def __str__(self):
@@ -433,6 +437,9 @@ class MultiplayerGame(models.Model):
     visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='private')
     rated = models.BooleanField(default=False)
     color_preference = models.CharField(max_length=10, null=True, blank=True)
+    is_lobby_game = models.BooleanField(default=False, db_index=True)
+    has_stockfish_opponent = models.BooleanField(default=False, db_index=True)
+    lobby_fallback_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -449,6 +456,8 @@ class MultiplayerGame(models.Model):
             models.Index(fields=['status', '-created_at']),
             models.Index(fields=['white_player', 'status']),
             models.Index(fields=['black_player', 'status']),
+            models.Index(fields=['is_lobby_game', 'status', 'time_control']),
+            models.Index(fields=['is_lobby_game', 'status', 'lobby_fallback_at']),
         ]
     
     def __str__(self):

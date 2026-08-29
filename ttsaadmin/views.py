@@ -23,6 +23,7 @@ from .forms import (
     YouTubeChannelForm, VideoLessonForm, TournamentForm, 
     TournamentPlayerForm, TournamentGameForm, TournamentSearchForm
 )
+from ttsa_app.forms import AdminPlayerCreationForm, AdminPlayerEditForm
 from .models import (
     YouTubeChannel, SyncNotification, Tournament, TournamentPlayer, TournamentGame,
     TournamentRound, TournamentStanding, TournamentResult, AcademySettings
@@ -236,11 +237,152 @@ def admin_players_data(request):
             'rating': profile.rating,
             'status': 'active' if profile.last_played >= active_since else 'inactive',
             'joined': timezone.localtime(profile.user.date_joined).strftime('%b %d, %Y'),
+            'phone_number': profile.phone_number or '',
+            'id_number': profile.id_number or '',
+            'first_name': profile.user.first_name or '',
+            'last_name': profile.user.last_name or '',
         }
         for profile in profiles
     ]
 
     return JsonResponse({'success': True, 'players': players})
+
+
+@ttsa_admin_required
+@require_POST
+def admin_create_player(request):
+    """Create a new player account from admin dashboard"""
+    try:
+        form = AdminPlayerCreationForm(request.POST)
+        if form.is_valid():
+            profile = form.save()
+            return JsonResponse({
+                'success': True,
+                'message': f'Player {profile.user.username} created successfully!',
+                'player': {
+                    'id': profile.user_id,
+                    'username': profile.user.username,
+                    'email': profile.user.email,
+                    'rating': profile.rating,
+                    'status': 'active',
+                    'joined': timezone.localtime(profile.user.date_joined).strftime('%b %d, %Y'),
+                }
+            })
+        else:
+            # Get the first validation error
+            error_field = list(form.errors.keys())[0]
+            error_message = form.errors[error_field][0]
+            return JsonResponse({
+                'success': False,
+                'error': error_message,
+                'field': error_field
+            }, status=400)
+    except Exception as e:
+        logger.exception('Error creating player')
+        error_message = str(e)
+        
+        # Check for specific database errors and provide user-friendly messages
+        if 'Duplicate entry' in error_message and 'user_id' in error_message:
+            return JsonResponse({
+                'success': False,
+                'error': 'A player profile for this user already exists. The user account may have been created by another process.'
+            }, status=400)
+        elif 'Duplicate entry' in error_message and 'username' in error_message:
+            return JsonResponse({
+                'success': False,
+                'error': 'Username already exists. Please choose a different username.'
+            }, status=400)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error creating player: {error_message}'
+            }, status=500)
+
+
+@ttsa_admin_required
+@require_POST
+def admin_edit_player(request, player_id):
+    """Edit an existing player account from admin dashboard"""
+    try:
+        player = get_object_or_404(User, id=player_id, role__in=['player', 'player_plus'])
+        
+        form = AdminPlayerEditForm(request.POST, player_instance=player)
+        if form.is_valid():
+            profile = form.save()
+            return JsonResponse({
+                'success': True,
+                'message': f'Player {profile.user.username} updated successfully!',
+                'player': {
+                    'id': profile.user_id,
+                    'username': profile.user.username,
+                    'email': profile.user.email,
+                    'rating': profile.rating,
+                    'status': 'active' if profile.last_played >= (timezone.now() - timedelta(days=30)).date() else 'inactive',
+                    'joined': timezone.localtime(profile.user.date_joined).strftime('%b %d, %Y'),
+                    'phone_number': profile.phone_number or '',
+                    'id_number': profile.id_number or '',
+                    'first_name': profile.user.first_name or '',
+                    'last_name': profile.user.last_name or '',
+                }
+            })
+        else:
+            # Get the first validation error
+            error_field = list(form.errors.keys())[0]
+            error_message = form.errors[error_field][0]
+            return JsonResponse({
+                'success': False,
+                'error': error_message,
+                'field': error_field
+            }, status=400)
+    except User.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Player not found'
+        }, status=404)
+    except Exception as e:
+        logger.exception('Error editing player')
+        error_message = str(e)
+        
+        # Check for specific database errors and provide user-friendly messages
+        if 'Duplicate entry' in error_message and 'username' in error_message:
+            return JsonResponse({
+                'success': False,
+                'error': 'Username already exists. Please choose a different username.'
+            }, status=400)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error editing player: {error_message}'
+            }, status=500)
+
+
+@ttsa_admin_required
+@require_POST
+def admin_delete_player(request, player_id):
+    """Delete a player account from admin dashboard"""
+    try:
+        player = get_object_or_404(User, id=player_id, role__in=['player', 'player_plus'])
+        
+        username = player.username
+        
+        # Delete the player (this will cascade to the profile due to ForeignKey)
+        player.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Player {username} deleted successfully!'
+        })
+    except User.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Player not found'
+        }, status=404)
+    except Exception as e:
+        logger.exception('Error deleting player')
+        return JsonResponse({
+            'success': False,
+            'error': f'Error deleting player: {str(e)}'
+        }, status=500)
 
 
 @login_required

@@ -941,6 +941,10 @@ MULTIPLAYER_TIME_CONTROLS = {
 }
 
 MULTIPLAYER_COLOR_PREFERENCES = {'white', 'black', 'random'}
+MULTIPLAYER_CREATION_MODES = {'share', 'lobby'}
+LOBBY_FALLBACK_MIN_SECONDS = 10
+LOBBY_FALLBACK_MAX_SECONDS = 20
+STOCKFISH_BOT_USERNAME = 'ttsa-stockfish-bot'
 GUEST_TOKEN_SESSION_KEY = 'multiplayer_guest_token'
 GUEST_SESSION_LIFETIME = timedelta(days=7)
 
@@ -999,7 +1003,8 @@ def get_multiplayer_player(request, guest_name=None):
 
 def multiplayer_player_name(player):
     try:
-        return player.guest_session.display_name
+        player.guest_session
+        return 'Anonymus'
     except GuestSession.DoesNotExist:
         return player.username
 
@@ -1022,6 +1027,50 @@ def multiplayer_game_type(initial_time):
     if initial_time <= 600:
         return 'blitz'
     return 'rapid'
+
+
+def assign_multiplayer_opponent(game, opponent):
+    creator = game.white_player
+    if game.color_preference == 'black':
+        game.white_player = opponent
+        game.black_player = creator
+    elif game.color_preference != 'white' and not random.choice([True, False]):
+        game.white_player = opponent
+        game.black_player = creator
+    else:
+        game.white_player = creator
+        game.black_player = opponent
+    game.status = 'playing'
+    game.started_at = timezone.now()
+    game.white_time = game.initial_time
+    game.black_time = game.initial_time
+    game.active_clock = 'white'
+    game.last_move_timestamp = None
+    game.save()
+
+
+def get_stockfish_player():
+    stockfish_player, created = User.objects.get_or_create(
+        username=STOCKFISH_BOT_USERNAME,
+        defaults={'is_active': False, 'role': 'player'},
+    )
+    if created:
+        stockfish_player.set_unusable_password()
+        stockfish_player.save(update_fields=['password'])
+    return stockfish_player
+
+
+def start_stockfish_lobby_game(game):
+    stockfish_player = get_stockfish_player()
+    game.black_player = stockfish_player
+    game.has_stockfish_opponent = True
+    game.status = 'playing'
+    game.started_at = timezone.now()
+    game.white_time = game.initial_time
+    game.black_time = game.initial_time
+    game.active_clock = 'white'
+    game.last_move_timestamp = None
+    game.save()
 
 
 @ensure_csrf_cookie
@@ -1058,8 +1107,11 @@ def multiplayer_create_api(request):
 
     time_control = data.get('time_control')
     color_preference = data.get('color_preference', 'random')
+    creation_mode = data.get('creation_mode', 'share')
     if color_preference not in MULTIPLAYER_COLOR_PREFERENCES:
         return JsonResponse({'success': False, 'error': 'Invalid color preference'}, status=400)
+    if creation_mode not in MULTIPLAYER_CREATION_MODES:
+        return JsonResponse({'success': False, 'error': 'Invalid creation mode'}, status=400)
 
     settings = MULTIPLAYER_TIME_CONTROLS.get(time_control)
     if settings:
@@ -1078,6 +1130,24 @@ def multiplayer_create_api(request):
         game_type = multiplayer_game_type(initial_time)
     else:
         return JsonResponse({'success': False, 'error': 'Invalid time control'}, status=400)
+    if creation_mode == 'lobby':
+        with transaction.atomic():
+            waiting_game = MultiplayerGame.objects.select_for_update().filter(
+                is_lobby_game=True,
+                visibility='public',
+                status='waiting',
+                time_control=time_control,
+                black_player__isnull=True,
+            ).exclude(white_player=player).order_by('created_at').first()
+            if waiting_game:
+                assign_multiplayer_opponent(waiting_game, player)
+                return JsonResponse({
+                    'success': True,
+                    'game_id': waiting_game.id,
+                    'game_code': waiting_game.game_code,
+                    'matched': True,
+                })
+
     for _ in range(10):
         game_code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
         try:
@@ -1090,14 +1160,20 @@ def multiplayer_create_api(request):
                 increment_seconds=increment_seconds,
                 white_time=initial_time,
                 black_time=initial_time,
-                visibility='private',
+                visibility='public' if creation_mode == 'lobby' else 'private',
                 rated=False,
                 color_preference=color_preference,
+                is_lobby_game=creation_mode == 'lobby',
+                lobby_fallback_at=(
+                    timezone.now() + timedelta(seconds=random.randint(LOBBY_FALLBACK_MIN_SECONDS, LOBBY_FALLBACK_MAX_SECONDS))
+                    if creation_mode == 'lobby' else None
+                ),
             )
             return JsonResponse({
                 'success': True,
                 'game_id': game.id,
                 'game_code': game_code,
+                'matched': False,
             })
         except IntegrityError:
             continue
@@ -1122,26 +1198,7 @@ def multiplayer_game(request, game_code):
                     return render(request, 'ttsa_app/error.html', {
                         'error': 'This game is no longer available to join'
                     })
-                creator = game.white_player
-                if game.color_preference == 'white':
-                    game.white_player = creator
-                    game.black_player = player
-                elif game.color_preference == 'black':
-                    game.white_player = player
-                    game.black_player = creator
-                elif random.choice([True, False]):
-                    game.white_player = creator
-                    game.black_player = player
-                else:
-                    game.white_player = player
-                    game.black_player = creator
-                game.status = 'playing'
-                game.started_at = timezone.now()
-                game.white_time = game.initial_time
-                game.black_time = game.initial_time
-                game.active_clock = 'white'
-                game.last_move_timestamp = None
-                game.save()
+                assign_multiplayer_opponent(game, player)
         else:
             return render(request, 'ttsa_app/error.html', {
                 'error': 'You are not authorized to view this game'
@@ -1155,7 +1212,9 @@ def multiplayer_game(request, game_code):
         my_color = 'black'
     
     white_profile = multiplayer_player_profile(game.white_player)
-    if game.black_player:
+    if game.has_stockfish_opponent:
+        black_profile = type('obj', (object,), {'rating': 'Anonymus', 'avatar': type('obj', (object,), {'url': ''})()})
+    elif game.black_player:
         black_profile = multiplayer_player_profile(game.black_player)
     else:
         black_profile = type('obj', (object,), {'rating': 0, 'avatar': type('obj', (object,), {'url': ''})()})
@@ -1166,7 +1225,7 @@ def multiplayer_game(request, game_code):
         'white_profile': white_profile,
         'black_profile': black_profile,
         'white_player_name': multiplayer_player_name(game.white_player),
-        'black_player_name': multiplayer_player_name(game.black_player) if game.black_player else 'Waiting for opponent',
+        'black_player_name': 'Anonymus' if game.has_stockfish_opponent else (multiplayer_player_name(game.black_player) if game.black_player else 'Waiting for opponent'),
     })
 
 
@@ -1180,9 +1239,16 @@ def multiplayer_status_api(request, game_code):
     if game.white_player != player and game.black_player != player:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
+    if game.is_lobby_game and game.status == 'waiting' and game.lobby_fallback_at and timezone.now() >= game.lobby_fallback_at:
+        with transaction.atomic():
+            game = MultiplayerGame.objects.select_for_update().get(pk=game.pk)
+            if game.status == 'waiting' and game.black_player is None:
+                start_stockfish_lobby_game(game)
+
     return JsonResponse({
         'opponent_joined': game.black_player is not None,
-        'status': game.status
+        'status': game.status,
+        'stockfish_opponent': game.has_stockfish_opponent,
     })
 
 

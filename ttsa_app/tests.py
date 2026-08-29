@@ -1,4 +1,7 @@
+from datetime import timedelta
 from django.test import TestCase, Client
+from django.core.cache import cache
+from django.utils import timezone
 from unittest.mock import patch
 
 from ttsa_app.stockfish_config import get_difficulty_config, DIFFICULTY_CONFIG
@@ -7,11 +10,14 @@ from ttsa_app.models import GuestSession, MultiplayerGame
 
 
 class GuestMultiplayerTests(TestCase):
+    def setUp(self):
+        cache.delete('ratelimit:ttsa_app.views.multiplayer_create_api:127.0.0.1')
+
     def test_guest_can_create_private_multiplayer_game(self):
         response = self.client.get('/multiplayer/create/')
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Playing as a guest')
+        self.assertNotContains(response, 'Playing as a guest')
         self.assertIn('multiplayer_guest_token', self.client.session)
 
         guest_session = GuestSession.objects.get()
@@ -50,6 +56,55 @@ class GuestMultiplayerTests(TestCase):
 
         self.assertEqual(rejected_response.status_code, 403)
         self.assertEqual(accepted_response.status_code, 200)
+
+    def test_lobby_matches_two_anonymous_players(self):
+        self.client.get('/multiplayer/create/')
+        first_response = self.client.post(
+            '/api/multiplayer/create/',
+            data='{"time_control":"5+0","color_preference":"random","creation_mode":"lobby"}',
+            content_type='application/json',
+        )
+        game_code = first_response.json()['game_code']
+        game = MultiplayerGame.objects.get(game_code=game_code)
+        self.assertTrue(game.is_lobby_game)
+        self.assertEqual(game.visibility, 'public')
+        self.assertEqual(game.status, 'waiting')
+
+        joining_client = Client()
+        joining_client.get('/multiplayer/create/')
+        second_response = joining_client.post(
+            '/api/multiplayer/create/',
+            data='{"time_control":"5+0","color_preference":"random","creation_mode":"lobby"}',
+            content_type='application/json',
+        )
+
+        self.assertTrue(second_response.json()['matched'])
+        self.assertEqual(second_response.json()['game_code'], game_code)
+        game.refresh_from_db()
+        self.assertEqual(game.status, 'playing')
+        self.assertIsNotNone(game.black_player)
+
+    def test_lobby_starts_stockfish_after_timeout(self):
+        self.client.get('/multiplayer/create/')
+        response = self.client.post(
+            '/api/multiplayer/create/',
+            data='{"time_control":"5+0","color_preference":"random","creation_mode":"lobby"}',
+            content_type='application/json',
+        )
+        game = MultiplayerGame.objects.get(game_code=response.json()['game_code'])
+        self.assertGreaterEqual(game.lobby_fallback_at - game.created_at, timedelta(seconds=10))
+        self.assertLessEqual(game.lobby_fallback_at - game.created_at, timedelta(seconds=20, microseconds=1))
+        game.lobby_fallback_at = timezone.now() - timedelta(seconds=1)
+        game.save(update_fields=['lobby_fallback_at'])
+
+        status_response = self.client.get(f'/api/multiplayer/status/{game.game_code}/')
+
+        self.assertEqual(status_response.status_code, 200)
+        self.assertTrue(status_response.json()['stockfish_opponent'])
+        game.refresh_from_db()
+        self.assertTrue(game.has_stockfish_opponent)
+        self.assertEqual(game.status, 'playing')
+        self.assertEqual(game.black_player.username, 'ttsa-stockfish-bot')
 
     def test_second_guest_can_join_shared_game_link(self):
         self.client.get('/multiplayer/create/')

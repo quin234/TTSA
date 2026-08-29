@@ -342,6 +342,9 @@
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-chess me-2"></i>Player Management</h5>
                 <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-primary" onclick="showAddPlayerModal()">
+                        <i class="fas fa-user-plus me-1"></i>Add Player
+                    </button>
                     <input type="text" class="form-control form-control-sm" id="playerSearch" placeholder="Search players..." style="width: 200px;">
                     <button class="btn btn-sm btn-outline-primary" onclick="loadPlayers()">
                         <i class="fas fa-sync me-1"></i>Refresh
@@ -2013,12 +2016,174 @@
 
     // Edit player
     function editPlayer(playerId) {
-        showTTSAAdminToast('Edit player functionality coming soon', 'info');
+        const player = playersData.find(p => p.id === playerId);
+        if (player) {
+            // Populate the edit form with player data
+            document.getElementById('editPlayerId').value = player.id;
+            document.getElementById('editUsername').value = player.username;
+            document.getElementById('editEmail').value = player.email;
+            document.getElementById('editRating').value = player.rating;
+            
+            // Populate optional fields if they exist in player data
+            document.getElementById('editPhoneNumber').value = player.phone_number || '';
+            document.getElementById('editIdNumber').value = player.id_number || '';
+            document.getElementById('editFirstName').value = player.first_name || '';
+            document.getElementById('editLastName').value = player.last_name || '';
+            
+            // Show the edit modal
+            const modal = new bootstrap.Modal(document.getElementById('editPlayerModal'));
+            modal.show();
+        } else {
+            showTTSAAdminToast('Player not found', 'error');
+        }
+    }
+
+    // Update player
+    async function updatePlayer() {
+        const form = document.getElementById('editPlayerForm');
+        const submitBtn = document.getElementById('updatePlayerBtn');
+        const playerId = document.getElementById('editPlayerId').value;
+        
+        // Basic validation
+        const username = document.getElementById('editUsername').value.trim();
+        
+        if (!username) {
+            showAlert('editPlayerAlertContainer', 'Username is required', 'danger');
+            return;
+        }
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Updating...';
+        
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(`/ttsa-admin/api/players/${playerId}/edit/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showAlert('editPlayerAlertContainer', data.message, 'success');
+                
+                // Close modal and reset form
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editPlayerModal'));
+                modal.hide();
+                form.reset();
+                
+                // Reload players list
+                await loadPlayers();
+            } else {
+                showAlert('editPlayerAlertContainer', data.error || 'Error updating player', 'danger');
+            }
+        } catch (error) {
+            console.error('Error updating player:', error);
+            showAlert('editPlayerAlertContainer', 'Error updating player: ' + error.message, 'danger');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-save me-2"></i>Update Player';
+        }
     }
 
     // Delete player
     function deletePlayer(playerId) {
-        showTTSAAdminToast('Player deletion is not available from this dashboard.', 'info');
+        const player = playersData.find(p => p.id === playerId);
+        if (player) {
+            showTTSAAdminConfirm(`Are you sure you want to delete player "${player.username}"? This action cannot be undone.`, async function() {
+                try {
+                    const response = await fetch(`/ttsa-admin/api/players/${playerId}/delete/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showTTSAAdminToast(data.message, 'success');
+                        // Reload players list
+                        await loadPlayers();
+                    } else {
+                        showTTSAAdminToast(data.error || 'Error deleting player', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error deleting player:', error);
+                    showTTSAAdminToast('Error deleting player: ' + error.message, 'error');
+                }
+            });
+        } else {
+            showTTSAAdminToast('Player not found', 'error');
+        }
+    }
+
+    // Show add player modal (for player registration)
+    function showAddPlayerModal() {
+        const modal = new bootstrap.Modal(document.getElementById('addPlayerModal'));
+        modal.show();
+    }
+
+    // Create new player via admin dashboard
+    async function createNewPlayer() {
+        const form = document.getElementById('addPlayerForm');
+        const submitBtn = document.getElementById('createPlayerBtn');
+        
+        // Basic validation
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        
+        if (!username || !password) {
+            showAlert('addPlayerAlertContainer', 'Username and password are required', 'danger');
+            return;
+        }
+        
+        if (password.length < 8) {
+            showAlert('addPlayerAlertContainer', 'Password must be at least 8 characters', 'danger');
+            return;
+        }
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating...';
+        
+        try {
+            const formData = new FormData(form);
+            const response = await fetch('/ttsa-admin/api/players/create/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showAlert('addPlayerAlertContainer', data.message, 'success');
+                
+                // Close modal and reset form
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addPlayerModal'));
+                modal.hide();
+                form.reset();
+                
+                // Reload players list
+                await loadPlayers();
+            } else {
+                showAlert('addPlayerAlertContainer', data.error || 'Error creating player', 'danger');
+            }
+        } catch (error) {
+            console.error('Error creating player:', error);
+            showAlert('addPlayerAlertContainer', 'Error creating player: ' + error.message, 'danger');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-user-plus me-2"></i>Create Player';
+        }
     }
 
     // Initialize players on page load
@@ -2768,14 +2933,14 @@
         }).join('');
     }
 
-    // Show registration modal
+    // Show registration modal for tournament
     function showRegistrationModal() {
-        const modal = new bootstrap.Modal(document.getElementById('addPlayerModal'));
+        const modal = new bootstrap.Modal(document.getElementById('addTournamentPlayerModal'));
         modal.show();
     }
 
-    // Add player function
-    function addPlayer() {
+    // Add player to tournament function
+    function addPlayerToTournament() {
         const name = document.getElementById('playerName').value.trim();
         const rating = document.getElementById('playerRating').value.trim();
         const email = document.getElementById('playerEmail').value.trim();
@@ -2816,9 +2981,9 @@
                 showMessage(data.message, 'success');
                 loadRegisteredPlayers(); // Reload players
                 // Close modal and reset form
-                const modal = bootstrap.Modal.getInstance(document.getElementById('addPlayerModal'));
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addTournamentPlayerModal'));
                 modal.hide();
-                document.getElementById('addPlayerForm').reset();
+                document.getElementById('addTournamentPlayerForm').reset();
             } else {
                 showMessage(data.error || 'Error adding player', 'error');
             }
@@ -3852,11 +4017,70 @@ loadTournaments();
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addPlayerModalLabel">Add Player to Tournament</h5>
+                <h5 class="modal-title" id="addPlayerModalLabel">Add New Player</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <div id="addPlayerAlertContainer"></div>
                 <form id="addPlayerForm">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="username" class="form-label">Username *</label>
+                            <input type="text" class="form-control" id="username" name="username" placeholder="Enter username" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="password" class="form-label">Password *</label>
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Enter password" required minlength="8">
+                            <div class="form-text">At least 8 characters</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="email" name="email" placeholder="Enter email (optional)">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="phone_number" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone_number" name="phone_number" placeholder="Enter phone (optional)">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="id_number" class="form-label">ID Number/Passport</label>
+                            <input type="text" class="form-control" id="id_number" name="id_number" placeholder="Enter ID/Passport (optional)">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" placeholder="Enter first name">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="last_name" class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="last_name" name="last_name" placeholder="Enter last name">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createPlayerBtn" onclick="createNewPlayer()">
+                    <i class="fas fa-user-plus me-2"></i>Create Player
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Player to Tournament Modal (for tournament management) -->
+<div class="modal fade" id="addTournamentPlayerModal" tabindex="-1" aria-labelledby="addTournamentPlayerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addTournamentPlayerModalLabel">Add Player to Tournament</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addTournamentPlayerForm">
                     <div class="mb-3">
                         <label for="playerName" class="form-label">Player Name</label>
                         <input type="text" class="form-control" id="playerName" placeholder="Enter player name" required>
@@ -3886,7 +4110,66 @@ loadTournaments();
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="addPlayer()">Add Player</button>
+                <button type="button" class="btn btn-primary" onclick="addPlayerToTournament()">Add Player</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Player Modal -->
+<div class="modal fade" id="editPlayerModal" tabindex="-1" aria-labelledby="editPlayerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPlayerModalLabel">Edit Player</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editPlayerAlertContainer"></div>
+                <form id="editPlayerForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="editPlayerId" name="player_id">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUsername" class="form-label">Username *</label>
+                            <input type="text" class="form-control" id="editUsername" name="username" placeholder="Enter username" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editRating" class="form-label">Rating</label>
+                            <input type="number" class="form-control" id="editRating" name="rating" placeholder="Enter rating" min="1000" max="3000">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editEmail" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="editEmail" name="email" placeholder="Enter email (optional)">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editPhoneNumber" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="editPhoneNumber" name="phone_number" placeholder="Enter phone (optional)">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editIdNumber" class="form-label">ID Number/Passport</label>
+                            <input type="text" class="form-control" id="editIdNumber" name="id_number" placeholder="Enter ID/Passport (optional)">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editFirstName" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="editFirstName" name="first_name" placeholder="Enter first name">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editLastName" class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="editLastName" name="last_name" placeholder="Enter last name">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="updatePlayerBtn" onclick="updatePlayer()">
+                    <i class="fas fa-save me-2"></i>Update Player
+                </button>
             </div>
         </div>
     </div>

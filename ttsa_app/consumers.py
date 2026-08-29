@@ -1,5 +1,7 @@
 import json
 import asyncio
+import random
+import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
@@ -8,6 +10,7 @@ from django.utils.crypto import salted_hmac
 from django.db import transaction
 from datetime import timedelta
 from .models import MultiplayerGame, GameMove, GuestSession
+from .stockfish_service import DifficultyLevel, stockfish_service
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
@@ -21,7 +24,8 @@ except ImportError:
 
 def player_display_name(player):
     try:
-        return player.guest_session.display_name
+        player.guest_session
+        return 'Anonymus'
     except GuestSession.DoesNotExist:
         return player.username
 
@@ -57,6 +61,12 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         # Start periodic clock sync if game is playing (run in background)
         if game.status == 'playing':
             asyncio.create_task(self.start_clock_sync())
+        if game.has_stockfish_opponent and CHESS_AVAILABLE:
+            try:
+                if chess.Board(game.current_fen).turn == chess.BLACK:
+                    asyncio.create_task(self.handle_stockfish_turn())
+            except ValueError:
+                pass
 
         # Notify others that user joined
         await self.channel_layer.group_send(
@@ -194,8 +204,64 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         # Check for game end
         if chess_game.is_game_over():
             await self.handle_game_over(chess_game)
+        elif game.has_stockfish_opponent and chess_game.turn == chess.BLACK:
+            await self.handle_stockfish_turn()
         else:
             # Check for timeout after move
+            await self.check_timeout(game)
+
+    async def handle_stockfish_turn(self):
+        game = await self.get_game()
+        if not game or game.status != 'playing' or not game.has_stockfish_opponent or not CHESS_AVAILABLE:
+            return
+
+        start = time.monotonic()
+        best_move = await self.get_stockfish_move(game.current_fen)
+        if not best_move:
+            return
+        delay = 2.0 - (time.monotonic() - start)
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+        chess_game = chess.Board(game.current_fen)
+        try:
+            move = chess.Move.from_uci(best_move)
+        except ValueError:
+            return
+        if move not in chess_game.legal_moves:
+            return
+
+        piece = chess_game.piece_at(move.from_square)
+        move_data = {
+            'from': chess.square_name(move.from_square),
+            'to': chess.square_name(move.to_square),
+            'piece': piece.symbol().lower() if piece else '',
+            'captured': chess_game.piece_at(move.to_square).symbol().lower() if chess_game.piece_at(move.to_square) else None,
+            'promotion': chess.piece_symbol(move.promotion) if move.promotion else None,
+            'san': chess_game.san(move),
+            'flags': '',
+        }
+        chess_game.push(move)
+        await self.update_clock_on_move(game, 'black')
+        game.current_fen = chess_game.fen()
+        await self.update_game(game)
+        await self.save_move(game, move_data, chess_game.fen(), game.black_player)
+
+        await self.channel_layer.group_send(
+            self.game_group_name,
+            {
+                'type': 'broadcast_move',
+                'move': move_data,
+                'fen': chess_game.fen(),
+                'player': 'Anonymus',
+                'white_time': game.white_time,
+                'black_time': game.black_time,
+                'active_clock': game.active_clock,
+            }
+        )
+        if chess_game.is_game_over():
+            await self.handle_game_over(chess_game)
+        else:
             await self.check_timeout(game)
 
     async def handle_game_end(self, data):
@@ -299,10 +365,13 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         game.current_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
         game.pgn = ''
         
-        # Swap colors
-        old_white = game.white_player
-        game.white_player = game.black_player
-        game.black_player = old_white
+        # Swap colors for human-vs-human; keep colors against Stockfish so the
+        # human player stays white and a new game can start immediately.
+        swapped_colors = not game.has_stockfish_opponent
+        if swapped_colors:
+            old_white = game.white_player
+            game.white_player = game.black_player
+            game.black_player = old_white
         
         # Reset clocks based on game type
         time_limits = {
@@ -324,7 +393,8 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             {
                 'type': 'rematch_started',
                 'white_player': player_display_name(game.white_player),
-                'black_player': player_display_name(game.black_player)
+                'black_player': player_display_name(game.black_player),
+                'swapped_colors': swapped_colors,
             }
         )
 
@@ -548,6 +618,14 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         return player_display_name(player)
 
     @database_sync_to_async
+    def get_stockfish_move(self, fen):
+        if not stockfish_service.is_engine_available():
+            return None
+        if not stockfish_service.is_engine_ready() and not stockfish_service.start_engine():
+            return None
+        return stockfish_service.get_best_move(fen, DifficultyLevel.INTERMEDIATE)
+
+    @database_sync_to_async
     def update_game(self, game):
         game.save()
 
@@ -588,11 +666,11 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         game.save()
 
     @database_sync_to_async
-    def save_move(self, game, move_data, fen_after):
+    def save_move(self, game, move_data, fen_after, player=None):
         move_number = game.moves.count() + 1
         GameMove.objects.create(
             game=game,
-            player=self.user,
+            player=player or self.user,
             move_from=move_data.get('from', ''),
             move_to=move_data.get('to', ''),
             piece=move_data.get('piece', ''),

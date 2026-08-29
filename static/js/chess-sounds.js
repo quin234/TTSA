@@ -32,9 +32,13 @@ class ChessSoundManager {
         
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            // Try to resume in the same user-gesture context if possible
+            this.audioContext.resume().catch(() => {});
             this.initialized = true;
             this.loadSettings();
-            await this.loadSoundFiles();
+            // Use generated sounds immediately while real files load in the background
+            this.generateFallbackSounds();
+            this.loadSoundFiles().catch(err => console.warn('Real sound loading failed:', err));
         } catch (e) {
             console.warn('Web Audio API not supported:', e);
         }
@@ -59,25 +63,8 @@ class ChessSoundManager {
             this.audioBuffers.set('move_sound', truncatedMoveBuffer);
             this.moveSoundBuffer = truncatedMoveBuffer;
             
-            // Load the piece capture sound for captures
-            try {
-                const captureResponse = await fetch('/static/sounds/piece capture.mp3');
-                const captureArrayBuffer = await captureResponse.arrayBuffer();
-                const captureAudioBuffer = await this.audioContext.decodeAudioData(captureArrayBuffer);
-                
-                // Truncate the capture sound for even faster playback
-                const truncatedCaptureBuffer = this.truncateAudioBuffer(captureAudioBuffer, 0.2, 0.5);
-                
-                // Store the truncated capture sound buffer
-                this.audioBuffers.set('capture_sound', truncatedCaptureBuffer);
-                this.captureSoundBuffer = truncatedCaptureBuffer;
-                
-                console.log('Capture sound loaded and truncated successfully');
-            } catch (captureError) {
-                console.warn('Failed to load capture sound, using move sound for captures:', captureError);
-                // Fallback: use truncated move sound for captures
-                this.captureSoundBuffer = truncatedMoveBuffer;
-            }
+            // Use a synthesized capture thud so it is clearly distinct from the move sound
+            this.captureSoundBuffer = this.createWoodenCaptureSound();
             
             // Use the truncated Black move sound for other effects with processing
             this.checkSoundBuffer = truncatedMoveBuffer;
@@ -516,10 +503,10 @@ class ChessSoundManager {
     /**
      * Play move sound (realistic wooden piece movement)
      */
-    async playMove() {
+    playMove() {
         if (!this.enabled) return;
         
-        await this.init();
+        this.init();
         if (this.moveSoundBuffer) {
             this.playProcessedSound(this.moveSoundBuffer, 'move');
         }
@@ -528,10 +515,10 @@ class ChessSoundManager {
     /**
      * Play capture sound (realistic wooden capture)
      */
-    async playCapture() {
+    playCapture() {
         if (!this.enabled) return;
         
-        await this.init();
+        this.init();
         if (this.captureSoundBuffer) {
             this.playProcessedSound(this.captureSoundBuffer, 'capture');
         }
@@ -540,10 +527,10 @@ class ChessSoundManager {
     /**
      * Play check sound (wooden alert taps)
      */
-    async playCheck() {
+    playCheck() {
         if (!this.enabled) return;
         
-        await this.init();
+        this.init();
         if (this.checkSoundBuffer) {
             this.playProcessedSound(this.checkSoundBuffer, 'check');
         }
@@ -552,10 +539,10 @@ class ChessSoundManager {
     /**
      * Play castle sound (sweeping wooden movement)
      */
-    async playCastle() {
+    playCastle() {
         if (!this.enabled) return;
         
-        await this.init();
+        this.init();
         if (this.castleSoundBuffer) {
             this.playProcessedSound(this.castleSoundBuffer, 'castle');
         }
@@ -564,10 +551,10 @@ class ChessSoundManager {
     /**
      * Play promotion sound (uplifting wooden tones)
      */
-    async playPromotion() {
+    playPromotion() {
         if (!this.enabled) return;
         
-        await this.init();
+        this.init();
         if (this.promotionSoundBuffer) {
             this.playProcessedSound(this.promotionSoundBuffer, 'promotion');
         }
@@ -576,10 +563,10 @@ class ChessSoundManager {
     /**
      * Play game end sound (wooden victory/draw)
      */
-    async playGameEnd(won = true) {
+    playGameEnd(won = true) {
         if (!this.enabled) return;
         
-        await this.init();
+        this.init();
         const soundType = won ? 'gameEnd' : 'draw';
         const buffer = won ? this.gameEndSoundBuffer : this.drawSoundBuffer;
         if (buffer) {
@@ -590,10 +577,10 @@ class ChessSoundManager {
     /**
      * Play draw sound (neutral wooden conclusion)
      */
-    async playDraw() {
+    playDraw() {
         if (!this.enabled) return;
         
-        await this.init();
+        this.init();
         if (this.drawSoundBuffer) {
             this.playProcessedSound(this.drawSoundBuffer, 'draw');
         }
@@ -602,10 +589,10 @@ class ChessSoundManager {
     /**
      * Play illegal move sound (error wood tap)
      */
-    async playIllegal() {
+    playIllegal() {
         if (!this.enabled) return;
         
-        await this.init();
+        this.init();
         if (this.moveSoundBuffer) {
             this.playProcessedSound(this.moveSoundBuffer, 'illegal');
         }
@@ -702,8 +689,19 @@ class ChessSoundManager {
         // Initialize audio context on first interaction
         this.init();
         
+        // Normalize the in-check value: chess.js exposes in_check as a function,
+        // while multiplayer passes a plain boolean object.
+        let inCheck = false;
+        if (gameState) {
+            if (typeof gameState.in_check === 'function') {
+                inCheck = gameState.in_check();
+            } else if (gameState.in_check) {
+                inCheck = !!gameState.in_check;
+            }
+        }
+        
         // Determine sound type based on move - check takes priority
-        if (gameState && gameState.in_check) {
+        if (inCheck) {
             // Play check sound instead of move sound when in check
             this.playCheck();
         } else if (move.captured) {
