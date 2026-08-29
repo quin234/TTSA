@@ -2063,13 +2063,34 @@ def print_standings(request, tournament_id, round_number=None):
 def player_plus_applications(request):
     """List Player Plus applications for admin review."""
     if not request.user.is_ttsa_admin:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'TTSA Admin access required'}, status=403)
         messages.error(request, 'You do not have permission to access this page.')
         return redirect('admin_dashboard')
     
     status_filter = request.GET.get('status', 'pending')
-    applications = PlayerPlusApplication.objects.select_related('user').order_by('-submitted_at')
+    applications = PlayerPlusApplication.objects.select_related('user', 'reviewed_by').order_by('-submitted_at')
     if status_filter in ['pending', 'approved', 'rejected']:
         applications = applications.filter(status=status_filter)
+    
+    # Return JSON for AJAX requests
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        applications_data = [
+            {
+                'id': app.id,
+                'username': app.user.username,
+                'full_name': app.full_name,
+                'phone_number': app.phone_number,
+                'email': app.user.email,
+                'additional_info': app.additional_info,
+                'submitted_at': app.submitted_at.isoformat(),
+                'status': app.status,
+                'reviewed_at': app.reviewed_at.isoformat() if app.reviewed_at else None,
+                'reviewed_by': {'username': app.reviewed_by.username} if app.reviewed_by else None,
+            }
+            for app in applications
+        ]
+        return JsonResponse({'success': True, 'applications': applications_data})
     
     context = {
         'applications': applications,
@@ -2083,11 +2104,21 @@ def player_plus_applications(request):
 def approve_player_plus_application(request, application_id):
     """Approve a Player Plus application and upgrade the user."""
     if not request.user.is_ttsa_admin:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'TTSA Admin access required'}, status=403)
         messages.error(request, 'You do not have permission to approve applications.')
         return redirect('admin_dashboard')
     
     application = get_object_or_404(PlayerPlusApplication, id=application_id, status='pending')
     application.approve(request.user)
+    
+    # Return JSON for AJAX requests
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': f'Approved {application.user.username} as Player Plus.'
+        })
+    
     messages.success(request, f'Approved {application.user.username} as Player Plus.')
     return redirect('admin_dashboard')
 
@@ -2097,12 +2128,22 @@ def approve_player_plus_application(request, application_id):
 def reject_player_plus_application(request, application_id):
     """Reject a Player Plus application."""
     if not request.user.is_ttsa_admin:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'TTSA Admin access required'}, status=403)
         messages.error(request, 'You do not have permission to reject applications.')
         return redirect('admin_dashboard')
     
     application = get_object_or_404(PlayerPlusApplication, id=application_id, status='pending')
     notes = request.POST.get('admin_notes', '')
     application.reject(request.user, notes)
+    
+    # Return JSON for AJAX requests
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': f'Rejected {application.user.username}\'s application.'
+        })
+    
     messages.success(request, f'Rejected {application.user.username}\'s application.')
     return redirect('admin_dashboard')
 

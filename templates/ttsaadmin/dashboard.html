@@ -305,6 +305,54 @@
         </div>
     </div>
 
+    <!-- Player Plus Applications Section -->
+    <div id="section-player-plus-applications" class="content-section" style="display: none;">
+        <h2 class="section-title mb-4">Player Plus Applications</h2>
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="btn-group" role="group" aria-label="Filter applications">
+                <button class="btn btn-outline-primary active" onclick="filterPlayerPlusApplications('pending')" id="filterPending">Pending</button>
+                <button class="btn btn-outline-success" onclick="filterPlayerPlusApplications('approved')" id="filterApproved">Approved</button>
+                <button class="btn btn-outline-danger" onclick="filterPlayerPlusApplications('rejected')" id="filterRejected">Rejected</button>
+                <button class="btn btn-outline-secondary" onclick="filterPlayerPlusApplications('all')" id="filterAll">All</button>
+            </div>
+            <button class="btn btn-sm btn-outline-primary" onclick="loadPlayerPlusApplications()">
+                <i class="fas fa-sync me-1"></i>Refresh
+            </button>
+        </div>
+
+        <div id="playerPlusAlertContainer"></div>
+
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>User</th>
+                                <th>Full Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Additional Info</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="playerPlusApplicationsTableBody">
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <i class="fas fa-spinner fa-spin fa-2x text-muted mb-2"></i>
+                                    <p class="text-muted">Loading applications...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Players Section -->
     <div id="section-players" class="content-section" style="display: none;">
         <h2 class="section-title mb-4">Players</h2>
@@ -2188,6 +2236,173 @@
 
     // Initialize players on page load
     loadPlayers();
+
+    // Player Plus Applications Management
+    let playerPlusApplicationsData = [];
+    let currentFilter = 'pending';
+
+    async function loadPlayerPlusApplications() {
+        const tableBody = document.getElementById('playerPlusApplicationsTableBody');
+        try {
+            const response = await fetch('/ttsa-admin/player-plus/applications/', {
+                credentials: 'same-origin',
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            });
+            if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load applications');
+
+            playerPlusApplicationsData = data.applications || [];
+            renderPlayerPlusApplicationsTable();
+        } catch (error) {
+            console.error('Error loading player plus applications:', error);
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-4">
+                        <i class="fas fa-exclamation-circle fa-2x text-danger mb-2"></i>
+                        <p class="text-muted mb-0">Unable to load applications.</p>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    function filterPlayerPlusApplications(status) {
+        currentFilter = status;
+        
+        // Update button states
+        document.querySelectorAll('[id^="filter"]').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.getElementById(`filter${status.charAt(0).toUpperCase() + status.slice(1)}`).classList.add('active');
+        
+        renderPlayerPlusApplicationsTable();
+    }
+
+    function renderPlayerPlusApplicationsTable() {
+        const tableBody = document.getElementById('playerPlusApplicationsTableBody');
+        
+        let filteredApplications = playerPlusApplicationsData;
+        if (currentFilter !== 'all') {
+            filteredApplications = playerPlusApplicationsData.filter(app => app.status === currentFilter);
+        }
+        
+        if (filteredApplications.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-4">
+                        <i class="fas fa-users-slash fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">No applications found</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = filteredApplications.map(application => {
+            const statusBadge = application.status === 'pending' 
+                ? '<span class="badge bg-warning text-dark">Pending</span>'
+                : application.status === 'approved' 
+                    ? '<span class="badge bg-success">Approved</span>'
+                    : '<span class="badge bg-danger">Rejected</span>';
+
+            const actions = application.status === 'pending' 
+                ? `
+                    <button class="btn btn-sm btn-success me-1" onclick="approvePlayerPlusApplication(${application.id})">
+                        <i class="fas fa-check"></i> Approve
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="rejectPlayerPlusApplication(${application.id})">
+                        <i class="fas fa-times"></i> Reject
+                    </button>
+                `
+                : `<small class="text-muted">${application.reviewed_by ? 'by ' + application.reviewed_by.username : ''} ${application.reviewed_at ? new Date(application.reviewed_at).toLocaleString() : ''}</small>`;
+
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(application.username)}</strong></td>
+                    <td>${escapeHtml(application.full_name)}</td>
+                    <td>${escapeHtml(application.phone_number)}</td>
+                    <td>${escapeHtml(application.email)}</td>
+                    <td>
+                        ${application.additional_info 
+                            ? `<small class="text-muted">${escapeHtml(application.additional_info.substring(0, 100))}${application.additional_info.length > 100 ? '...' : ''}</small>`
+                            : '<span class="text-muted">—</span>'
+                        }
+                    </td>
+                    <td>${new Date(application.submitted_at).toLocaleString()}</td>
+                    <td>${statusBadge}</td>
+                    <td class="text-end">${actions}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function approvePlayerPlusApplication(applicationId) {
+        showTTSAAdminConfirm('Approve this Player Plus application?', async function() {
+            try {
+                const response = await fetch(`/ttsa-admin/player-plus/applications/${applicationId}/approve/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('playerPlusAlertContainer', data.message, 'success');
+                    await loadPlayerPlusApplications();
+                } else {
+                    showAlert('playerPlusAlertContainer', data.error || 'Error approving application', 'danger');
+                }
+            } catch (error) {
+                console.error('Error approving application:', error);
+                showAlert('playerPlusAlertContainer', 'Error approving application: ' + error.message, 'danger');
+            }
+        });
+    }
+
+    async function rejectPlayerPlusApplication(applicationId) {
+        showTTSAAdminConfirm('Reject this Player Plus application?', async function() {
+            try {
+                const response = await fetch(`/ttsa-admin/player-plus/applications/${applicationId}/reject/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('playerPlusAlertContainer', data.message, 'success');
+                    await loadPlayerPlusApplications();
+                } else {
+                    showAlert('playerPlusAlertContainer', data.error || 'Error rejecting application', 'danger');
+                }
+            } catch (error) {
+                console.error('Error rejecting application:', error);
+                showAlert('playerPlusAlertContainer', 'Error rejecting application: ' + error.message, 'danger');
+            }
+        });
+    }
+
+    // Load player plus applications when section is accessed
+    document.querySelectorAll('.sidebar-menu-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const sectionName = item.getAttribute('data-section');
+            
+            if (sectionName === 'player-plus-applications' && playerPlusApplicationsData.length === 0) {
+                loadPlayerPlusApplications();
+            }
+        });
+    });
+
+    // Initialize player plus applications on page load if section is visible
+    if (document.getElementById('section-player-plus-applications').style.display !== 'none') {
+        loadPlayerPlusApplications();
+    }
 
     // Videos are now loaded on-demand when video library section is accessed
 
