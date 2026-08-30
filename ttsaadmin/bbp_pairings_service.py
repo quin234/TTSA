@@ -114,6 +114,7 @@ class BBPPairingsService(PairingService):
             score_groups[score].append(player)
         
         # Pair players within score groups
+        unpaired_players = []
         for score in sorted(score_groups.keys(), reverse=True):
             group_players = score_groups[score]
             
@@ -139,7 +140,37 @@ class BBPPairingsService(PairingService):
                         black_player=black_player
                     )
                     pairings.append(pairing)
+                    paired_players.add(white_player.id)
+                    paired_players.add(black_player.id)
                     board_number += 1
+                else:
+                    # Odd number in this group - add to unpaired list
+                    unpaired_players.append(group_players[i])
+        
+        # Handle unpaired players by pairing across score groups
+        while len(unpaired_players) >= 2:
+            player1 = unpaired_players.pop(0)
+            player2 = unpaired_players.pop(0)
+            
+            white_player = self._assign_color(player1, player2, previous_pairings)
+            black_player = player2 if white_player == player1 else player1
+            
+            # Check if they've played before
+            if self._have_played_before(white_player, black_player, previous_pairings):
+                # Try to find alternative pairing
+                white_player, black_player = self._find_alternative_pairing(
+                    player1, player2, available_players, previous_pairings
+                )
+            
+            pairing = Pairing(
+                board_number=board_number,
+                white_player=white_player,
+                black_player=black_player
+            )
+            pairings.append(pairing)
+            paired_players.add(white_player.id)
+            paired_players.add(black_player.id)
+            board_number += 1
         
         return RoundPairings(
             round_number=round_number,
@@ -280,10 +311,32 @@ class BBPPairingsService(PairingService):
     ) -> tuple:
         """
         Find an alternative pairing when players have played before.
-        For simplicity, return the original pairing if no alternative found.
+        Searches for an opponent from available players that hasn't played with player1.
         """
-        # In a more complex implementation, we would search for alternative opponents
-        # For now, we'll keep the original pairing as this is a fallback
+        # Try to find an alternative opponent for player1
+        for alternative in available_players:
+            # Skip if it's the same player or the original opponent
+            if alternative.id == player1.id or alternative.id == player2.id:
+                continue
+            
+            # Check if player1 has played with this alternative
+            if not self._have_played_before(player1, alternative, previous_pairings):
+                # Found a valid alternative
+                return player1, alternative
+        
+        # If no alternative found for player1, try for player2
+        for alternative in available_players:
+            # Skip if it's the same player or the original opponent
+            if alternative.id == player2.id or alternative.id == player1.id:
+                continue
+            
+            # Check if player2 has played with this alternative
+            if not self._have_played_before(player2, alternative, previous_pairings):
+                # Found a valid alternative
+                return alternative, player2
+        
+        # No alternative found - return original (this shouldn't happen with proper Swiss)
+        logger.warning(f"Could not find alternative pairing for {player1.name} vs {player2.name}")
         return player1, player2
     
     def validate_pairing_request(

@@ -386,6 +386,55 @@ def admin_delete_player(request, player_id):
 
 
 @login_required
+@require_GET
+def admin_search_players(request):
+    """API endpoint to search players by ID, passport (id_number), phone, email, or username"""
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'TTSA Admin access required'}, status=403)
+    
+    search_query = request.GET.get('q', '').strip()
+    
+    if not search_query:
+        return JsonResponse({'success': False, 'error': 'Search query is required'}, status=400)
+    
+    try:
+        # Search across multiple fields
+        players = PlayerProfile.objects.select_related('user').filter(
+            Q(user__id__icontains=search_query) |
+            Q(id_number__icontains=search_query) |
+            Q(phone_number__icontains=search_query) |
+            Q(user__email__icontains=search_query) |
+            Q(user__username__icontains=search_query)
+        ).distinct()[:10]  # Limit to 10 results
+        
+        players_data = [
+            {
+                'id': profile.user_id,
+                'username': profile.user.username,
+                'email': profile.user.email,
+                'rating': profile.rating,
+                'phone_number': profile.phone_number or '',
+                'id_number': profile.id_number or '',
+                'first_name': profile.user.first_name or '',
+                'last_name': profile.user.last_name or '',
+            }
+            for profile in players
+        ]
+        
+        return JsonResponse({
+            'success': True,
+            'players': players_data
+        })
+        
+    except Exception as e:
+        logger.exception('Error searching players')
+        return JsonResponse({
+            'success': False,
+            'error': f'Error searching players: {str(e)}'
+        }, status=500)
+
+
+@login_required
 def add_youtube_channel(request):
     """View for adding a YouTube channel"""
     if not request.user.is_ttsa_admin:

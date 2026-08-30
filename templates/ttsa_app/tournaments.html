@@ -256,12 +256,24 @@ function renderAllTournaments() {
                 <!-- Action button or ongoing badge -->
                 <div class="p-3 pt-0">
                     ${showButton ? `
+                    ${showRegisterButton ? `
                     <button 
-                        onclick="${showRegisterButton ? `registerForTournament(${tournament.id})` : `viewTournamentResults(${tournament.id})`}"
-                        class="w-full py-2 px-3 ${buttonClass} rounded-md text-xs font-medium transition-colors ${buttonDisabled}"
+                        type="button"
+                        data-action="register"
+                        data-tournament-id="${tournament.id}"
+                        class="tournament-action-btn w-full py-2 px-3 ${buttonClass} rounded-md text-xs font-medium transition-colors ${buttonDisabled}"
                         ${buttonDisabled}>
                         ${buttonText}
                     </button>` : `
+                    <button 
+                        type="button"
+                        data-action="view-results"
+                        data-tournament-id="${tournament.id}"
+                        data-results-url="/tournaments/${tournament.id}/results/"
+                        class="tournament-action-btn w-full py-2 px-3 ${buttonClass} rounded-md text-xs font-medium transition-colors">
+                        ${buttonText}
+                    </button>`}
+                    ` : `
                     <div class="w-full py-2 px-3 bg-green-100 text-green-800 rounded-md text-xs font-medium text-center">
                         <i class="fas fa-chess mr-1"></i>
                         Ongoing Tournament
@@ -360,12 +372,21 @@ function viewTournamentDetails(tournamentId) {
 }
 
 // View tournament results
-function viewTournamentResults(tournamentId) {
+function viewTournamentResults(tournamentId, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    console.log('View tournament results called for ID:', tournamentId);
     const tournament = allTournamentsData.find(t => t.id === tournamentId);
     if (tournament) {
+        console.log('Redirecting to:', `/tournaments/${tournamentId}/results/`);
         // Redirect to tournament results page in ttsa_app
-        window.location.href = `/tournaments/${tournamentId}/results/`;
+        window.location.assign(`/tournaments/${tournamentId}/results/`);
+    } else {
+        console.error('Tournament not found:', tournamentId);
     }
+    return false;
 }
 
 // Show success message
@@ -407,6 +428,28 @@ function showErrorMessage(message) {
         toast.remove();
     }, 3000);
 }
+
+// Event delegation for tournament action buttons
+document.addEventListener('click', function(event) {
+    const button = event.target.closest('.tournament-action-btn');
+    if (!button) return;
+    
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const action = button.dataset.action;
+    const tournamentId = parseInt(button.dataset.tournamentId);
+    
+    console.log('Button clicked:', action, 'Tournament ID:', tournamentId);
+    
+    if (action === 'register') {
+        registerForTournament(tournamentId);
+    } else if (action === 'view-results') {
+        const resultsUrl = button.dataset.resultsUrl;
+        console.log('Redirecting to:', resultsUrl);
+        window.location.href = resultsUrl;
+    }
+});
 
 // Initialize on page load
 loadTournamentData();

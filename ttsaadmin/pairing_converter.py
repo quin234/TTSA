@@ -36,8 +36,10 @@ class PairingDataConverter:
         """
         players = []
         
+        # Only include active players (registered or confirmed)
         tournament_players = TournamentPlayer.objects.filter(
-            tournament=tournament
+            tournament=tournament,
+            status__in=['registered', 'confirmed']
         )
         
         for tp in tournament_players:
@@ -457,9 +459,12 @@ class PairingDataConverter:
             status='completed'
         ))
 
-        # Compute basic stats per player
+        # Compute basic stats per player (only active players)
         player_stats = {}
-        for tp in TournamentPlayer.objects.filter(tournament=tournament):
+        for tp in TournamentPlayer.objects.filter(
+            tournament=tournament,
+            status__in=['registered', 'confirmed']
+        ):
             player_stats[tp.id] = {
                 'player': tp,
                 'points': Decimal('0'),

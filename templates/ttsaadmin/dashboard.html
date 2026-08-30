@@ -1222,7 +1222,11 @@
     // Helper function to show Bootstrap alerts
     function showAlert(containerId, message, type = 'success') {
         const container = document.getElementById(containerId);
-        if (!container) return;
+        if (!container) {
+            console.warn(`Alert container ${containerId} not found, using toast instead`);
+            window.showTTSAAdminToast && window.showTTSAAdminToast(message, type === 'error' ? 'error' : 'success');
+            return;
+        }
         
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
@@ -2023,7 +2027,7 @@
     // Search players
     document.getElementById('playerSearch')?.addEventListener('input', function(e) {
         const searchTerm = e.target.value.toLowerCase();
-        const filteredPlayers = playersData.filter(player => 
+        const filteredPlayers = (playersData || []).filter(player => 
             player.username.toLowerCase().includes(searchTerm) ||
             player.email.toLowerCase().includes(searchTerm)
         );
@@ -2283,9 +2287,9 @@
     function renderPlayerPlusApplicationsTable() {
         const tableBody = document.getElementById('playerPlusApplicationsTableBody');
         
-        let filteredApplications = playerPlusApplicationsData;
+        let filteredApplications = playerPlusApplicationsData || [];
         if (currentFilter !== 'all') {
-            filteredApplications = playerPlusApplicationsData.filter(app => app.status === currentFilter);
+            filteredApplications = (playerPlusApplicationsData || []).filter(app => app.status === currentFilter);
         }
         
         if (filteredApplications.length === 0) {
@@ -3042,7 +3046,7 @@
     function deleteCurrentTournament() {
         if (currentTournamentId) {
             showTTSAAdminConfirm('Are you sure you want to delete this tournament?', function() {
-                tournamentsData = tournamentsData.filter(t => t.id !== currentTournamentId);
+                tournamentsData = (tournamentsData || []).filter(t => t.id !== currentTournamentId);
                 updateTournamentStats();
                 renderTournamentsTable();
                 hideTournamentDetails();
@@ -3152,6 +3156,81 @@
     function showRegistrationModal() {
         const modal = new bootstrap.Modal(document.getElementById('addTournamentPlayerModal'));
         modal.show();
+        // Reset search
+        document.getElementById('tournamentPlayerSearch').value = '';
+        const resultsContainer = document.getElementById('tournamentPlayerSearchResults');
+        resultsContainer.style.display = 'none';
+        resultsContainer.innerHTML = '';
+        // Reset form
+        document.getElementById('addTournamentPlayerForm').reset();
+        delete document.getElementById('addTournamentPlayerForm').dataset.playerId;
+        delete document.getElementById('addTournamentPlayerForm').dataset.idNumber;
+    }
+
+    // Search for existing players
+    async function searchPlayers() {
+        const searchInput = document.getElementById('tournamentPlayerSearch');
+        const searchQuery = searchInput ? searchInput.value.trim() : '';
+        const resultsContainer = document.getElementById('tournamentPlayerSearchResults');
+
+        if (!searchQuery) {
+            resultsContainer.style.display = 'none';
+            resultsContainer.innerHTML = '';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/ttsa-admin/api/players/search/?q=${encodeURIComponent(searchQuery)}`);
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.players.length === 0) {
+                    resultsContainer.innerHTML = '<div class="list-group-item text-muted">No players found</div>';
+                } else {
+                    resultsContainer.innerHTML = data.players.map(player => `
+                        <div class="list-group-item list-group-item-action" onclick="selectPlayer(${player.id}, '${escapeHtml(player.username)}', '${escapeHtml(player.email)}', ${player.rating}, '${escapeHtml(player.phone_number)}', '${escapeHtml(player.first_name)}', '${escapeHtml(player.last_name)}', '${escapeHtml(player.id_number)}')">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${escapeHtml(player.username)}</strong>
+                                    <small class="text-muted d-block">${escapeHtml(player.first_name)} ${escapeHtml(player.last_name)}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-primary">Rating: ${player.rating}</span>
+                                    <small class="text-muted d-block">ID: ${player.id}</small>
+                                </div>
+                            </div>
+                            <small class="text-muted">Email: ${escapeHtml(player.email)} | Phone: ${escapeHtml(player.phone_number || 'N/A')}</small>
+                        </div>
+                    `).join('');
+                }
+                resultsContainer.style.display = 'block';
+            } else {
+                showTTSAAdminToast(data.error || 'Error searching players', 'error');
+            }
+        } catch (error) {
+            showTTSAAdminToast('Error searching players', 'error');
+        }
+    }
+
+    // Select a player from search results and populate the form
+    function selectPlayer(playerId, username, email, rating, phone, firstName, lastName, idNumber) {
+        // Populate name field
+        const fullName = `${firstName} ${lastName}`.trim();
+        document.getElementById('playerName').value = fullName || username;
+        
+        // Populate other fields
+        document.getElementById('playerRating').value = rating;
+        document.getElementById('playerEmail').value = email;
+        document.getElementById('playerPhone').value = phone;
+        
+        // Store the player ID and passport number for reference
+        document.getElementById('addTournamentPlayerForm').dataset.playerId = playerId;
+        document.getElementById('addTournamentPlayerForm').dataset.idNumber = idNumber || '';
+        
+        // Hide search results after selection
+        const resultsContainer = document.getElementById('tournamentPlayerSearchResults');
+        resultsContainer.style.display = 'none';
+        resultsContainer.innerHTML = '';
     }
 
     // Add player to tournament function
@@ -3218,12 +3297,12 @@
         }
         
         showTTSAAdminConfirm('Are you sure you want to remove this player from the tournament?', function() {
-            registeredPlayersData = registeredPlayersData.filter(p => p && p.id !== playerId);
+            registeredPlayersData = (registeredPlayersData || []).filter(p => p && p.id !== playerId);
             
             // Update tournament participants
             const tournament = tournamentsData.find(t => t.id === currentTournamentId);
             if (tournament) {
-                tournament.participants = tournament.participants.filter(id => id !== playerId);
+                tournament.participants = (tournament.participants || []).filter(id => id !== playerId);
             }
             
             updateTournamentStats();
@@ -3324,7 +3403,7 @@
         let currentRound = 0;
         if (currentRoundData) {
             currentRound = currentRoundData;
-        } else if (rounds.length > 0) {
+        } else if (rounds && rounds.length > 0) {
             // Find the highest round number that is active or completed
             const activeOrCompletedRounds = rounds.filter(r => r.status === 'active' || r.status === 'completed');
             if (activeOrCompletedRounds.length > 0) {
@@ -3734,7 +3813,7 @@
     function renderStandings() {
         const tableBody = document.getElementById('standingsTableBody');
         
-        if (standingsData.length === 0) {
+        if (!standingsData || standingsData.length === 0) {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="11" class="text-center py-4">
@@ -3833,7 +3912,7 @@
     // Search tournaments
     document.getElementById('tournamentSearch')?.addEventListener('input', function(e) {
         const searchTerm = e.target.value.toLowerCase();
-        const filteredTournaments = tournamentsData.filter(tournament => 
+        const filteredTournaments = (tournamentsData || []).filter(tournament => 
             tournament.name.toLowerCase().includes(searchTerm) ||
             tournament.venue.toLowerCase().includes(searchTerm)
         );
@@ -3863,7 +3942,7 @@
         if (statusFilter === '') {
             renderTournamentsTable();
         } else {
-            const filteredTournaments = tournamentsData.filter(tournament => tournament.status === statusFilter);
+            const filteredTournaments = (tournamentsData || []).filter(tournament => tournament.status === statusFilter);
             const tableBody = document.getElementById('tournamentsTableBody');
             
             if (filteredTournaments.length === 0) {
@@ -4295,6 +4374,23 @@ loadTournaments();
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <!-- Search for existing players -->
+                <div class="mb-3 position-relative">
+                    <label for="tournamentPlayerSearch" class="form-label">Search Existing Players</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="tournamentPlayerSearch" placeholder="Search by ID, passport, phone, email, or username" autocomplete="off">
+                        <button class="btn btn-primary" type="button" onclick="searchPlayers()">Search</button>
+                    </div>
+                    
+                    <!-- Search results dropdown -->
+                    <div id="tournamentPlayerSearchResults" class="list-group position-absolute w-100 mt-1 shadow" style="display: none; z-index: 1050; max-height: 300px; overflow-y: auto;">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- Manual entry form -->
                 <form id="addTournamentPlayerForm">
                     <div class="mb-3">
                         <label for="playerName" class="form-label">Player Name</label>

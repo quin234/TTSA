@@ -416,17 +416,9 @@
                 <i class="fas fa-chess"></i>
                 <span>Players</span>
             </li>
-            <li class="sidebar-menu-item" data-section="games">
-                <i class="fas fa-gamepad"></i>
-                <span>Games</span>
-            </li>
             <li class="sidebar-menu-item" data-section="tournaments">
                 <i class="fas fa-trophy"></i>
                 <span>Tournaments</span>
-            </li>
-            <li class="sidebar-menu-item" data-section="training-programs">
-                <i class="fas fa-graduation-cap"></i>
-                <span>Training Programs</span>
             </li>
             <li class="sidebar-menu-item" data-section="settings">
                 <i class="fas fa-user-cog"></i>
@@ -664,7 +656,7 @@
             const adminModalConfirm = document.getElementById('ttsaAdminModalConfirm');
             let adminCallback = null;
 
-            function closeTTSAAdminModal() {
+            window.closeTTSAAdminModal = function() {
                 adminModal.classList.add('d-none');
                 adminModal.classList.remove('d-block');
                 adminCallback = null;
@@ -683,19 +675,21 @@
                 }
                 adminModalConfirm.onclick = function() {
                     if (typeof adminCallback === 'function') adminCallback();
-                    closeTTSAAdminModal();
+                    window.closeTTSAAdminModal();
                 };
                 adminModal.classList.remove('d-none');
                 adminModal.classList.add('d-block');
             }
 
+            window.openTTSAAdminModal = openTTSAAdminModal;
+
             window.showTTSAAdminConfirm = function(message, callback, options) {
                 options = options || {};
-                openTTSAAdminModal(options.title || 'Confirm', message, true, options.confirmText, options.confirmClass, callback);
+                window.openTTSAAdminModal(options.title || 'Confirm', message, true, options.confirmText, options.confirmClass, callback);
             };
 
             window.showTTSAAdminInfo = function(title, message) {
-                openTTSAAdminModal(title, message, false, 'OK', 'btn-primary');
+                window.openTTSAAdminModal(title, message, false, 'OK', 'btn-primary');
             };
 
             window.showTTSAAdminToast = function(message, type) {

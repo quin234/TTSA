@@ -1592,8 +1592,8 @@ def tournament_results(request, tournament_id):
     try:
         from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentStanding
         
-        # Get tournament
-        tournament = get_object_or_404(Tournament, id=tournament_id, is_active=True)
+        # Get tournament (remove is_active filter as it may not exist on Tournament model)
+        tournament = get_object_or_404(Tournament, id=tournament_id)
         
         # Get all registered players with their stats
         players = TournamentPlayer.objects.filter(
@@ -1637,16 +1637,31 @@ def tournament_results(request, tournament_id):
                     'tie_breaks': standing.tie_breaks
                 })
         
-        # Get recent games for this tournament
-        recent_games = TournamentGame.objects.filter(
+        # Get all games for this tournament, organized by round
+        all_games = TournamentGame.objects.filter(
             tournament=tournament
-        ).order_by('-scheduled_time')[:10]
+        ).select_related('white_player', 'black_player').order_by('round_number', 'board_number')
+        
+        # Group games by round
+        games_by_round = {}
+        for game in all_games:
+            round_num = game.round_number
+            if round_num not in games_by_round:
+                games_by_round[round_num] = []
+            games_by_round[round_num].append({
+                'board_number': game.board_number,
+                'white_player': game.white_player.player_name,
+                'black_player': game.black_player.player_name,
+                'result': game.result if game.result != '*' else 'In Progress',
+                'scheduled_time': game.scheduled_time,
+                'status': game.status
+            })
         
         context = {
             'tournament': tournament,
             'standings': standings_list,
             'players_count': players.count(),
-            'recent_games': recent_games,
+            'games_by_round': games_by_round,
             'is_completed': tournament.status in ['completed', 'finished']
         }
         

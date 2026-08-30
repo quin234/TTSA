@@ -5,6 +5,7 @@ urlpatterns = [
     path('', views.admin_dashboard, name='admin_dashboard'),
     path('api/dashboard/', views.admin_dashboard_data, name='admin_dashboard_data'),
     path('api/players/', views.admin_players_data, name='admin_players_data'),
+    path('api/players/search/', views.admin_search_players, name='admin_search_players'),
     path('api/players/create/', views.admin_create_player, name='admin_create_player'),
     path('api/players/<int:player_id>/edit/', views.admin_edit_player, name='admin_edit_player'),
     path('api/players/<int:player_id>/delete/', views.admin_delete_player, name='admin_delete_player'),
