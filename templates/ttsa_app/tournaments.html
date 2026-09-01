@@ -39,6 +39,8 @@
 <script>
 // Tournament Data
 let allTournamentsData = [];
+let currentPage = 1;
+const itemsPerPage = 15;
 
 // Load tournament data from backend API
 function loadTournamentData() {
@@ -58,6 +60,7 @@ function loadTournamentData() {
                 ...(data.completed || [])
             ].map(tournament => ({
                 id: tournament.id,
+                slug: tournament.slug,
                 name: tournament.name,
                 venue: tournament.venue,
                 date: tournament.start_date.split('T')[0], // Extract date part
@@ -74,7 +77,12 @@ function loadTournamentData() {
                 status: tournament.status,
                 is_registered: tournament.is_registered,
                 is_registration_open: tournament.is_registration_open,
-                is_full: tournament.is_full
+                is_full: tournament.is_full,
+                first_place_prize: tournament.first_place_prize,
+                second_place_prize: tournament.second_place_prize,
+                third_place_prize: tournament.third_place_prize,
+                certificate_available: tournament.certificate_available,
+                has_prizes: tournament.has_prizes
             }));
             
             // Sort tournaments by start date (newest first)
@@ -82,6 +90,9 @@ function loadTournamentData() {
             
             // Update total count
             document.getElementById('totalTournamentsCount').textContent = allTournamentsData.length;
+            
+            // Reset to first page when data loads
+            currentPage = 1;
             
             // Render all tournaments
             renderAllTournaments();
@@ -123,7 +134,13 @@ function renderAllTournaments() {
         return;
     }
 
-    grid.innerHTML = allTournamentsData.map(tournament => {
+    // Calculate pagination
+    const totalPages = Math.ceil(allTournamentsData.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedTournaments = allTournamentsData.slice(startIndex, endIndex);
+
+    grid.innerHTML = paginatedTournaments.map(tournament => {
         const isFull = tournament.is_full || tournament.available_slots === 0;
         const isRegistered = tournament.is_registered;
         const canRegister = !isFull && !isRegistered && tournament.is_registration_open;
@@ -146,7 +163,13 @@ function renderAllTournaments() {
         } else if (tournament.status === 'completed' || tournament.status === 'finished') {
             statusBadge = 'Completed';
             statusColor = 'bg-gray-100 text-gray-800';
-            showResultsButton = true;
+            // Only show View Results if user participated in the tournament
+            if (isRegistered) {
+                showResultsButton = true;
+            } else {
+                // Don't show completed tournaments user didn't participate in
+                return '';
+            }
         }
         
         // Category colors
@@ -197,9 +220,19 @@ function renderAllTournaments() {
                         <span class="px-2 py-1 ${statusColor} rounded-full text-xs font-semibold">
                             ${statusBadge}
                         </span>
-                        <span class="px-2 py-1 ${categoryColors[tournament.category] || 'bg-gray-100 text-gray-800'} rounded-full text-xs font-semibold">
-                            ${tournament.category.charAt(0).toUpperCase() + tournament.category.slice(1)}
-                        </span>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 ${categoryColors[tournament.category] || 'bg-gray-100 text-gray-800'} rounded-full text-xs font-semibold">
+                                ${tournament.category.charAt(0).toUpperCase() + tournament.category.slice(1)}
+                            </span>
+                            <button 
+                                type="button"
+                                data-action="share"
+                                data-tournament-id="${tournament.id}"
+                                class="tournament-action-btn text-gray-400 hover:text-blue-500 transition-colors p-1"
+                                title="Share tournament">
+                                <i class="fas fa-share-alt text-sm"></i>
+                            </button>
+                        </div>
                     </div>
                     <h3 class="font-semibold text-gray-900 text-sm line-clamp-2 leading-tight">${escapeHtml(tournament.name)}</h3>
                 </div>
@@ -222,6 +255,20 @@ function renderAllTournaments() {
                         <i class="fas fa-chess w-4 text-gray-400 mr-2"></i>
                         <span>${tournament.time_control}</span>
                     </div>
+                    
+                    <!-- Prizes indicator -->
+                    ${tournament.has_prizes ? `
+                    <div class="flex items-center text-xs text-yellow-600 font-medium">
+                        <i class="fas fa-trophy w-4 text-yellow-500 mr-2"></i>
+                        <span>Prizes Available</span>
+                    </div>` : ''}
+                    
+                    <!-- Certificate indicator -->
+                    ${tournament.certificate_available ? `
+                    <div class="flex items-center text-xs text-green-600 font-medium">
+                        <i class="fas fa-certificate w-4 text-green-500 mr-2"></i>
+                        <span>Certificates</span>
+                    </div>` : ''}
                     
                     <!-- Tournament info -->
                     <div class="flex justify-between items-center pt-2 border-t border-gray-100">
@@ -282,6 +329,41 @@ function renderAllTournaments() {
             </div>
         `;
     }).join('');
+
+    // Add pagination controls
+    if (totalPages > 1) {
+        const paginationHtml = `
+            <div class="col-span-full flex justify-center items-center space-x-2 mt-6">
+                <button 
+                    onclick="changePage(${currentPage - 1})"
+                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    ${currentPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="px-4 py-2 text-gray-700">
+                    Page ${currentPage} of ${totalPages}
+                </span>
+                <button 
+                    onclick="changePage(${currentPage + 1})"
+                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    ${currentPage === totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        `;
+        grid.innerHTML += paginationHtml;
+    }
+}
+
+// Change page
+function changePage(newPage) {
+    const totalPages = Math.ceil(allTournamentsData.length / itemsPerPage);
+    if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
+        renderAllTournaments();
+        // Scroll to top of grid
+        document.getElementById('tournamentsGrid').scrollIntoView({ behavior: 'smooth' });
+    }
 }
 
 // Register for tournament
@@ -292,16 +374,44 @@ function registerForTournament(tournamentId) {
         const confirmDialog = document.createElement('div');
         confirmDialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
         const safeName = typeof escapeHtml === 'function' ? escapeHtml(tournament.name) : tournament.name.replace(/</g, '&lt;');
+        
+        let prizesHtml = '';
+        if (tournament.has_prizes) {
+            prizesHtml = `
+                <div class="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <h4 class="font-semibold text-yellow-800 mb-2 flex items-center">
+                        <i class="fas fa-trophy mr-2"></i>Prizes
+                    </h4>
+                    ${tournament.first_place_prize ? `<p class="text-sm text-yellow-900">🥇 1st: ${escapeHtml(tournament.first_place_prize)}</p>` : ''}
+                    ${tournament.second_place_prize ? `<p class="text-sm text-yellow-900">🥈 2nd: ${escapeHtml(tournament.second_place_prize)}</p>` : ''}
+                    ${tournament.third_place_prize ? `<p class="text-sm text-yellow-900">🥉 3rd: ${escapeHtml(tournament.third_place_prize)}</p>` : ''}
+                </div>
+            `;
+        }
+        
+        let certificateHtml = '';
+        if (tournament.certificate_available) {
+            certificateHtml = `
+                <div class="mt-2 flex items-center text-sm text-green-700">
+                    <i class="fas fa-certificate mr-2"></i>
+                    <span>Certificates will be awarded to participants</span>
+                </div>
+            `;
+        }
+        
         confirmDialog.innerHTML = `
-            <div class="bg-white rounded-lg p-6 max-w-md mx-4">
+            <div class="bg-white rounded-lg p-6 max-w-md mx-4 max-h-[90vh] overflow-y-auto">
                 <h3 class="text-lg font-semibold mb-4">Confirm Tournament Registration</h3>
                 <p class="text-gray-600 mb-4">Are you sure you want to register for "${safeName}"?</p>
                 <div class="text-sm text-gray-500 mb-4">
                     <p>Entry fee: $${tournament.entry_fee}</p>
                     <p>Date: ${tournament.date}</p>
                     <p>Time: ${tournament.time}</p>
+                    <p>Venue: ${escapeHtml(tournament.venue)}</p>
                 </div>
-                <div class="flex justify-end space-x-3">
+                ${prizesHtml}
+                ${certificateHtml}
+                <div class="flex justify-end space-x-3 mt-4">
                     <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
                     <button onclick="confirmRegistration(${tournamentId})" class="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600">Confirm</button>
                 </div>
@@ -320,9 +430,12 @@ function confirmRegistration(tournamentId) {
     if (tournament) {
         // Show loading state
         const button = document.querySelector(`button[onclick="registerForTournament(${tournamentId})"]`);
-        const originalText = button.textContent;
-        button.disabled = true;
-        button.textContent = 'Registering...';
+        let originalText = '';
+        if (button) {
+            originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Registering...';
+        }
         
         // Call registration API
         fetch(`/api/tournaments/${tournamentId}/register/`, {
@@ -356,8 +469,10 @@ function confirmRegistration(tournamentId) {
         })
         .finally(() => {
             // Restore button state
-            button.disabled = false;
-            button.textContent = originalText;
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
         });
     }
 }
@@ -387,6 +502,61 @@ function viewTournamentResults(tournamentId, event) {
         console.error('Tournament not found:', tournamentId);
     }
     return false;
+}
+
+// Share tournament
+function shareTournament(tournamentId) {
+    const tournament = allTournamentsData.find(t => t.id === tournamentId);
+    if (tournament) {
+        const shareUrl = `${window.location.origin}/tournaments/${tournament.slug}/`;
+        const shareText = `Join "${tournament.name}" chess tournament at ${tournament.venue} on ${tournament.date}!`;
+        
+        // Check if Web Share API is supported
+        if (navigator.share) {
+            navigator.share({
+                title: tournament.name,
+                text: shareText,
+                url: shareUrl
+            }).catch(err => {
+                console.log('Share failed:', err);
+                // Fallback to copy to clipboard
+                copyToClipboard(shareUrl);
+            });
+        } else {
+            // Fallback: copy to clipboard
+            copyToClipboard(shareUrl);
+        }
+    }
+}
+
+// Copy to clipboard
+function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showSuccessMessage('Link copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            showErrorMessage('Failed to copy link');
+        });
+    } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            showSuccessMessage('Link copied to clipboard!');
+        } catch (err) {
+            console.error('Failed to copy:', err);
+            showErrorMessage('Failed to copy link');
+        }
+        
+        document.body.removeChild(textArea);
+    }
 }
 
 // Show success message
@@ -448,6 +618,8 @@ document.addEventListener('click', function(event) {
         const resultsUrl = button.dataset.resultsUrl;
         console.log('Redirecting to:', resultsUrl);
         window.location.href = resultsUrl;
+    } else if (action === 'share') {
+        shareTournament(tournamentId);
     }
 });
 

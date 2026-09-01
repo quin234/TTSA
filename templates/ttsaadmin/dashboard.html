@@ -623,6 +623,35 @@
                             </div>
                         </div>
                         
+                        <!-- Awards Section -->
+                        <div class="row g-3 mt-4 pt-4 border-top">
+                            <div class="col-12">
+                                <h6 class="fw-bold text-primary">
+                                    <i class="fas fa-trophy me-2"></i>Awards & Prizes
+                                </h6>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.first_place_prize.id_for_label }}" class="form-label fw-semibold">First Place Prize</label>
+                                {{ form.first_place_prize }}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.second_place_prize.id_for_label }}" class="form-label fw-semibold">Second Place Prize</label>
+                                {{ form.second_place_prize }}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.third_place_prize.id_for_label }}" class="form-label fw-semibold">Third Place Prize</label>
+                                {{ form.third_place_prize }}
+                            </div>
+                            <div class="col-md-12">
+                                <div class="form-check form-switch mt-2">
+                                    {{ form.certificate_available }}
+                                    <label class="form-check-label" for="{{ form.certificate_available.id_for_label }}">
+                                        Certificates Available
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Form Actions -->
                         <div class="d-flex justify-content-between mt-4 pt-3 border-top">
                             <button type="button" class="btn btn-outline-secondary" onclick="hideTournamentForm()">

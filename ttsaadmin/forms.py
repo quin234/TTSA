@@ -259,7 +259,8 @@ class TournamentForm(forms.ModelForm):
         fields = [
             'name', 'description', 'venue', 'category', 'format', 'rounds',
             'time_control', 'start_date', 'end_date', 'registration_deadline',
-            'entry_fee', 'max_players', 'status', 'is_active', 'is_featured'
+            'entry_fee', 'max_players', 'status', 'is_active', 'is_featured',
+            'first_place_prize', 'second_place_prize', 'third_place_prize', 'certificate_available'
         ]
         widgets = {
             'name': forms.TextInput(attrs={

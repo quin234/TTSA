@@ -1335,6 +1335,7 @@ def tournaments_api(request):
 
         tournament_data = {
             'id': tournament.id,
+            'slug': tournament.slug,
             'name': tournament.name,
             'venue': tournament.venue,
             'category': tournament.category,
@@ -1357,6 +1358,11 @@ def tournaments_api(request):
             'is_registration_open': tournament.is_registration_open,
             'is_full': tournament.is_full,
             'is_registered': is_registered,
+            'first_place_prize': tournament.first_place_prize,
+            'second_place_prize': tournament.second_place_prize,
+            'third_place_prize': tournament.third_place_prize,
+            'certificate_available': tournament.certificate_available,
+            'has_prizes': bool(tournament.first_place_prize or tournament.second_place_prize or tournament.third_place_prize),
         }
 
         # Categorize based on status and dates
@@ -1586,14 +1592,54 @@ def my_tournaments_api(request):
         }, status=500)
 
 
-def tournament_results(request, tournament_id):
+def tournament_detail(request, tournament_slug):
+    """Display tournament details page"""
+    
+    try:
+        from ttsaadmin.models import Tournament, TournamentPlayer
+        
+        # Get tournament by slug
+        tournament = get_object_or_404(Tournament, slug=tournament_slug)
+        
+        # Get registered players count
+        player_count = TournamentPlayer.objects.filter(
+            tournament=tournament,
+            status='registered'
+        ).count()
+        
+        # Check if current user is registered by matching username
+        is_registered = False
+        if request.user.is_authenticated:
+            is_registered = TournamentPlayer.objects.filter(
+                tournament=tournament,
+                player_name=request.user.username,
+                status='registered'
+            ).exists()
+        
+        context = {
+            'tournament': tournament,
+            'player_count': player_count,
+            'is_registered': is_registered,
+            'user': request.user,
+        }
+        
+        return render(request, 'ttsa_app/tournament_detail.html', context)
+        
+    except Exception as e:
+        logger.error(f"Error loading tournament detail: {e}")
+        return render(request, 'ttsa_app/tournament_detail.html', {
+            'error': 'Failed to load tournament details',
+            'tournament': None
+        })
+
+def tournament_results(request, tournament_slug):
     """Display tournament results and standings"""
     
     try:
         from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentStanding
         
-        # Get tournament (remove is_active filter as it may not exist on Tournament model)
-        tournament = get_object_or_404(Tournament, id=tournament_id)
+        # Get tournament by slug
+        tournament = get_object_or_404(Tournament, slug=tournament_slug)
         
         # Get all registered players with their stats
         players = TournamentPlayer.objects.filter(

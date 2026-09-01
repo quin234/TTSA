@@ -114,6 +114,7 @@ class Tournament(models.Model):
     
     # Basic Information
     name = models.CharField(max_length=255, db_index=True)
+    slug = models.SlugField(max_length=255, unique=True, db_index=True)
     description = models.TextField(blank=True)
     venue = models.CharField(max_length=255, db_index=True)
     
@@ -138,6 +139,12 @@ class Tournament(models.Model):
     is_active = models.BooleanField(default=True, db_index=True)
     is_featured = models.BooleanField(default=False, db_index=True)
     
+    # Awards
+    first_place_prize = models.CharField(max_length=255, blank=True, help_text="Prize for first place")
+    second_place_prize = models.CharField(max_length=255, blank=True, help_text="Prize for second place")
+    third_place_prize = models.CharField(max_length=255, blank=True, help_text="Prize for third place")
+    certificate_available = models.BooleanField(default=True, help_text="Whether certificates are available for participants")
+    
     # Metadata
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True, db_constraint=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -158,6 +165,18 @@ class Tournament(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
+        # Generate slug if not provided
+        if not self.slug:
+            from django.utils.text import slugify
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 1
+            # Ensure slug is unique
+            while Tournament.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        
         update_fields = kwargs.get('update_fields')
         if self.status == 'completed' and self.completed_at is None:
             self.completed_at = timezone.now()
