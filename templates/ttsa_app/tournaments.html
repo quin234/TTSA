@@ -163,12 +163,9 @@ function renderAllTournaments() {
         } else if (tournament.status === 'completed' || tournament.status === 'finished') {
             statusBadge = 'Completed';
             statusColor = 'bg-gray-100 text-gray-800';
-            // Only show View Results if user participated in the tournament
+            // Only show Show Result button if user participated in the tournament
             if (isRegistered) {
                 showResultsButton = true;
-            } else {
-                // Don't show completed tournaments user didn't participate in
-                return '';
             }
         }
         
@@ -205,7 +202,7 @@ function renderAllTournaments() {
                 buttonClass = 'bg-orange-500 hover:bg-orange-600 text-white';
             }
         } else if (showResultsButton) {
-            buttonText = 'View Results';
+            buttonText = 'Show Result';
             buttonClass = 'bg-gray-500 hover:bg-gray-600 text-white';
         } else if (showOngoingBadge) {
             // Ongoing tournaments show badge instead of button
@@ -314,9 +311,8 @@ function renderAllTournaments() {
                     </button>` : `
                     <button 
                         type="button"
-                        data-action="view-results"
+                        data-action="show-results-modal"
                         data-tournament-id="${tournament.id}"
-                        data-results-url="/tournaments/${tournament.id}/results/"
                         class="tournament-action-btn w-full py-2 px-3 ${buttonClass} rounded-md text-xs font-medium transition-colors">
                         ${buttonText}
                     </button>`}
@@ -486,22 +482,191 @@ function viewTournamentDetails(tournamentId) {
     }
 }
 
-// View tournament results
-function viewTournamentResults(tournamentId, event) {
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-    console.log('View tournament results called for ID:', tournamentId);
+// Show tournament results modal
+function showTournamentResultsModal(tournamentId) {
     const tournament = allTournamentsData.find(t => t.id === tournamentId);
-    if (tournament) {
-        console.log('Redirecting to:', `/tournaments/${tournamentId}/results/`);
-        // Redirect to tournament results page in ttsa_app
-        window.location.assign(`/tournaments/${tournamentId}/results/`);
-    } else {
-        console.error('Tournament not found:', tournamentId);
+    if (!tournament) {
+        showErrorMessage('Tournament not found');
+        return;
     }
-    return false;
+
+    // Show loading state
+    const modalHtml = `
+        <div id="tournamentResultsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-center py-8">
+                    <i class="fas fa-spinner fa-spin fa-2x text-gray-400 mr-3"></i>
+                    <p class="text-gray-600">Loading tournament results...</p>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Fetch tournament results data
+    fetch(`/api/tournaments/${tournamentId}/player-results/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateModalContent(data, tournament);
+        } else {
+            document.getElementById('tournamentResultsModal').remove();
+            showErrorMessage(data.error || 'Failed to load tournament results');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading tournament results:', error);
+        document.getElementById('tournamentResultsModal').remove();
+        showErrorMessage('Failed to load tournament results');
+    });
+}
+
+// Update modal content with tournament results
+function updateModalContent(data, tournament) {
+    const modal = document.getElementById('tournamentResultsModal');
+    if (!modal) return;
+
+    const safeName = typeof escapeHtml === 'function' ? escapeHtml(tournament.name) : tournament.name.replace(/</g, '&lt;');
+
+    // Build player games table
+    let gamesTableHtml = '';
+    if (data.player_games && data.player_games.length > 0) {
+        gamesTableHtml = `
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="border-b-2 border-gray-200">
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700 text-sm">Round</th>
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700 text-sm">White Player</th>
+                        <th class="text-center py-2 px-3 font-semibold text-gray-700 text-sm">Score</th>
+                        <th class="text-right py-2 px-3 font-semibold text-gray-700 text-sm">Black Player</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.player_games.map(game => `
+                        <tr class="border-b hover:bg-gray-50 transition-colors">
+                            <td class="py-2 px-3 text-gray-600 text-sm">${game.round_number}</td>
+                            <td class="py-2 px-3 font-medium text-gray-900 text-sm">${typeof escapeHtml === 'function' ? escapeHtml(game.white_player) : game.white_player.replace(/</g, '&lt;')}</td>
+                            <td class="py-2 px-3 text-center">
+                                <span class="px-2 py-1 rounded text-sm font-medium
+                                    ${game.result === '1-0' ? 'bg-green-100 text-green-800' :
+                                      game.result === '0-1' ? 'bg-red-100 text-red-800' :
+                                      game.result === '½-½' ? 'bg-gray-100 text-gray-800' :
+                                      'bg-blue-100 text-blue-800'}">
+                                    ${game.result}
+                                </span>
+                            </td>
+                            <td class="py-2 px-3 font-medium text-gray-900 text-sm text-right">${typeof escapeHtml === 'function' ? escapeHtml(game.black_player) : game.black_player.replace(/</g, '&lt;')}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } else {
+        gamesTableHtml = `
+            <div class="text-center py-8">
+                <i class="fas fa-chess-board fa-2x text-gray-300 mb-2"></i>
+                <p class="text-gray-600">No games recorded yet</p>
+            </div>
+        `;
+    }
+
+    // Build top 5 players table
+    let topPlayersHtml = '';
+    if (data.top_players && data.top_players.length > 0) {
+        topPlayersHtml = `
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="border-b-2 border-gray-200">
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700 text-sm">Rank</th>
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700 text-sm">Player</th>
+                        <th class="text-center py-2 px-3 font-semibold text-gray-700 text-sm">Points</th>
+                        <th class="text-center py-2 px-3 font-semibold text-gray-700 text-sm">W-D-L</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.top_players.map((player, index) => `
+                        <tr class="border-b hover:bg-gray-50 transition-colors ${index < 3 ? 'bg-gradient-to-r from-yellow-50 to-transparent' : ''}">
+                            <td class="py-2 px-3">
+                                ${index === 0 ? '<span class="inline-flex items-center justify-center w-6 h-6 bg-yellow-400 text-white rounded-full text-xs font-bold">🥇</span>' :
+                                  index === 1 ? '<span class="inline-flex items-center justify-center w-6 h-6 bg-gray-400 text-white rounded-full text-xs font-bold">🥈</span>' :
+                                  index === 2 ? '<span class="inline-flex items-center justify-center w-6 h-6 bg-orange-600 text-white rounded-full text-xs font-bold">🥉</span>' :
+                                  `<span class="font-semibold text-gray-700 text-sm">${player.rank}</span>`}
+                            </td>
+                            <td class="py-2 px-3 font-medium text-gray-900 text-sm">${typeof escapeHtml === 'function' ? escapeHtml(player.player_name) : player.player_name.replace(/</g, '&lt;')}</td>
+                            <td class="py-2 px-3 text-center font-bold text-gray-900 text-sm">${player.points}</td>
+                            <td class="py-2 px-3 text-center text-gray-600 text-sm">${player.wins}-${player.draws}-${player.losses}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } else {
+        topPlayersHtml = `
+            <div class="text-center py-4">
+                <p class="text-gray-600">No standings available yet</p>
+            </div>
+        `;
+    }
+
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">${safeName}</h2>
+                    <p class="text-gray-600 text-sm">Your Tournament Results</p>
+                </div>
+                <button onclick="document.getElementById('tournamentResultsModal').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Player Statistics -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <div class="text-2xl font-bold text-gray-900">${data.player_stats?.final_position || '-'}</div>
+                        <div class="text-sm text-gray-600">Final Position</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-gray-900">${data.player_stats?.total_rounds || 0}</div>
+                        <div class="text-sm text-gray-600">Total Rounds</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-gray-900">${data.player_stats?.total_players || 0}</div>
+                        <div class="text-sm text-gray-600">Total Players</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Player Games -->
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Your Games</h3>
+                <div class="border rounded-lg overflow-hidden">
+                    ${gamesTableHtml}
+                </div>
+            </div>
+
+            <!-- Top 5 Players -->
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Top 5 Players</h3>
+                <div class="border rounded-lg overflow-hidden">
+                    ${topPlayersHtml}
+                </div>
+            </div>
+
+            <!-- Close Button -->
+            <div class="flex justify-end">
+                <button onclick="document.getElementById('tournamentResultsModal').remove()" class="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
 }
 
 // Share tournament
@@ -614,10 +779,8 @@ document.addEventListener('click', function(event) {
     
     if (action === 'register') {
         registerForTournament(tournamentId);
-    } else if (action === 'view-results') {
-        const resultsUrl = button.dataset.resultsUrl;
-        console.log('Redirecting to:', resultsUrl);
-        window.location.href = resultsUrl;
+    } else if (action === 'show-results-modal') {
+        showTournamentResultsModal(tournamentId);
     } else if (action === 'share') {
         shareTournament(tournamentId);
     }

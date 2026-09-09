@@ -265,7 +265,7 @@ def achievements(request):
 
 @login_required_with_message
 def tournaments(request):
-    profile = request.user.playerprofile
+    profile = request.user.playerprofile if request.user.is_authenticated else None
     context = {
         'profile': profile,
     }
@@ -1632,93 +1632,6 @@ def tournament_detail(request, tournament_slug):
             'tournament': None
         })
 
-def tournament_results(request, tournament_slug):
-    """Display tournament results and standings"""
-    
-    try:
-        from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentStanding
-        
-        # Get tournament by slug
-        tournament = get_object_or_404(Tournament, slug=tournament_slug)
-        
-        # Get all registered players with their stats
-        players = TournamentPlayer.objects.filter(
-            tournament=tournament,
-            status='registered'
-        ).order_by('-points', '-wins', '-draws', 'rank')
-        
-        # Calculate standings if not already calculated
-        standings = TournamentStanding.objects.filter(
-            tournament=tournament
-        ).order_by('rank')
-        
-        # If no standings exist, create basic standings from player data
-        if not standings.exists():
-            standings_list = []
-            for i, player in enumerate(players, 1):
-                standings_list.append({
-                    'rank': i,
-                    'player_name': player.player_name,
-                    'rating': player.rating,
-                    'points': player.points,
-                    'wins': player.wins,
-                    'losses': player.losses,
-                    'draws': player.draws,
-                    'games_played': player.wins + player.losses + player.draws,
-                    'score_percentage': (player.points / (player.wins + player.losses + player.draws) * 100) if (player.wins + player.losses + player.draws) > 0 else 0
-                })
-        else:
-            standings_list = []
-            for standing in standings:
-                standings_list.append({
-                    'rank': standing.rank,
-                    'player_name': standing.player.player_name,
-                    'rating': standing.player.rating,
-                    'points': standing.points,
-                    'wins': standing.wins,
-                    'losses': standing.losses,
-                    'draws': standing.draws,
-                    'games_played': standing.games_played,
-                    'score_percentage': standing.score_percentage,
-                    'tie_breaks': standing.tie_breaks
-                })
-        
-        # Get all games for this tournament, organized by round
-        all_games = TournamentGame.objects.filter(
-            tournament=tournament
-        ).select_related('white_player', 'black_player').order_by('round_number', 'board_number')
-        
-        # Group games by round
-        games_by_round = {}
-        for game in all_games:
-            round_num = game.round_number
-            if round_num not in games_by_round:
-                games_by_round[round_num] = []
-            games_by_round[round_num].append({
-                'board_number': game.board_number,
-                'white_player': game.white_player.player_name,
-                'black_player': game.black_player.player_name,
-                'result': game.result if game.result != '*' else 'In Progress',
-                'scheduled_time': game.scheduled_time,
-                'status': game.status
-            })
-        
-        context = {
-            'tournament': tournament,
-            'standings': standings_list,
-            'players_count': players.count(),
-            'games_by_round': games_by_round,
-            'is_completed': tournament.status in ['completed', 'finished']
-        }
-        
-        return render(request, 'ttsa_app/tournament_results.html', context)
-        
-    except Exception as e:
-        logger.error(f"Error in tournament_results: {str(e)}")
-        messages.error(request, 'Unable to load tournament results. Please try again.')
-        return redirect('tournaments')
-
-
 # Player Plus Tournament Management Views
 
 @login_required
@@ -1762,6 +1675,91 @@ def player_tournament_list(request):
         'profile': request.user.playerprofile,
         'page_obj': page_obj,
     })
+
+
+@login_required
+def tournament_player_results_api(request, tournament_id):
+    """API endpoint to get tournament results for the logged-in player"""
+    try:
+        from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentStanding
+        
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'success': False,
+                'error': 'Authentication required'
+            }, status=401)
+        
+        # Get tournament
+        tournament = get_object_or_404(Tournament, id=tournament_id)
+        
+        # Check if user participated in this tournament
+        # We'll match by player name since TournamentPlayer uses player_name, not a direct user relationship
+        tournament_player = TournamentPlayer.objects.filter(
+            tournament=tournament,
+            player_name=request.user.username,
+            status='registered'
+        ).first()
+        
+        if not tournament_player:
+            return JsonResponse({
+                'success': False,
+                'error': 'You did not participate in this tournament'
+            }, status=403)
+        
+        # Get all games for this player in the tournament
+        player_games = TournamentGame.objects.filter(
+            tournament=tournament
+        ).filter(
+            models.Q(white_player=tournament_player) | models.Q(black_player=tournament_player)
+        ).order_by('round_number', 'board_number')
+        
+        # Build player games data
+        player_games_data = []
+        for game in player_games:
+            player_games_data.append({
+                'round_number': game.round_number,
+                'white_player': game.white_player.player_name,
+                'black_player': game.black_player.player_name,
+                'result': game.result if game.result != '*' else 'In Progress'
+            })
+        
+        # Get player's final statistics
+        player_stats = {
+            'final_position': tournament_player.rank if tournament_player.rank else '-',
+            'total_rounds': tournament.rounds,
+            'total_players': tournament.players.filter(status='registered').count()
+        }
+        
+        # Get top 5 players in the tournament
+        top_players = TournamentPlayer.objects.filter(
+            tournament=tournament,
+            status='registered'
+        ).order_by('-points', '-buchholz', '-sonneborn_berger', 'player_name')[:5]
+        
+        top_players_data = []
+        for player in top_players:
+            top_players_data.append({
+                'rank': player.rank if player.rank else '-',
+                'player_name': player.player_name,
+                'points': float(player.points),
+                'wins': player.wins,
+                'draws': player.draws,
+                'losses': player.losses
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'player_games': player_games_data,
+            'player_stats': player_stats,
+            'top_players': top_players_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in tournament_player_results_api: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to load tournament results'
+        }, status=500)
 
 
 @login_required
