@@ -46,6 +46,9 @@ let allTournamentsData = [];
 let currentPage = 1;
 const itemsPerPage = 15;
 
+// User authentication status from Django
+const isAuthenticated = {{ user.is_authenticated|lower }};
+
 // Load tournament data from backend API
 function loadTournamentData() {
     fetch('/api/tournaments/', {
@@ -387,6 +390,13 @@ function changePage(newPage) {
 
 // Register for tournament
 function registerForTournament(tournamentId) {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+        // Redirect to signup page with tournament_id for non-authenticated users
+        window.location.href = `/signup/?tournament_id=${tournamentId}`;
+        return;
+    }
+    
     const tournament = allTournamentsData.find(t => t.id === tournamentId);
     if (tournament) {
         // Create a custom confirmation dialog instead of using a blocking alert
@@ -811,5 +821,28 @@ document.addEventListener('click', function(event) {
 
 // Initialize on page load
 loadTournamentData();
+
+// Check if user returned with tournament_id to auto-register
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tournamentId = urlParams.get('tournament_id');
+    
+    if (tournamentId) {
+        // Wait for tournament data to load, then auto-register
+        const checkTournamentData = setInterval(() => {
+            if (allTournamentsData.length > 0) {
+                clearInterval(checkTournamentData);
+                const tournament = allTournamentsData.find(t => t.id === parseInt(tournamentId));
+                if (tournament && tournament.is_registration_open && !tournament.is_full && !tournament.is_registered) {
+                    // Auto-register for the tournament
+                    registerForTournament(parseInt(tournamentId));
+                }
+            }
+        }, 100);
+        
+        // Clear interval after 10 seconds to prevent infinite loop
+        setTimeout(() => clearInterval(checkTournamentData), 10000);
+    }
+});
 </script>
 {% endblock %}

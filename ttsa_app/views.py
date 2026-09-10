@@ -529,6 +529,8 @@ def user_role_api(request):
 
 @rate_limit(rate='10/m')
 def login_view(request):
+    tournament_id = request.GET.get('tournament_id')
+    
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
@@ -542,15 +544,20 @@ def login_view(request):
             if user.is_ttsa_admin:
                 return redirect('admin_dashboard')
 
-            return redirect('chess_game')
+            # Redirect to tournaments page with preserved tournament_id
+            if tournament_id:
+                return redirect(f'/tournaments/?tournament_id={tournament_id}')
+            return redirect('tournaments')
         else:
             messages.error(request, 'Invalid username or password.')
 
-    return render(request, 'ttsa_app/login.html')
+    return render(request, 'ttsa_app/login.html', {'tournament_id': tournament_id})
 
 
 @rate_limit(rate='10/m')
 def signup(request):
+    tournament_id = request.GET.get('tournament_id')
+    
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
@@ -609,10 +616,15 @@ def signup(request):
                 messages.success(request, f'Account created for {user.username}!')
             
             login(request, user)
-            return redirect('chess_game')
+            
+            # Redirect to tournaments page with preserved tournament_id
+            if tournament_id:
+                return redirect(f'/tournaments/?tournament_id={tournament_id}')
+            return redirect('tournaments')
     else:
         form = CustomUserCreationForm()
-    return render(request, 'ttsa_app/signup.html', {'form': form})
+    
+    return render(request, 'ttsa_app/signup.html', {'form': form, 'tournament_id': tournament_id})
 
 
 # API Views

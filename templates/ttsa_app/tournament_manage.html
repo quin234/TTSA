@@ -197,7 +197,7 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <a id="print-pairings-btn"
                        href="{% url 'player_tournament_print_pairings' tournament.id %}{% if selected_round %}?round={{ selected_round }}{% endif %}"
-                       target="_blank"
+                       onclick="printPairings(event, this.href)"
                        class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
                         <i class="fas fa-print mr-1"></i>Print Pairings
                     </a>
@@ -266,7 +266,7 @@
                             </form>
                             {% endif %}
                             <a href="{% url 'player_tournament_print_pairings' tournament.id %}?round={{ rd.round_number }}"
-                               target="_blank"
+                               onclick="printPairings(event, this.href)"
                                class="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50 transition">
                                 <i class="fas fa-print mr-1"></i>Print
                             </a>
@@ -349,6 +349,16 @@
                             var baseUrl = "{% url 'player_tournament_print_pairings' tournament.id %}";
                             printBtn.href = baseUrl + "?round=" + roundNumber;
                         }
+                    }
+
+                    function printPairings(event, url) {
+                        event.preventDefault();
+                        var printWindow = window.open(url, 'print_pairings', 'width=800,height=600');
+                        printWindow.onload = function() {
+                            setTimeout(function() {
+                                printWindow.print();
+                            }, 500);
+                        };
                     }
                 </script>
             {% else %}

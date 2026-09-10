@@ -3,7 +3,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponseForbidden, FileResponse
+from django.http import JsonResponse, HttpResponseForbidden, FileResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Sum, Avg, F, Max
