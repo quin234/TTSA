@@ -3,6 +3,9 @@
 {% block title %}Tournaments - TTSA Academy{% endblock %}
 
 {% block content %}
+<!-- Store authentication status for JavaScript -->
+<div id="auth-status" data-authenticated="{{ user.is_authenticated|lower }}" style="display: none;"></div>
+
 <div class="container mx-auto px-4 py-6">
     <!-- Header -->
     <div class="bg-gradient-to-r from-orange-500 to-red-600 rounded-xl shadow-lg p-6 mb-6 text-white">
@@ -46,8 +49,8 @@ let allTournamentsData = [];
 let currentPage = 1;
 const itemsPerPage = 15;
 
-// User authentication status from Django
-const isAuthenticated = {{ user.is_authenticated|lower }};
+// User authentication status from hidden div
+const userIsAuthenticated = document.getElementById('auth-status')?.dataset.authenticated === 'true';
 
 // Load tournament data from backend API
 function loadTournamentData() {
@@ -70,10 +73,13 @@ function loadTournamentData() {
                 slug: tournament.slug,
                 name: tournament.name,
                 venue: tournament.venue,
-                date: tournament.start_date.split('T')[0], // Extract date part
-                time: new Date(tournament.start_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                date: tournament.start_date_local ? tournament.start_date_local.split(' ')[0] : tournament.start_date.split('T')[0],
+                time: tournament.start_date_local ? tournament.start_date_local.split(' ')[1] : (tournament.start_date.includes('T') ? tournament.start_date.split('T')[1].substring(0, 5) : ''),
                 time_control: tournament.time_control,
-                registration_deadline: tournament.registration_deadline.split('T')[0],
+                registration_deadline: tournament.registration_deadline_local ? tournament.registration_deadline_local.split(' ')[0] : tournament.registration_deadline.split('T')[0],
+                registration_deadline_time: tournament.registration_deadline_local ? tournament.registration_deadline_local.split(' ')[1] : (tournament.registration_deadline.includes('T') ? tournament.registration_deadline.split('T')[1].substring(0, 5) : ''),
+                start_date_full: tournament.start_date_local || tournament.start_date,
+                registration_deadline_full: tournament.registration_deadline_local || tournament.registration_deadline,
                 entry_fee: tournament.entry_fee,
                 available_slots: tournament.available_slots,
                 total_slots: tournament.max_players,
@@ -92,8 +98,10 @@ function loadTournamentData() {
                 has_prizes: tournament.has_prizes
             }));
             
-            // Sort tournaments by start date (newest first)
-            allTournamentsData.sort((a, b) => new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time));
+            // Sort tournaments by start date (newest first) - using local datetime strings
+            allTournamentsData.sort((a, b) => {
+                return b.start_date_full.localeCompare(a.start_date_full);
+            });
             
             // Reset to first page when data loads
             currentPage = 1;
@@ -248,14 +256,25 @@ function renderAllTournaments() {
                         <span class="break-words leading-tight font-medium">${typeof escapeHtml === 'function' ? escapeHtml(tournament.venue) : tournament.venue.replace(/</g, '&lt;')}</span>
                     </div>
                     
-                    <div class="flex items-center text-xs text-gray-600">
-                        <i class="fas fa-calendar w-4 text-gray-400 mr-2"></i>
-                        <span>${tournament.date}</span>
+                    <!-- Tournament Schedule - prominently displayed -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2 border border-blue-100 space-y-1.5">
+                        <div class="flex items-center text-xs font-semibold text-gray-800">
+                            <i class="fas fa-calendar-day w-4 text-blue-500 mr-2"></i>
+                            <span class="text-gray-600 mr-1">Date:</span>
+                            <span class="text-gray-900">${tournament.date}</span>
+                        </div>
+                        <div class="flex items-center text-xs font-semibold text-gray-800">
+                            <i class="fas fa-play-circle w-4 text-green-500 mr-2"></i>
+                            <span class="text-gray-600 mr-1">Round One Starts At:</span>
+                            <span class="text-gray-900">${tournament.time}</span>
+                        </div>
+                        <div class="flex items-center text-xs font-semibold text-gray-800">
+                            <i class="fas fa-hourglass-end w-4 text-red-500 mr-2"></i>
+                            <span class="text-gray-600 mr-1">Registration Deadline:</span>
+                            <span class="text-gray-900">${tournament.registration_deadline}${tournament.registration_deadline_time ? ' at ' + tournament.registration_deadline_time : ''}</span>
+                        </div>
                     </div>
-                    <div class="flex items-center text-xs text-gray-600">
-                        <i class="fas fa-clock w-4 text-gray-400 mr-2"></i>
-                        <span>${tournament.time}</span>
-                    </div>
+                    
                     <div class="flex items-center text-xs text-gray-600">
                         <i class="fas fa-chess w-4 text-gray-400 mr-2"></i>
                         <span>${tournament.time_control}</span>
@@ -313,13 +332,6 @@ function renderAllTournaments() {
                         <span class="text-xs text-gray-600">entry fee</span>` : `
                         <span class="text-xs font-bold text-green-600">FREE</span>
                         <span class="text-xs text-gray-600">no entry fee</span>`}
-                    </div>` : ''}
-                    
-                    <!-- Registration deadline for upcoming tournaments -->
-                    ${showRegisterButton ? `
-                    <div class="text-xs text-gray-500">
-                        <i class="fas fa-hourglass-end w-3 text-gray-400 mr-1"></i>
-                        Deadline: ${tournament.registration_deadline}
                     </div>` : ''}
                 </div>
                 
@@ -391,7 +403,7 @@ function changePage(newPage) {
 // Register for tournament
 function registerForTournament(tournamentId) {
     // Check if user is authenticated
-    if (!isAuthenticated) {
+    if (!userIsAuthenticated) {
         // Redirect to signup page with tournament_id for non-authenticated users
         window.location.href = `/signup/?tournament_id=${tournamentId}`;
         return;

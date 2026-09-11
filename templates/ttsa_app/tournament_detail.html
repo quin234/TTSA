@@ -4,6 +4,13 @@
 {% block title %}{{ tournament.name }} - Tournament Details{% endblock %}
 
 {% block content %}
+<!-- Store authentication status for JavaScript -->
+<div id="auth-status" data-authenticated="{{ user.is_authenticated|lower }}" style="display: none;"></div>
+<!-- Store tournament slug for JavaScript -->
+<div id="tournament-slug" data-slug="{{ tournament.slug }}" style="display: none;"></div>
+<!-- Store registration status for JavaScript -->
+<div id="registration-status" data-registered="{{ is_registered|lower }}" style="display: none;"></div>
+
 <div class="min-h-screen bg-gray-50 py-8">
     <div class="max-w-6xl mx-auto px-4">
         {% if error %}
@@ -13,7 +20,7 @@
             <div class="mt-6">
                 <a href="{% url 'tournaments' %}" class="inline-flex items-center px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i>
-                    Back to Tournaments
+                    Check other tournaments
                 </a>
             </div>
         {% elif tournament %}
@@ -45,7 +52,7 @@
                             </div>
                             <div class="flex items-center">
                                 <i class="fas fa-users mr-2"></i>
-                                <span>{{ tournament.current_players }}/{{ tournament.max_players }} Players</span>
+                                <span>{{ tournament.max_players }} Players</span>
                             </div>
                         </div>
                     </div>
@@ -85,16 +92,12 @@
                         </div>
                         <div class="flex justify-between items-center py-3 border-b">
                             <span class="text-gray-600">Registration Deadline</span>
-                            <span class="font-semibold text-gray-900">{{ tournament.registration_deadline|date:"M d, Y" }}</span>
-                        </div>
-                        <div class="flex justify-between items-center py-3 border-b">
-                            <span class="text-gray-600">Players Registered</span>
-                            <span class="font-semibold text-gray-900">{{ player_count }}/{{ tournament.max_players }}</span>
+                            <span class="font-semibold text-gray-900">{{ tournament.registration_deadline|date:"M d, Y H:i" }}</span>
                         </div>
                         <div class="flex justify-between items-center py-3 border-b">
                             <span class="text-gray-600">Available Slots</span>
-                            <span class="font-semibold {% if tournament.available_slots > 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                                {{ tournament.available_slots }} remaining
+                            <span class="font-semibold text-green-600">
+                                7
                             </span>
                         </div>
                         <div class="flex justify-between items-center py-3">
@@ -122,7 +125,7 @@
                                 <p class="text-green-800 font-semibold">You are registered!</p>
                                 <p class="text-green-600 text-sm mt-1">We'll see you at the tournament.</p>
                             </div>
-                        {% elif tournament.is_registration_open and tournament.available_slots > 0 %}
+                        {% elif tournament.is_registration_open %}
                             <button 
                                 id="registerBtn"
                                 data-tournament-id="{{ tournament.id }}"
@@ -133,27 +136,32 @@
                             <p class="text-sm text-gray-500 mt-2 text-center">
                                 Entry fee: ${{ tournament.entry_fee }}
                             </p>
-                        {% elif not tournament.is_registration_open %}
+                        {% else %}
                             <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
                                 <i class="fas fa-lock text-gray-400 text-3xl mb-2"></i>
                                 <p class="text-gray-600 font-semibold">Registration Closed</p>
                                 <p class="text-gray-500 text-sm mt-1">Registration is no longer open for this tournament.</p>
                             </div>
-                        {% else %}
-                            <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                                <i class="fas fa-users text-red-400 text-3xl mb-2"></i>
-                                <p class="text-red-600 font-semibold">Tournament Full</p>
-                                <p class="text-red-500 text-sm mt-1">All slots have been filled.</p>
-                            </div>
                         {% endif %}
                     {% else %}
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                            <i class="fas fa-sign-in-alt text-blue-400 text-3xl mb-2"></i>
-                            <p class="text-blue-800 font-semibold mb-2">Login to Register</p>
-                            <a href="{% url 'login' %}" class="inline-block px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors">
-                                Sign In
-                            </a>
-                        </div>
+                        {% if tournament.is_registration_open %}
+                            <button 
+                                id="registerBtn"
+                                data-tournament-id="{{ tournament.id }}"
+                                class="w-full py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors">
+                                <i class="fas fa-user-plus mr-2"></i>
+                                Register Now
+                            </button>
+                            <p class="text-sm text-gray-500 mt-2 text-center">
+                                Entry fee: ${{ tournament.entry_fee }}
+                            </p>
+                        {% else %}
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                                <i class="fas fa-lock text-gray-400 text-3xl mb-2"></i>
+                                <p class="text-gray-600 font-semibold">Registration Closed</p>
+                                <p class="text-gray-500 text-sm mt-1">Registration is no longer open for this tournament.</p>
+                            </div>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -162,7 +170,7 @@
             <div class="flex flex-wrap gap-4">
                 <a href="{% url 'tournaments' %}" class="inline-flex items-center px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i>
-                    Back to Tournaments
+                    Check other tournaments
                 </a>
                 {% if tournament.status == 'completed' or tournament.status == 'finished' %}
                     <a href="{% url 'tournament_results' tournament.slug %}" class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
@@ -176,9 +184,22 @@
 </div>
 
 <script>
+// User authentication status from hidden div
+const isAuthenticated = document.getElementById('auth-status')?.dataset.authenticated === 'true';
+const tournamentSlug = document.getElementById('tournament-slug')?.dataset.slug;
+const isRegistered = document.getElementById('registration-status')?.dataset.registered === 'true';
+
 // Handle tournament registration
 document.getElementById('registerBtn')?.addEventListener('click', function() {
     const tournamentId = this.dataset.tournamentId;
+    
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+        // Redirect to signup page with tournament slug for non-authenticated users
+        window.location.href = `/signup/?tournament_slug=${tournamentSlug}`;
+        return;
+    }
+    
     const btn = this;
     
     // Show confirmation dialog
@@ -234,6 +255,17 @@ document.getElementById('registerBtn')?.addEventListener('click', function() {
             btn.innerHTML = '<i class="fas fa-user-plus mr-2"></i>Register Now';
         }
     });
+});
+
+// Auto-register for users returning after signup/login
+document.addEventListener('DOMContentLoaded', function() {
+    if (isAuthenticated && !isRegistered) {
+        const registerBtn = document.getElementById('registerBtn');
+        if (registerBtn) {
+            // Auto-click the register button for users who just signed up/logged in
+            registerBtn.click();
+        }
+    }
 });
 </script>
 {% endblock %}

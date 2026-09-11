@@ -73,7 +73,7 @@
                 TTSA Chess Academy
             </h1>
             <p class="text-gray-600 mt-2">Create your account</p>
-            {% if tournament_id %}
+            {% if tournament_id or tournament_slug %}
             <p class="text-orange-600 text-sm mt-1 font-medium">
                 <i class="fas fa-trophy mr-1"></i>Complete registration to join the tournament
             </p>
@@ -84,9 +84,14 @@
         <form method="post" class="space-y-6">
             {% csrf_token %}
             
-            <!-- Hidden field for tournament preservation -->
+            <!-- Hidden field for tournament preservation (ID-based) -->
             {% if tournament_id %}
             <input type="hidden" name="tournament_id" value="{{ tournament_id }}">
+            {% endif %}
+            
+            <!-- Hidden field for tournament preservation (slug-based) -->
+            {% if tournament_slug %}
+            <input type="hidden" name="tournament_slug" value="{{ tournament_slug }}">
             {% endif %}
             
             <!-- Hidden field for guest progress transfer -->
@@ -265,6 +270,10 @@
                 Already have an account? 
                 {% if tournament_id %}
                 <a href="{% url 'login' %}?tournament_id={{ tournament_id }}" class="text-purple-600 font-semibold hover:text-purple-700 transition">
+                    Log In
+                </a>
+                {% elif tournament_slug %}
+                <a href="{% url 'login' %}?tournament_slug={{ tournament_slug }}" class="text-purple-600 font-semibold hover:text-purple-700 transition">
                     Log In
                 </a>
                 {% else %}

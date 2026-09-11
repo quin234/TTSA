@@ -529,7 +529,8 @@ def user_role_api(request):
 
 @rate_limit(rate='10/m')
 def login_view(request):
-    tournament_id = request.GET.get('tournament_id')
+    tournament_id = request.GET.get('tournament_id') or request.POST.get('tournament_id')
+    tournament_slug = request.GET.get('tournament_slug') or request.POST.get('tournament_slug')
     
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -544,19 +545,25 @@ def login_view(request):
             if user.is_ttsa_admin:
                 return redirect('admin_dashboard')
 
-            # Redirect to tournaments page with preserved tournament_id
-            if tournament_id:
+            # Redirect to tournament detail page or tournaments list with preserved tournament info
+            if tournament_slug:
+                return redirect(f'/tournaments/{tournament_slug}/')
+            elif tournament_id:
                 return redirect(f'/tournaments/?tournament_id={tournament_id}')
             return redirect('tournaments')
         else:
             messages.error(request, 'Invalid username or password.')
 
-    return render(request, 'ttsa_app/login.html', {'tournament_id': tournament_id})
+    return render(request, 'ttsa_app/login.html', {
+        'tournament_id': tournament_id,
+        'tournament_slug': tournament_slug
+    })
 
 
 @rate_limit(rate='10/m')
 def signup(request):
-    tournament_id = request.GET.get('tournament_id')
+    tournament_id = request.GET.get('tournament_id') or request.POST.get('tournament_id')
+    tournament_slug = request.GET.get('tournament_slug') or request.POST.get('tournament_slug')
     
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
@@ -617,14 +624,20 @@ def signup(request):
             
             login(request, user)
             
-            # Redirect to tournaments page with preserved tournament_id
-            if tournament_id:
+            # Redirect to tournament detail page or tournaments list with preserved tournament info
+            if tournament_slug:
+                return redirect(f'/tournaments/{tournament_slug}/')
+            elif tournament_id:
                 return redirect(f'/tournaments/?tournament_id={tournament_id}')
             return redirect('tournaments')
     else:
         form = CustomUserCreationForm()
     
-    return render(request, 'ttsa_app/signup.html', {'form': form, 'tournament_id': tournament_id})
+    return render(request, 'ttsa_app/signup.html', {
+        'form': form, 
+        'tournament_id': tournament_id,
+        'tournament_slug': tournament_slug
+    })
 
 
 # API Views
@@ -1357,6 +1370,8 @@ def tournaments_api(request):
             'start_date': tournament.start_date.isoformat(),
             'end_date': tournament.end_date.isoformat(),
             'registration_deadline': tournament.registration_deadline.isoformat(),
+            'start_date_local': timezone.localtime(tournament.start_date).strftime('%Y-%m-%d %H:%M'),
+            'registration_deadline_local': timezone.localtime(tournament.registration_deadline).strftime('%Y-%m-%d %H:%M'),
             'entry_fee': float(tournament.entry_fee),
             'max_players': tournament.max_players,
             'current_players': tournament.current_players,
