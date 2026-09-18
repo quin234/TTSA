@@ -48,22 +48,22 @@
     <div class="bg-white rounded-b-xl shadow-lg p-6 mb-6">
         {% if tab == 'overview' %}
             <!-- Overview Tab -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-indigo-50 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-indigo-700">{{ players.count }}</div>
-                    <div class="text-sm text-indigo-600">Registered Players</div>
+            <div class="grid grid-cols-4 gap-4 mb-6">
+                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-gray-700">{{ players.count }}</div>
+                    <div class="text-sm text-gray-600">Registered Players</div>
                 </div>
-                <div class="bg-purple-50 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-purple-700">{{ current_round }} / {{ tournament.rounds }}</div>
-                    <div class="text-sm text-purple-600">Current Round</div>
+                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-gray-700">{{ current_round }} / {{ tournament.rounds }}</div>
+                    <div class="text-sm text-gray-600">Current Round</div>
                 </div>
-                <div class="bg-green-50 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-green-700">{{ completed_games }}</div>
-                    <div class="text-sm text-green-600">Completed Games</div>
+                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-gray-700">{{ completed_games }}</div>
+                    <div class="text-sm text-gray-600">Completed Games</div>
                 </div>
-                <div class="bg-orange-50 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-orange-700">{{ games.count }}</div>
-                    <div class="text-sm text-orange-600">Total Games</div>
+                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-gray-700">{{ games.count }}</div>
+                    <div class="text-sm text-gray-600">Total Games</div>
                 </div>
             </div>
 
@@ -111,19 +111,72 @@
 
         {% elif tab == 'players' %}
             <!-- Players Tab -->
+            
+            <!-- Team Management Section -->
+            <div class="mb-6 bg-gray-50 rounded-lg p-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">Teams</h3>
+                    <button type="button" onclick="openCreateTeamModal()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm">
+                        <i class="fas fa-plus mr-1"></i>Create Team
+                    </button>
+                </div>
+                
+                {% if teams %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for team in teams %}
+                    <div class="bg-white rounded-lg p-4 border hover:shadow-md transition">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="font-bold text-gray-900">{{ team.team_name|upper }}</h4>
+                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">{{ team.get_category_display|title }}</span>
+                        </div>
+                        <div class="text-sm text-gray-600 mb-3">
+                            <span class="font-semibold">{{ team.members.count }}</span> player{{ team.members.count|pluralize }}
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="openAssignTeamModal({{ team.id }}, '{{ team.team_name }}')" class="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 transition">
+                                <i class="fas fa-user-plus mr-1"></i>Add Players
+                            </button>
+                            <form method="post" class="inline" onsubmit="return confirm('Are you sure you want to delete team "{{ team.team_name }}"? Players will be unassigned from the team.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="tab" value="{{ tab }}">
+                                <input type="hidden" name="action" value="delete_team">
+                                <input type="hidden" name="team_id" value="{{ team.id }}">
+                                <button type="submit" class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition">
+                                    <i class="fas fa-trash mr-1"></i>Delete
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-gray-500 py-4">
+                    <i class="fas fa-users fa-2x mb-2"></i>
+                    <p>No teams created yet. Create teams to group players for team tournaments.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Add Player Section -->
             <div class="mb-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-3">Add Player</h3>
-                <form method="post" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-3">
+                    <h3 class="text-lg font-bold text-gray-800">Add Player</h3>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="openSearchModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm">
+                            <i class="fas fa-search mr-1"></i>Search Player
+                        </button>
+                        <a href="{% url 'player_tournament_print_players' tournament.id %}" target="_blank" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
+                            <i class="fas fa-print mr-1"></i>Print Players
+                        </a>
+                    </div>
+                </div>
+                <form method="post" class="grid grid-cols-2 gap-3 items-end">
                     {% csrf_token %}
                     <input type="hidden" name="tab" value="{{ tab }}">
                     <input type="hidden" name="action" value="add_player">
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 mb-1">Name</label>
                         {{ player_form.player_name }}
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Rating</label>
-                        {{ player_form.rating }}
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
@@ -137,39 +190,42 @@
                         <label class="block text-xs font-semibold text-gray-600 mb-1">Category</label>
                         {{ player_form.category }}
                     </div>
-                    <div class="md:col-span-5">
+                    <div class="col-span-2">
                         <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm">
-                            <i class="fas fa-plus mr-1"></i>Add Player
+                            Add Player
                         </button>
                     </div>
                 </form>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead class="bg-gray-50 border-b">
-                        <tr>
-                            <th class="px-4 py-2 font-semibold text-gray-700">Name</th>
-                            <th class="px-4 py-2 font-semibold text-gray-700">Rating</th>
-                            <th class="px-4 py-2 font-semibold text-gray-700">Points</th>
-                            <th class="px-4 py-2 font-semibold text-gray-700">W-D-L</th>
-                            <th class="px-4 py-2 font-semibold text-gray-700">Status</th>
-                            <th class="px-4 py-2 font-semibold text-gray-700 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y">
-                        {% for player in players %}
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-4 py-2 font-medium text-gray-900">{{ player.player_name }}</td>
-                            <td class="px-4 py-2 text-gray-600">{{ player.rating }}</td>
-                            <td class="px-4 py-2 text-gray-600">{{ player.points }}</td>
-                            <td class="px-4 py-2 text-gray-600">{{ player.wins }}-{{ player.draws }}-{{ player.losses }}</td>
-                            <td class="px-4 py-2">
-                                <span class="px-2 py-0.5 rounded-full text-xs font-semibold {% if player.status == 'registered' %}bg-blue-100 text-blue-700{% elif player.status == 'confirmed' %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-700{% endif %}">
-                                    {{ player.get_status_display|default:player.status|title }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-2 text-right">
+            <table class="w-full text-left">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-4 py-2 font-semibold text-gray-700">Name</th>
+                        <th class="px-4 py-2 font-semibold text-gray-700">Team</th>
+                        <th class="px-4 py-2 font-semibold text-gray-700">Points</th>
+                        <th class="px-4 py-2 font-semibold text-gray-700">W-D-L</th>
+                        <th class="px-4 py-2 font-semibold text-gray-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {% for player in players %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-2 font-medium text-gray-900">{{ player.player_name|upper }}</td>
+                        <td class="px-4 py-2 text-gray-600">
+                            {% if player.team %}
+                                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">{{ player.team.team_name|upper }}</span>
+                            {% else %}
+                                <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2 text-gray-600">{{ player.points }}</td>
+                        <td class="px-4 py-2 text-gray-600">{{ player.wins }}-{{ player.draws }}-{{ player.losses }}</td>
+                        <td class="px-4 py-2 text-right">
+                            <div class="flex gap-1 justify-end">
+                                <button type="button" onclick="openAssignTeamModal({{ player.id }}, '{{ player.player_name }}')" class="px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition">
+                                    <i class="fas fa-users"></i>
+                                </button>
                                 <form method="post" class="inline" data-confirm-message="Remove this player from the tournament?">
                                     {% csrf_token %}
                                     <input type="hidden" name="tab" value="{{ tab }}">
@@ -177,18 +233,18 @@
                                     <input type="hidden" name="player_id" value="{{ player.id }}">
                                     <button type="submit" class="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition">Remove</button>
                                 </form>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="px-4 py-6 text-center text-gray-500">
-                                No players registered yet. Add players to begin.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-6 text-center text-gray-500">
+                            No players registered yet. Add players to begin.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
 
         {% elif tab == 'rounds' %}
             <!-- Rounds Tab -->
@@ -201,6 +257,28 @@
                        class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
                         <i class="fas fa-print mr-1"></i>Print Pairings
                     </a>
+                    {% if selected_round and can_delete_pairings %}
+                    <form method="post" class="inline" onsubmit="return confirm('Are you sure you want to delete all pairings for Round {{ selected_round }}? This will delete all games and results for this round. This action cannot be undone.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="tab" value="{{ tab }}">
+                        <input type="hidden" name="round_number" value="{{ selected_round }}">
+                        <input type="hidden" name="action" value="delete_round_pairings">
+                        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm">
+                            <i class="fas fa-trash mr-1"></i>Delete Round {{ selected_round }} Pairings
+                        </button>
+                    </form>
+                    {% endif %}
+                    {% if selected_round and can_repair_round %}
+                    <form method="post" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="tab" value="{{ tab }}">
+                        <input type="hidden" name="round_number" value="{{ selected_round }}">
+                        <input type="hidden" name="action" value="generate_specific_round">
+                        <button type="submit" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition text-sm">
+                            <i class="fas fa-redo mr-1"></i>Pair Round {{ selected_round }}
+                        </button>
+                    </form>
+                    {% endif %}
                     <form method="post" class="inline">
                         {% csrf_token %}
                         <input type="hidden" name="tab" value="{{ tab }}">
@@ -280,15 +358,14 @@
                                     <th class="px-4 py-2 font-semibold text-gray-700">White</th>
                                     <th class="px-4 py-2 font-semibold text-gray-700">Black</th>
                                     <th class="px-4 py-2 font-semibold text-gray-700">Result</th>
-                                    <th class="px-4 py-2 font-semibold text-gray-700">Status</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y">
                                 {% for game in rd.games %}
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-2 text-gray-600">{{ game.board_number }}</td>
-                                    <td class="px-4 py-2 font-medium text-gray-900">{{ game.white_player.player_name }}</td>
-                                    <td class="px-4 py-2 font-medium text-gray-900">{{ game.black_player.player_name }}</td>
+                                    <td class="px-4 py-2 font-medium text-gray-900">{{ game.white_player.player_name|upper }}</td>
+                                    <td class="px-4 py-2 font-medium text-gray-900">{{ game.black_player.player_name|upper }}</td>
                                     <td class="px-4 py-2">
                                         {% if rd.is_editable %}
                                         <form method="post" class="flex items-center gap-2">
@@ -305,14 +382,6 @@
                                         {% else %}
                                         <span class="font-medium">{{ game.result }}</span>
                                         {% endif %}
-                                    </td>
-                                    <td class="px-4 py-2">
-                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold
-                                            {% if game.status == 'completed' %}bg-green-100 text-green-700
-                                            {% elif game.status == 'in_progress' %}bg-blue-100 text-blue-700
-                                            {% else %}bg-gray-100 text-gray-700{% endif %}">
-                                            {{ game.get_status_display|default:game.status|title }}
-                                        </span>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -402,7 +471,7 @@
                         {% for standing in standings %}
                         <tr class="hover:bg-gray-50 {% if forloop.counter <= 3 %}bg-yellow-50/50{% endif %}">
                             <td class="px-4 py-2 font-bold text-gray-900">{{ standing.rank }}</td>
-                            <td class="px-4 py-2 font-medium text-gray-900">{{ standing.player.player_name }}</td>
+                            <td class="px-4 py-2 font-medium text-gray-900">{{ standing.player.player_name|upper }}</td>
                             <td class="px-4 py-2 text-gray-600">{{ standing.player.rating }}</td>
                             <td class="px-4 py-2 font-bold text-gray-900">{{ standing.points }}</td>
                             <td class="px-4 py-2 text-gray-600">{{ standing.games_played }}</td>
@@ -426,4 +495,294 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Search Player Modal -->
+<div id="search-player-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+        <div class="p-4 border-b flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-800">Search Existing Players</h3>
+            <button type="button" onclick="closeSearchModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="p-4 border-b">
+            <div class="flex gap-2">
+                <input type="text" id="player-search-input" placeholder="Search by name, email, or phone..." 
+                       class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                       onkeyup="searchPlayers(event)">
+                <button type="button" onclick="searchPlayers(null)" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                    Search
+                </button>
+            </div>
+        </div>
+        <div id="search-results" class="flex-1 overflow-y-auto p-4">
+            <div class="text-center text-gray-500 py-8">
+                <i class="fas fa-search fa-2x mb-2"></i>
+                <p>Enter a name, email, or phone number to search for existing players.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Team Modal -->
+<div id="create-team-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div class="p-4 border-b flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-800">Create New Team</h3>
+            <button type="button" onclick="closeCreateTeamModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form method="post" class="p-4">
+            {% csrf_token %}
+            <input type="hidden" name="tab" value="{{ tab }}">
+            <input type="hidden" name="action" value="create_team">
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Team Name</label>
+                <input type="text" name="team_name" required 
+                       class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                       placeholder="Enter team name">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Category</label>
+                <select name="category" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <option value="junior">Junior</option>
+                    <option value="open">Open</option>
+                    <option value="senior">Senior</option>
+                    <option value="rapid">Rapid</option>
+                    <option value="blitz">Blitz</option>
+                </select>
+            </div>
+            <div class="flex gap-2 justify-end">
+                <button type="button" onclick="closeCreateTeamModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                    Create Team
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Assign Team Modal -->
+<div id="assign-team-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div class="p-4 border-b flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-800">Assign to Team</h3>
+            <button type="button" onclick="closeAssignTeamModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form method="post" class="p-4">
+            {% csrf_token %}
+            <input type="hidden" name="tab" value="{{ tab }}">
+            <input type="hidden" name="action" value="assign_player_to_team">
+            <input type="hidden" id="assign-player-id" name="player_id" value="">
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Player</label>
+                <input type="text" id="assign-player-name" readonly 
+                       class="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-700">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Team</label>
+                <select name="team_id" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <option value="">-- No Team --</option>
+                    {% for team in teams %}
+                    <option value="{{ team.id }}">{{ team.team_name|upper }} ({{ team.get_category_display|title }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-2 justify-end">
+                <button type="button" onclick="closeAssignTeamModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                    Assign
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openSearchModal() {
+        document.getElementById('search-player-modal').classList.remove('hidden');
+        document.getElementById('search-player-modal').classList.add('flex');
+        document.getElementById('player-search-input').focus();
+    }
+
+    function closeSearchModal() {
+        document.getElementById('search-player-modal').classList.add('hidden');
+        document.getElementById('search-player-modal').classList.remove('flex');
+        document.getElementById('player-search-input').value = '';
+        document.getElementById('search-results').innerHTML = `
+            <div class="text-center text-gray-500 py-8">
+                <i class="fas fa-search fa-2x mb-2"></i>
+                <p>Enter a name, email, or phone number to search for existing players.</p>
+            </div>
+        `;
+    }
+
+    function openCreateTeamModal() {
+        document.getElementById('create-team-modal').classList.remove('hidden');
+        document.getElementById('create-team-modal').classList.add('flex');
+    }
+
+    function closeCreateTeamModal() {
+        document.getElementById('create-team-modal').classList.add('hidden');
+        document.getElementById('create-team-modal').classList.remove('flex');
+        document.querySelector('#create-team-modal input[name="team_name"]').value = '';
+    }
+
+    function openAssignTeamModal(playerId, playerName) {
+        document.getElementById('assign-player-id').value = playerId;
+        document.getElementById('assign-player-name').value = playerName;
+        document.getElementById('assign-team-modal').classList.remove('hidden');
+        document.getElementById('assign-team-modal').classList.add('flex');
+    }
+
+    function closeAssignTeamModal() {
+        document.getElementById('assign-team-modal').classList.add('hidden');
+        document.getElementById('assign-team-modal').classList.remove('flex');
+        document.getElementById('assign-player-id').value = '';
+        document.getElementById('assign-player-name').value = '';
+    }
+
+    function searchPlayers(event) {
+        if (event && event.key && event.key !== 'Enter') {
+            return;
+        }
+
+        const query = document.getElementById('player-search-input').value.trim();
+        const resultsDiv = document.getElementById('search-results');
+
+        if (!query) {
+            resultsDiv.innerHTML = `
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-search fa-2x mb-2"></i>
+                    <p>Enter a name, email, or phone number to search for existing players.</p>
+                </div>
+            `;
+            return;
+        }
+
+        resultsDiv.innerHTML = `
+            <div class="text-center text-gray-500 py-8">
+                <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+                <p>Searching...</p>
+            </div>
+        `;
+
+        fetch('/api/search-players/?q=' + encodeURIComponent(query))
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.results.length === 0) {
+                        resultsDiv.innerHTML = `
+                            <div class="text-center text-gray-500 py-8">
+                                <i class="fas fa-user-slash fa-2x mb-2"></i>
+                                <p>No players found matching "${query}".</p>
+                                <p class="text-sm mt-2">Use the "Add Player" form to add a new player.</p>
+                            </div>
+                        `;
+                    } else {
+                        let html = '<div class="space-y-2">';
+                        data.results.forEach(player => {
+                            html += `
+                                <div class="border rounded-lg p-3 hover:bg-gray-50 transition">
+                                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                        <div>
+                                            <div class="font-semibold text-gray-900">${(player.full_name || player.username).toUpperCase()}</div>
+                                            <div class="text-sm text-gray-600">
+                                                ${player.email ? `<i class="fas fa-envelope mr-1"></i>${player.email}` : ''}
+                                                ${player.phone ? `<span class="ml-2"><i class="fas fa-phone mr-1"></i>${player.phone}</span>` : ''}
+                                            </div>
+                                            <div class="text-sm text-gray-500">Rating: ${player.rating}</div>
+                                        </div>
+                                        <button type="button" onclick="selectPlayer('${player.full_name || player.username}', '${player.email}', '${player.phone}', ${player.rating})" 
+                                                class="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition">
+                                            Select
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        resultsDiv.innerHTML = html;
+                    }
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="text-center text-red-500 py-8">
+                            <i class="fas fa-exclamation-circle fa-2x mb-2"></i>
+                            <p>${data.error || 'An error occurred during search.'}</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                resultsDiv.innerHTML = `
+                    <div class="text-center text-red-500 py-8">
+                        <i class="fas fa-exclamation-circle fa-2x mb-2"></i>
+                        <p>An error occurred during search. Please try again.</p>
+                    </div>
+                `;
+            });
+    }
+
+    function selectPlayer(name, email, phone, rating) {
+        // Close the modal
+        closeSearchModal();
+
+        // Populate the form fields
+        const nameInput = document.querySelector('input[name="player_name"]');
+        const emailInput = document.querySelector('input[name="email"]');
+        const phoneInput = document.querySelector('input[name="phone"]');
+
+        if (nameInput) nameInput.value = name;
+        if (emailInput) emailInput.value = email;
+        if (phoneInput) phoneInput.value = phone;
+
+        // Show a message indicating the player was selected
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'mb-4 px-4 py-3 rounded-lg bg-blue-100 text-blue-800';
+        messageDiv.innerHTML = `<i class="fas fa-info-circle mr-1"></i>Existing player "${name}" selected. Review the information and click "Add Player" to register them.`;
+        
+        const form = document.querySelector('form[action=""]');
+        form.parentNode.insertBefore(messageDiv, form);
+
+        // Auto-remove the message after 5 seconds
+        setTimeout(() => {
+            messageDiv.remove();
+        }, 5000);
+    }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeSearchModal();
+            closeCreateTeamModal();
+            closeAssignTeamModal();
+        }
+    });
+
+    // Close modal when clicking outside
+    document.getElementById('search-player-modal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            closeSearchModal();
+        }
+    });
+
+    document.getElementById('create-team-modal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            closeCreateTeamModal();
+        }
+    });
+
+    document.getElementById('assign-team-modal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            closeAssignTeamModal();
+        }
+    });
+</script>
 {% endblock %}

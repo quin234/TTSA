@@ -14,9 +14,10 @@ from django.db import transaction
 from .pairing_interface import PairingServiceFactory, Player, RoundPairings
 from .pairing_converter import PairingDataConverter
 
-# Import BBP service to ensure registration
+# Import pairing services to ensure registration
 from .bbp_pairings_service import BBPPairingsService
-from .models import Tournament, TournamentPlayer, TournamentGame, TournamentRound
+from .caissify_pairings_service import CaissifyPairingsService
+from .models import Tournament, TournamentPlayer, TournamentGame, TournamentRound, TournamentStanding
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +30,12 @@ class PairingManager:
     keeping the pairing logic modular and replaceable.
     """
     
-    def __init__(self, service_name: str = 'bbp'):
+    def __init__(self, service_name: str = 'caissify'):
         """
         Initialize the pairing manager.
         
         Args:
-            service_name: Name of the pairing service to use
+            service_name: Name of the pairing service to use (default: caissify)
         """
         self.service_name = service_name
         self.service = None
@@ -174,6 +175,144 @@ class PairingManager:
             return {
                 'success': False,
                 'error': 'Failed to submit round results'
+            }
+    
+    def delete_round_pairings(self, tournament: Tournament, round_number: int) -> Dict[str, Any]:
+        """
+        Delete all pairings for a specific round, allowing it to be re-paired.
+        
+        This method transactionally deletes:
+        - All games for the specified round
+        - The round object itself
+        - Any related standings for this round
+        
+        Args:
+            tournament: Tournament instance
+            round_number: Round number to delete pairings for
+            
+        Returns:
+            Dict with success status and message
+        """
+        try:
+            with transaction.atomic():
+                # Check if round exists
+                try:
+                    round_obj = TournamentRound.objects.get(
+                        tournament=tournament,
+                        round_number=round_number
+                    )
+                except TournamentRound.DoesNotExist:
+                    return {
+                        'success': False,
+                        'error': f'Round {round_number} does not exist'
+                    }
+                
+                # Delete all games for this round
+                games_deleted = TournamentGame.objects.filter(
+                    tournament=tournament,
+                    round_number=round_number
+                ).delete()
+                
+                # Delete standings for this round
+                standings_deleted = TournamentStanding.objects.filter(
+                    tournament=tournament,
+                    round_number=round_number
+                ).delete()
+                
+                # Delete the round object
+                round_obj.delete()
+                
+                logger.info(
+                    f"Deleted pairings for round {round_number}: "
+                    f"{games_deleted} games, {standings_deleted} standings, 1 round"
+                )
+                
+                return {
+                    'success': True,
+                    'message': f'Successfully deleted pairings for Round {round_number}',
+                    'round_number': round_number,
+                    'games_deleted': games_deleted,
+                    'standings_deleted': standings_deleted
+                }
+                
+        except Exception as e:
+            logger.error(f"Error deleting round {round_number} pairings: {e}")
+            return {
+                'success': False,
+                'error': 'Failed to delete round pairings'
+            }
+    
+    def generate_specific_round(self, tournament: Tournament, round_number: int) -> Dict[str, Any]:
+        """
+        Generate pairings for a specific round number (for re-pairing after deletion).
+        
+        Args:
+            tournament: Tournament instance
+            round_number: Specific round number to generate pairings for
+            
+        Returns:
+            Dict with success status, round data, and message
+        """
+        try:
+            with transaction.atomic():
+                # Validate tournament state
+                if round_number < 1 or round_number > tournament.rounds:
+                    return {
+                        'success': False,
+                        'error': f'Invalid round number: {round_number}'
+                    }
+                
+                # Check if round already exists
+                if TournamentRound.objects.filter(
+                    tournament=tournament,
+                    round_number=round_number
+                ).exists():
+                    return {
+                        'success': False,
+                        'error': f'Round {round_number} already exists'
+                    }
+                
+                # Get tournament players
+                players = PairingDataConverter.tournament_to_players(tournament)
+                
+                # Get previous pairings (only rounds before this one)
+                previous_pairings = PairingDataConverter.get_previous_pairings(
+                    tournament, round_number
+                )
+                
+                # Generate pairings using the service
+                round_pairings = self.service.generate_pairings(
+                    players=players,
+                    round_number=round_number,
+                    previous_pairings=previous_pairings,
+                    tournament_name=tournament.name,
+                    total_rounds=tournament.rounds
+                )
+                
+                # Save pairings to database
+                round_obj, games = PairingDataConverter.pairings_to_database(
+                    round_pairings, tournament
+                )
+                
+                # Update tournament status
+                if tournament.status == 'registration':
+                    tournament.status = 'in_progress'
+                    tournament.save()
+                
+                return {
+                    'success': True,
+                    'round_number': round_number,
+                    'round_id': round_obj.id,
+                    'games_count': len(games),
+                    'pairings': self._serialize_pairings(round_pairings),
+                    'message': f'Successfully generated pairings for Round {round_number}'
+                }
+                
+        except Exception as e:
+            logger.error(f"Error generating round {round_number}: {e}")
+            return {
+                'success': False,
+                'error': 'Failed to generate pairings'
             }
     
     def get_current_standings(self, tournament: Tournament) -> List[Dict[str, Any]]:
@@ -417,12 +556,12 @@ class PairingManager:
 # Global pairing manager instance
 _pairing_manager = None
 
-def get_pairing_manager(service_name: str = 'bbp') -> PairingManager:
+def get_pairing_manager(service_name: str = 'caissify') -> PairingManager:
     """
     Get the global pairing manager instance.
     
     Args:
-        service_name: Name of the pairing service to use
+        service_name: Name of the pairing service to use (default: caissify)
         
     Returns:
         PairingManager instance

@@ -7,23 +7,85 @@
     <style>
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; margin: 20px; color: #111; }
-        h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #2c3e50;
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #3498db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 1.5rem;
+        }
+        
+        .logo-img {
+            height: 60px;
+            width: auto;
+            max-width: 200px;
+            object-fit: contain;
+        }
+        
+        .academy-info {
+            flex: 1;
+        }
+        
+        .academy-name {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .tournament-title {
+            font-size: 1.4rem;
+            margin-bottom: 0.3rem;
+            color: #2c3e50;
+        }
+        
         .meta { font-size: 0.9rem; color: #555; margin-bottom: 1.5rem; }
-        h2 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; }
+        
+        h2 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; color: #2c3e50; }
+        
         table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
         th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.95rem; }
-        th { background: #f3f4f6; font-weight: bold; }
+        th { background: #2c3e50; color: white; font-weight: bold; }
         tr:nth-child(even) { background: #f9fafb; }
         .result { font-weight: bold; min-width: 60px; display: inline-block; text-align: center; }
+        
         @media print {
             body { margin: 0; }
             h2 { page-break-after: avoid; }
             table { page-break-inside: avoid; }
+            .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
 </head>
 <body>
-    <h1>{{ tournament.name }} &mdash; Pairings</h1>
+    <div class="header">
+        {% if academy_settings.logo %}
+        <img src="{{ academy_settings.logo.url }}?v={{ academy_settings.updated_at|date:'U' }}" alt="{{ academy_settings.academy_name }}" class="logo-img">
+        {% else %}
+        <div class="logo">TT</div>
+        {% endif %}
+        <div class="academy-info">
+            <h1 class="academy-name">{{ academy_settings.academy_name }}</h1>
+        </div>
+    </div>
+    
+    <h2 class="tournament-title">{{ tournament.name|upper }} &mdash; PAIRINGS</h2>
     <div class="meta">
         <p><strong>Venue:</strong> {{ tournament.venue }} &nbsp;|&nbsp; <strong>Date:</strong> {{ tournament.start_date|date:"M d, Y H:i" }}</p>
         <p><strong>Format:</strong> {{ tournament.get_format_display }} &nbsp;|&nbsp; <strong>Rounds:</strong> {{ tournament.rounds }}</p>
@@ -44,8 +106,8 @@
             {% for game in rd.games %}
             <tr>
                 <td>{{ game.board_number }}</td>
-                <td>{{ game.white_player.player_name }}{% if game.white_player.rating %} ({{ game.white_player.rating }}){% endif %}</td>
-                <td>{{ game.black_player.player_name }}{% if game.black_player.rating %} ({{ game.black_player.rating }}){% endif %}</td>
+                <td>{{ game.white_player.player_name|upper }}{% if game.white_player.rating %} ({{ game.white_player.rating }}){% endif %}</td>
+                <td>{{ game.black_player.player_name|upper }}{% if game.black_player.rating %} ({{ game.black_player.rating }}){% endif %}</td>
                 <td><span class="result">{{ game.result }}</span></td>
             </tr>
             {% endfor %}

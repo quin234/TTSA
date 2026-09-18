@@ -49,6 +49,12 @@ class PairingDataConverter:
             # Get color history
             color_history = PairingDataConverter._get_color_history(tp, tournament)
             
+            # Get float history (for caissify-pairings)
+            float_history = PairingDataConverter._get_float_history(tp, tournament)
+            
+            # Get bye count (for caissify-pairings)
+            bye_count = PairingDataConverter._get_bye_count(tp, tournament)
+            
             player = Player(
                 id=tp.id,
                 name=tp.player_name,
@@ -56,6 +62,11 @@ class PairingDataConverter:
                 score=score,
                 color_history=color_history
             )
+            
+            # Store additional history as attributes for caissify-pairings
+            player.float_history = float_history
+            player.bye_count = bye_count
+            
             players.append(player)
         
         return players
@@ -112,8 +123,108 @@ class PairingDataConverter:
                     color_history.append('white')
                 elif game.black_player == tournament_player:
                     color_history.append('black')
+            
+            # Check if player had a bye in this round
+            if round_obj.bye_players.filter(id=tournament_player.id).exists():
+                color_history.append('none')
         
         return color_history
+    
+    @staticmethod
+    def _get_float_history(tournament_player: TournamentPlayer, tournament: Tournament) -> List[str]:
+        """
+        Get player's float history from completed rounds.
+        
+        Float history indicates whether a player was paired against someone
+        from a different score group (up/down) or same score group (none).
+        """
+        float_history = []
+        
+        completed_rounds = TournamentRound.objects.filter(
+            tournament=tournament,
+            status='completed'
+        ).order_by('round_number')
+        
+        for round_obj in completed_rounds:
+            # Check if player had a bye in this round
+            if round_obj.bye_players.filter(id=tournament_player.id).exists():
+                float_history.append('none')
+                continue
+            
+            # Find the player's game in this round
+            game = TournamentGame.objects.filter(
+                tournament=tournament,
+                round_number=round_obj.round_number
+            ).filter(
+                models.Q(white_player=tournament_player) | 
+                models.Q(black_player=tournament_player)
+            ).first()
+            
+            if game:
+                # Get opponent
+                opponent = game.black_player if game.white_player == tournament_player else game.white_player
+                
+                # Get scores before this round
+                player_score_before = PairingDataConverter._get_score_before_round(
+                    tournament_player, tournament, round_obj.round_number
+                )
+                opponent_score_before = PairingDataConverter._get_score_before_round(
+                    opponent, tournament, round_obj.round_number
+                )
+                
+                # Determine float type
+                if player_score_before > opponent_score_before:
+                    float_history.append('down')
+                elif player_score_before < opponent_score_before:
+                    float_history.append('up')
+                else:
+                    float_history.append('none')
+            else:
+                # Player didn't have a game in this round (shouldn't happen normally)
+                float_history.append('none')
+        
+        return float_history
+    
+    @staticmethod
+    def _get_bye_count(tournament_player: TournamentPlayer, tournament: Tournament) -> int:
+        """Get the number of byes a player has received."""
+        return TournamentRound.objects.filter(
+            tournament=tournament,
+            bye_players=tournament_player
+        ).count()
+    
+    @staticmethod
+    def _get_score_before_round(tournament_player: TournamentPlayer, tournament: Tournament, round_number: int) -> float:
+        """Get player's score before a specific round."""
+        score = 0.0
+        
+        # Get games from rounds before this round
+        games = TournamentGame.objects.filter(
+            tournament=tournament,
+            round_number__lt=round_number,
+            result__in=['1-0', '0-1', '½-½']
+        ).filter(
+            models.Q(white_player=tournament_player) | 
+            models.Q(black_player=tournament_player)
+        )
+        
+        for game in games:
+            if game.result == '1-0' and game.white_player == tournament_player:
+                score += 1.0
+            elif game.result == '0-1' and game.black_player == tournament_player:
+                score += 1.0
+            elif game.result == '½-½':
+                score += 0.5
+        
+        # Add bye points from rounds before this round
+        bye_rounds = TournamentRound.objects.filter(
+            tournament=tournament,
+            round_number__lt=round_number,
+            bye_players=tournament_player
+        )
+        score += len(bye_rounds) * 1.0
+        
+        return score
     
     @staticmethod
     def pairings_to_database(

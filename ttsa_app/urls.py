@@ -55,8 +55,10 @@ urlpatterns = [
     path('my-tournaments/<int:tournament_id>/delete/', views.player_tournament_delete, name='player_tournament_delete'),
     path('my-tournaments/<int:tournament_id>/print/pairings/', views.player_tournament_print_pairings, name='player_tournament_print_pairings'),
     path('my-tournaments/<int:tournament_id>/print/standings/', views.player_tournament_print_standings, name='player_tournament_print_standings'),
+    path('my-tournaments/<int:tournament_id>/print/players/', views.player_tournament_print_players, name='player_tournament_print_players'),
     path('api/my-tournaments/<int:tournament_id>/', views.player_tournament_api_data, name='player_tournament_api_data'),
-    
+    path('api/search-players/', views.search_players_api, name='search_players_api'),
+
     # API endpoints
     path('api/save-game/', views.save_game, name='save_game'),
     path('api/complete-lesson/<int:lesson_id>/', views.complete_lesson, name='complete_lesson'),

@@ -2,7 +2,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from .models import YouTubeChannel, Tournament, TournamentPlayer, TournamentGame
+from .models import YouTubeChannel, Tournament, TournamentPlayer, TournamentGame, TournamentTeam
 from .youtube_utils import validate_and_fetch_channel_metadata, YouTubeChannelError
 from ttsa_app.models import VideoLesson
 from .youtube_utils import validate_and_fetch_video_metadata, YouTubeVideoError
@@ -358,43 +358,75 @@ class TournamentForm(forms.ModelForm):
 
 class TournamentPlayerForm(forms.ModelForm):
     """Form for adding players to tournaments"""
-    
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set default values
+        self.fields['rating'].initial = 1500
+        self.fields['rating'].required = False
+        self.fields['category'].initial = 'junior'
+
     class Meta:
         model = TournamentPlayer
         fields = ['player_name', 'rating', 'email', 'phone', 'category']
         widgets = {
             'player_name': forms.TextInput(attrs={
-                'class': 'form-control',
+                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
                 'placeholder': 'Enter player name',
                 'required': True
             }),
             'rating': forms.NumberInput(attrs={
-                'class': 'form-control',
+                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
                 'min': 1000,
                 'max': 3000,
                 'placeholder': 'Enter rating',
-                'required': True
             }),
             'email': forms.EmailInput(attrs={
-                'class': 'form-control',
+                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
                 'placeholder': 'Enter email (optional)'
             }),
             'phone': forms.TextInput(attrs={
-                'class': 'form-control',
+                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
                 'placeholder': 'Enter phone (optional)'
+            }),
+            'category': forms.Select(attrs={
+                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                'required': True
+            })
+        }
+
+    def clean_rating(self):
+        """Validate rating"""
+        rating = self.cleaned_data.get('rating')
+        if rating and (rating < 1000 or rating > 3000):
+            raise ValidationError('Rating must be between 1000 and 3000')
+        # Return 1500 if no rating provided
+        return rating if rating else 1500
+
+
+class TournamentTeamForm(forms.ModelForm):
+    """Form for creating teams in team tournaments"""
+
+    def __init__(self, *args, **kwargs):
+        tournament = kwargs.pop('tournament', None)
+        super().__init__(*args, **kwargs)
+        if tournament:
+            self.fields['category'].initial = tournament.category
+
+    class Meta:
+        model = TournamentTeam
+        fields = ['team_name', 'category']
+        widgets = {
+            'team_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter team name',
+                'required': True
             }),
             'category': forms.Select(attrs={
                 'class': 'form-select',
                 'required': True
             })
         }
-    
-    def clean_rating(self):
-        """Validate rating"""
-        rating = self.cleaned_data.get('rating')
-        if rating and (rating < 1000 or rating > 3000):
-            raise ValidationError('Rating must be between 1000 and 3000')
-        return rating
 
 
 class TournamentGameForm(forms.ModelForm):

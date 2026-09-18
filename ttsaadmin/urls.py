@@ -36,6 +36,8 @@ urlpatterns = [
     # Round Management URLs
     path('api/tournaments/<int:tournament_id>/rounds/', views.tournament_rounds_api, name='tournament_rounds_api'),
     path('api/tournaments/<int:tournament_id>/generate-next-round/', views.generate_next_round, name='generate_next_round'),
+    path('api/tournaments/<int:tournament_id>/generate-round/<int:round_number>/', views.generate_specific_round, name='generate_specific_round'),
+    path('api/tournaments/<int:tournament_id>/delete-round-pairings/<int:round_number>/', views.delete_round_pairings, name='delete_round_pairings'),
     path('api/tournaments/<int:tournament_id>/games/<int:game_id>/result/', views.update_game_result_api, name='update_game_result_api'),
     path('api/tournaments/<int:tournament_id>/submit-round/', views.submit_round_results_api, name='submit_round_results_api'),
     path('api/tournaments/<int:tournament_id>/games/', views.tournament_games_api, name='tournament_games_api'),

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ tournament.name }} - Standings</title>
+    <title>{{ tournament.name }} - Players</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; margin: 20px; color: #111; }
@@ -82,47 +82,45 @@
         </div>
     </div>
     
-    <h2 class="tournament-title">{{ tournament.name|upper }} &mdash; STANDINGS</h2>
+    <h2 class="tournament-title">{{ tournament.name|upper }} &mdash; PLAYER LIST</h2>
     <div class="meta">
         <p><strong>Venue:</strong> {{ tournament.venue }} &nbsp;|&nbsp; <strong>Date:</strong> {{ tournament.start_date|date:"M d, Y H:i" }}</p>
-        <p><strong>Format:</strong> {{ tournament.get_format_display }} &nbsp;|&nbsp; <strong>Total Rounds:</strong> {{ tournament.rounds }}{% if round_number %} &nbsp;|&nbsp; <strong>After Round:</strong> {{ round_number }}{% endif %}</p>
+        <p><strong>Format:</strong> {{ tournament.get_format_display }} &nbsp;|&nbsp; <strong>Total Players:</strong> {{ players.count }}</p>
     </div>
 
-    {% if standings %}
+    {% if players %}
     <table>
         <thead>
             <tr>
-                <th>Rank</th>
-                <th>Player</th>
+                <th>#</th>
+                <th>Player Name</th>
+                <th>Team</th>
+                <th>Phone</th>
                 <th>Rating</th>
-                <th class="right">Points</th>
-                <th class="right">Games</th>
-                <th class="right">W</th>
-                <th class="right">D</th>
-                <th class="right">L</th>
-                <th class="right">Buchholz</th>
-                <th class="right">Sonneborn</th>
+                <th>Category</th>
             </tr>
         </thead>
         <tbody>
-            {% for standing in standings %}
+            {% for player in players %}
             <tr>
-                <td>{{ standing.rank }}</td>
-                <td>{{ standing.player.player_name|upper }}</td>
-                <td>{{ standing.player.rating|default:"—" }}</td>
-                <td class="right">{{ standing.points }}</td>
-                <td class="right">{{ standing.games_played }}</td>
-                <td class="right">{{ standing.wins }}</td>
-                <td class="right">{{ standing.draws }}</td>
-                <td class="right">{{ standing.losses }}</td>
-                <td class="right">{{ standing.buchholz }}</td>
-                <td class="right">{{ standing.sonneborn_berger }}</td>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ player.player_name|upper }}</td>
+                <td>
+                    {% if player.team %}
+                        {{ player.team.team_name|upper }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>{{ player.phone|default:"—" }}</td>
+                <td>{{ player.rating|default:"—" }}</td>
+                <td>{{ player.get_category_display|title }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     {% else %}
-    <p>No standings available yet.</p>
+    <p>No players registered yet.</p>
     {% endif %}
 
     <script>window.onload = function() { window.print(); };</script>

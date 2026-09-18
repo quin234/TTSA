@@ -79,6 +79,8 @@ class PlayerProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_constraint=False)
     avatar = models.ImageField(upload_to='avatars/', default='avatars/default.png')
     rating = models.IntegerField(default=1500)
+    rating_deviation = models.FloatField(default=350.0)  # Glicko-2 rating deviation
+    volatility = models.FloatField(default=0.06)  # Glicko-2 volatility
     coins = models.IntegerField(default=100)
     level = models.IntegerField(default=1)
     experience_points = models.IntegerField(default=0)

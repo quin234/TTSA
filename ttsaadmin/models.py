@@ -111,6 +111,11 @@ class Tournament(models.Model):
         ('elimination', 'Knockout'),
         ('double_elimination', 'Double Elimination'),
     ]
+
+    TYPE_CHOICES = [
+        ('individual', 'Individual'),
+        ('team', 'Team'),
+    ]
     
     # Basic Information
     name = models.CharField(max_length=255, db_index=True)
@@ -121,6 +126,7 @@ class Tournament(models.Model):
     # Tournament Details
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, db_index=True)
     format = models.CharField(max_length=20, choices=FORMAT_CHOICES, default='swiss')
+    tournament_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='individual', db_index=True)
     rounds = models.PositiveIntegerField(default=7)
     time_control = models.CharField(max_length=20, help_text="e.g., '90+30', '15+10'")
     
@@ -240,8 +246,11 @@ class TournamentPlayer(models.Model):
     ]
     
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name='players', db_index=True)
+    team = models.ForeignKey('TournamentTeam', on_delete=models.SET_NULL, null=True, blank=True, related_name='members', db_index=True)
     player_name = models.CharField(max_length=255, db_index=True)
     rating = models.PositiveIntegerField(db_index=True)
+    rating_deviation = models.FloatField(default=350.0)  # Glicko-2 rating deviation
+    volatility = models.FloatField(default=0.06)  # Glicko-2 volatility
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=20, blank=True)
     category = models.CharField(max_length=20, choices=Tournament.CATEGORY_CHOICES)
@@ -270,12 +279,56 @@ class TournamentPlayer(models.Model):
             models.Index(fields=['tournament', 'rank']),
             models.Index(fields=['rating']),
             models.Index(fields=['player_name']),
+            models.Index(fields=['team']),
         ]
-        unique_together = ['tournament', 'player_name']
+        unique_together = ['tournament', 'player_name', 'team']
     
     def __str__(self):
         return f"{self.player_name} - {self.tournament.name}"
     
+    @property
+    def games_played(self):
+        """Calculate total games played"""
+        return self.wins + self.losses + self.draws
+
+
+class TournamentTeam(models.Model):
+    """Model for team tournaments"""
+
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name='teams', db_index=True)
+    team_name = models.CharField(max_length=255, db_index=True)
+    team_captain = models.ForeignKey(TournamentPlayer, on_delete=models.SET_NULL, null=True, blank=True, related_name='captained_teams')
+    category = models.CharField(max_length=20, choices=Tournament.CATEGORY_CHOICES)
+
+    # Team Statistics
+    points = models.DecimalField(max_digits=5, decimal_places=2, default=0, db_index=True)
+    wins = models.PositiveIntegerField(default=0)
+    losses = models.PositiveIntegerField(default=0)
+    draws = models.PositiveIntegerField(default=0)
+
+    # Tie-break scores
+    buchholz = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    sonneborn_berger = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+
+    # Status and Metadata
+    status = models.CharField(max_length=20, choices=TournamentPlayer.STATUS_CHOICES, default='registered', db_index=True)
+    rank = models.PositiveIntegerField(null=True, blank=True, db_index=True)
+    registered_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-points', '-buchholz', '-sonneborn_berger', 'team_name']
+        indexes = [
+            models.Index(fields=['tournament', '-points']),
+            models.Index(fields=['tournament', 'status']),
+            models.Index(fields=['tournament', 'rank']),
+            models.Index(fields=['team_name']),
+        ]
+        unique_together = ['tournament', 'team_name']
+
+    def __str__(self):
+        return f"{self.team_name} - {self.tournament.name}"
+
     @property
     def games_played(self):
         """Calculate total games played"""

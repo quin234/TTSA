@@ -27,18 +27,20 @@ from .models import (
     Lesson, PlayerLesson, Puzzle,	PlayerPuzzle, Leaderboard,
     Friend, Message, AcademyNews, MultiplayerGame, GameMove, VideoLesson, GuestSession
 )
-from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentRound, TournamentStanding
+from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentRound, TournamentStanding, TournamentTeam
 from ttsaadmin.forms import TournamentForm, TournamentPlayerForm
 from ttsaadmin.pairing_manager import get_pairing_manager
 from ttsaadmin.pairing_converter import PairingDataConverter
 from .stockfish_service import stockfish_service, DifficultyLevel
 from .stockfish_config import get_difficulty_config
 
+from elote import Glicko2Competitor
+
 ELO_K_FACTOR = 32
 
 
 def calculate_elo_change(player_rating, opponent_rating, result):
-    """Return the Elo rating change for a single game."""
+    """Return the Elo rating change for a single game (for computer games)."""
     score = {'win': 1, 'draw': 0.5, 'loss': 0}.get(result, 0.5)
     expected = 1 / (1 + 10 ** ((opponent_rating - player_rating) / 400))
     return round(ELO_K_FACTOR * (score - expected))
@@ -1512,6 +1514,61 @@ def tournament_register_api(request, tournament_id):
 
 
 @login_required
+@require_GET
+def search_players_api(request):
+    """API endpoint to search players by email, phone, or name"""
+    search_query = request.GET.get('q', '').strip()
+
+    if not search_query:
+        return JsonResponse({
+            'success': False,
+            'error': 'Search query is required'
+        }, status=400)
+
+    try:
+        from ttsa_app.models import PlayerProfile
+        from django.contrib.auth.models import User
+
+        # Search in PlayerProfile by email, phone, id_number
+        profiles = PlayerProfile.objects.filter(
+            Q(user__email__icontains=search_query) |
+            Q(phone_number__icontains=search_query) |
+            Q(id_number__icontains=search_query) |
+            Q(user__username__icontains=search_query) |
+            Q(user__first_name__icontains=search_query) |
+            Q(user__last_name__icontains=search_query)
+        ).select_related('user')[:20]  # Limit to 20 results
+
+        results = []
+        for profile in profiles:
+            user = profile.user
+            results.append({
+                'id': profile.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name or '',
+                'last_name': user.last_name or '',
+                'full_name': f"{user.first_name} {user.last_name}".strip() or user.username,
+                'phone': profile.phone_number or '',
+                'id_number': profile.id_number or '',
+                'rating': profile.rating
+            })
+
+        return JsonResponse({
+            'success': True,
+            'results': results,
+            'count': len(results)
+        })
+
+    except Exception as e:
+        logger.error(f"Error searching players: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'An error occurred during search'
+        }, status=500)
+
+
+@login_required
 @require_POST
 def tournament_unregister_api(request, tournament_id):
     """API endpoint for tournament withdrawal"""
@@ -1879,6 +1936,10 @@ def player_tournament_manage(request, tournament_id):
             form = TournamentPlayerForm(request.POST)
             if form.is_valid():
                 player_name = form.cleaned_data['player_name']
+                email = form.cleaned_data.get('email', '')
+                phone = form.cleaned_data.get('phone', '')
+                
+                # Check if player already exists in this tournament
                 if tournament.players.filter(player_name__iexact=player_name).exists():
                     messages.error(request, f'A player named "{player_name}" already exists in this tournament.')
                 else:
@@ -1906,6 +1967,60 @@ def player_tournament_manage(request, tournament_id):
             tournament.current_players = tournament.players.filter(status='registered').count()
             tournament.save()
             messages.success(request, f'Player "{player_name}" removed successfully.')
+
+        elif action == 'create_team':
+            team_name = request.POST.get('team_name', '').strip()
+            category = request.POST.get('category', 'junior')
+            
+            if not team_name:
+                messages.error(request, 'Team name is required.')
+            else:
+                # Check if team already exists in this tournament
+                if tournament.teams.filter(team_name__iexact=team_name).exists():
+                    messages.error(request, f'A team named "{team_name}" already exists in this tournament.')
+                else:
+                    try:
+                        with transaction.atomic():
+                            team = TournamentTeam.objects.create(
+                                tournament=tournament,
+                                team_name=team_name,
+                                category=category
+                            )
+                        messages.success(request, f'Team "{team_name}" created successfully.')
+                    except IntegrityError:
+                        messages.error(request, f'A team named "{team_name}" already exists in this tournament.')
+                    except Exception as e:
+                        logger.error(f"Error creating team: {e}")
+                        messages.error(request, 'An error occurred while creating the team. Please try again.')
+
+        elif action == 'assign_player_to_team':
+            player_id = request.POST.get('player_id')
+            team_id = request.POST.get('team_id')
+            
+            player = get_object_or_404(TournamentPlayer, id=player_id, tournament=tournament)
+            
+            if team_id:
+                team = get_object_or_404(TournamentTeam, id=team_id, tournament=tournament)
+                player.team = team
+                player.save()
+                messages.success(request, f'Player "{player.player_name}" assigned to team "{team.team_name}".')
+            else:
+                # Remove from team
+                player.team = None
+                player.save()
+                messages.success(request, f'Player "{player.player_name}" removed from team.')
+
+        elif action == 'delete_team':
+            team_id = request.POST.get('team_id')
+            team = get_object_or_404(TournamentTeam, id=team_id, tournament=tournament)
+            team_name = team.team_name
+            
+            # Remove team assignment from all players
+            team.members.update(team=None)
+            
+            # Delete the team
+            team.delete()
+            messages.success(request, f'Team "{team_name}" deleted successfully.')
 
         elif action == 'generate_next_round':
             try:
@@ -1953,6 +2068,10 @@ def player_tournament_manage(request, tournament_id):
                 pairing_manager = get_pairing_manager()
                 result = pairing_manager.submit_round_results(tournament, rn)
                 if result['success']:
+                    # Update player ratings using Glicko-2 algorithm
+                    from ttsa_utils.rating_utils import update_tournament_ratings
+                    update_tournament_ratings(tournament)
+
                     if rn >= tournament.rounds:
                         tournament.status = 'completed'
                         tournament.save(update_fields=['status'])
@@ -1987,6 +2106,74 @@ def player_tournament_manage(request, tournament_id):
                             TournamentGame.objects.filter(
                                 tournament=tournament, round_number=rn
                             ).update(result='*', status='scheduled', completed_at=None)
+        
+        elif action == 'delete_round_pairings':
+            round_number = request.POST.get('round_number')
+            try:
+                rn = int(round_number)
+            except (ValueError, TypeError):
+                messages.error(request, 'Invalid round number.')
+            else:
+                extra_round = rn
+                if not request.user.is_ttsa_admin:
+                    messages.error(request, 'Only TTSA administrators can delete round pairings.')
+                else:
+                    try:
+                        pairing_manager = get_pairing_manager()
+                        result = pairing_manager.delete_round_pairings(tournament, rn)
+                        if result['success']:
+                            messages.success(request, result['message'])
+                        else:
+                            messages.error(request, result.get('error', 'Failed to delete round pairings.'))
+                    except Exception as e:
+                        logger.error(f"Error deleting round pairings: {e}")
+                        messages.error(request, 'An error occurred while deleting round pairings.')
+        
+        elif action == 'generate_specific_round':
+            round_number = request.POST.get('round_number')
+            try:
+                rn = int(round_number)
+            except (ValueError, TypeError):
+                messages.error(request, 'Invalid round number.')
+            else:
+                extra_round = rn
+                if not request.user.is_ttsa_admin:
+                    messages.error(request, 'Only TTSA administrators can generate specific rounds.')
+                else:
+                    try:
+                        pairing_manager = get_pairing_manager()
+                        result = pairing_manager.generate_specific_round(tournament, rn)
+                        if result['success']:
+                            if tournament.status != 'ongoing':
+                                tournament.status = 'ongoing'
+                                tournament.save(update_fields=['status'])
+                            messages.success(request, result['message'])
+                        else:
+                            messages.error(request, result.get('error', 'Failed to generate pairings.'))
+                    except Exception as e:
+                        logger.error(f"Error generating specific round: {e}")
+                        messages.error(request, 'An error occurred while generating pairings.')
+        
+        elif action == 'reset_round':
+            round_number = request.POST.get('round_number')
+            try:
+                rn = int(round_number)
+            except (ValueError, TypeError):
+                messages.error(request, 'Invalid round number.')
+            else:
+                extra_round = rn
+                if not request.user.is_ttsa_admin:
+                    messages.error(request, 'Only TTSA administrators can reset a submitted round.')
+                else:
+                    round_obj = rounds.get(rn)
+                    if not round_obj:
+                        messages.error(request, f'Round {rn} does not exist.')
+                    elif round_obj.status != 'completed':
+                        messages.error(request, f'Round {rn} is not submitted, so it does not need to be reset.')
+                    elif rn != max(rounds.keys(), default=0):
+                        messages.error(request, 'Only the latest submitted round can be reset.')
+                    else:
+                        with transaction.atomic():
                             # Unlock the round
                             round_obj.status = 'active'
                             round_obj.end_time = None
@@ -2022,6 +2209,14 @@ def player_tournament_manage(request, tournament_id):
     round_numbers = sorted(grouped_games.keys())
     current_round = max(round_numbers) if round_numbers else 0
 
+    # Selected round for the rounds tab (default to the latest round)
+    try:
+        selected_round = int(request.GET.get('round'))
+        if selected_round not in round_numbers:
+            selected_round = current_round
+    except (ValueError, TypeError):
+        selected_round = current_round
+
     # Build round data with locking info. A round is locked once it has been
     # submitted (status=completed). Rounds with no submitted results remain editable.
     round_data = []
@@ -2052,8 +2247,27 @@ def player_tournament_manage(request, tournament_id):
         (current_round == 0 or rounds.get(current_round, TournamentRound()).status == 'completed')
     )
     can_submit = any(r.status == 'active' for r in rounds.values())
+    
+    # Can delete pairings for the selected round if it exists and user is admin
+    can_delete_pairings = (
+        request.user.is_ttsa_admin and
+        selected_round and
+        selected_round in rounds
+    )
+    
+    # Can re-pair a specific round if it doesn't exist but should (gap in sequence)
+    can_repair_round = (
+        request.user.is_ttsa_admin and
+        selected_round and
+        selected_round not in rounds and
+        selected_round <= tournament.rounds and
+        selected_round > 0
+    )
 
-    player_form = TournamentPlayerForm()
+    player_form = TournamentPlayerForm(initial={'category': 'junior'})
+
+    # Get teams for this tournament
+    teams = tournament.teams.all().prefetch_related('members')
 
     # Recalculate latest standings if any completed rounds exist
     standings = []
@@ -2097,7 +2311,10 @@ def player_tournament_manage(request, tournament_id):
         'result_choices': TournamentGame.RESULT_CHOICES,
         'can_generate': can_generate,
         'can_submit': can_submit,
+        'can_delete_pairings': can_delete_pairings,
+        'can_repair_round': can_repair_round,
         'is_admin': request.user.is_ttsa_admin,
+        'teams': teams,
     }
 
     return render(request, 'ttsa_app/tournament_manage.html', context)
@@ -2174,9 +2391,14 @@ def player_tournament_print_pairings(request, tournament_id):
             grouped.setdefault(g.round_number, []).append(g)
         round_data = [{'round_number': rn, 'games': grouped[rn]} for rn in sorted(grouped.keys())]
 
+    # Get academy settings for branding
+    from ttsaadmin.models import AcademySettings
+    academy_settings = AcademySettings.objects.first()
+
     context = {
         'tournament': tournament,
         'round_data': round_data,
+        'academy_settings': academy_settings,
     }
     return render(request, 'ttsa_app/tournament_print_pairings.html', context)
 
@@ -2204,9 +2426,32 @@ def player_tournament_print_standings(request, tournament_id):
                 'sonneborn_berger': float(standing['sonneborn_berger']),
             })
 
+    # Get academy settings for branding
+    from ttsaadmin.models import AcademySettings
+    academy_settings = AcademySettings.objects.first()
+
     context = {
         'tournament': tournament,
         'standings': standings,
         'round_number': latest_completed.round_number if latest_completed else None,
+        'academy_settings': academy_settings,
     }
     return render(request, 'ttsa_app/tournament_print_standings.html', context)
+
+
+@login_required
+def player_tournament_print_players(request, tournament_id):
+    """Printable tournament players list."""
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+    players = tournament.players.filter(status='registered').select_related('team').order_by('player_name')
+
+    # Get academy settings for branding
+    from ttsaadmin.models import AcademySettings
+    academy_settings = AcademySettings.objects.first()
+
+    context = {
+        'tournament': tournament,
+        'players': players,
+        'academy_settings': academy_settings,
+    }
+    return render(request, 'ttsa_app/tournament_print_players.html', context)

@@ -29,10 +29,14 @@ class Player:
     score: float = 0.0
     tie_break_score: float = 0.0
     color_history: List[str] = None
+    float_history: List[str] = None  # For caissify-pairings: up/down/none per round
+    bye_count: int = 0  # For caissify-pairings: number of byes received
     
     def __post_init__(self):
         if self.color_history is None:
             self.color_history = []
+        if self.float_history is None:
+            self.float_history = []
 
 
 @dataclass

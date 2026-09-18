@@ -33,13 +33,14 @@
         }
 
         .top-bar {
-            background: linear-gradient(135deg, var(--primary-color), var(--dark-bg));
-            color: white;
+            background: white;
+            color: var(--primary-color);
             padding: 0.75rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-bottom: 1px solid #e0e0e0;
             position: fixed;
             top: 0;
             left: 0;
@@ -58,12 +59,12 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: white;
+            background: var(--secondary-color);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            color: var(--primary-color);
+            color: white;
             font-size: 1.2rem;
         }
 
@@ -117,6 +118,7 @@
             cursor: pointer;
             padding: 0.5rem;
             transition: transform 0.2s;
+            color: var(--primary-color);
         }
 
         .notification-bell:hover {
@@ -198,7 +200,7 @@
         .sidebar-toggle {
             background: none;
             border: none;
-            color: white;
+            color: var(--primary-color);
             font-size: 1.25rem;
             cursor: pointer;
             padding: 0.5rem;
@@ -207,7 +209,7 @@
         }
 
         .sidebar-toggle:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.1);
         }
 
         .sidebar {
@@ -356,7 +358,7 @@
             <button class="sidebar-toggle" id="sidebarToggle">
                 <i class="fas fa-bars"></i>
             </button>
-            <a href="{% url 'admin_dashboard' %}" class="d-flex align-items-center gap-2 text-white text-decoration-none">
+            <a href="{% url 'admin_dashboard' %}" class="d-flex align-items-center gap-2 text-decoration-none" style="color: var(--primary-color);">
                 {% if academy_settings.logo %}
                 <img src="{{ academy_settings.logo.url }}?v={{ academy_settings.updated_at|date:'U' }}" alt="{{ academy_settings.academy_name }}" class="academy-logo-img">
                 {% else %}

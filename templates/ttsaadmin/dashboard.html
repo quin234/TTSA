@@ -10,10 +10,9 @@
         <!-- Two Column Layout -->
         <div class="row g-3 mb-3 dashboard-metrics">
             <!-- Left Column: Upcoming Tournaments -->
-            <div class="col-12 col-sm-6 col-xl-3">
+            <div class="col-3 col-md-3">
                 <div class="card dashboard-stat-card h-100 border-0 shadow-sm">
                     <div class="card-body d-flex align-items-center gap-3">
-                        <div class="dashboard-stat-icon text-primary bg-primary-subtle"><i class="fas fa-user-plus"></i></div>
                         <div>
                             <div id="dashboardNewAccounts" class="dashboard-stat-value">{{ total_users }}</div>
                             <div class="dashboard-stat-label">New Accounts</div>
@@ -23,10 +22,9 @@
                 </div>
             </div>
             <!-- Right Column: Stats -->
-            <div class="col-12 col-sm-6 col-xl-3">
+            <div class="col-3 col-md-3">
                 <div class="card dashboard-stat-card h-100 border-0 shadow-sm">
                     <div class="card-body d-flex align-items-center gap-3">
-                        <div class="dashboard-stat-icon text-success bg-success-subtle"><i class="fas fa-robot"></i></div>
                         <div>
                             <div id="dashboardComputerGames" class="dashboard-stat-value">{{ active_players }}</div>
                             <div class="dashboard-stat-label">Games vs Computer</div>
@@ -35,10 +33,9 @@
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-sm-6 col-xl-3">
+            <div class="col-3 col-md-3">
                 <div class="card dashboard-stat-card h-100 border-0 shadow-sm">
                     <div class="card-body d-flex align-items-center gap-3">
-                        <div class="dashboard-stat-icon text-info bg-info-subtle"><i class="fas fa-user-friends"></i></div>
                         <div>
                             <div id="dashboardMultiplayerGames" class="dashboard-stat-value">{{ games_today }}</div>
                             <div class="dashboard-stat-label">Multiplayer Games</div>
@@ -47,10 +44,9 @@
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-sm-6 col-xl-3">
+            <div class="col-3 col-md-3">
                 <div class="card dashboard-stat-card h-100 border-0 shadow-sm">
                     <div class="card-body d-flex align-items-center gap-3">
-                        <div class="dashboard-stat-icon text-warning bg-warning-subtle"><i class="fas fa-trophy"></i></div>
                         <div>
                             <div id="dashboardCompletedTournaments" class="dashboard-stat-value">{{ completed_tournaments }}</div>
                             <div class="dashboard-stat-label">Completed Tournaments</div>
@@ -61,56 +57,54 @@
             </div>
         </div>
 
-        <div class="card dashboard-tournaments-card border-0 shadow-sm">
-            <div class="card-header bg-white d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
-                <h5 class="mb-0"><i class="fas fa-trophy text-warning me-2"></i>Upcoming Tournaments</h5>
-                <span class="small text-muted">Scheduled in the next 7 days</span>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 dashboard-tournaments-table">
-                    <thead>
-                        <tr>
-                            <th>Tournament</th>
-                            <th>Category</th>
-                            <th>Start</th>
-                            <th>Venue</th>
-                            <th>Players</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="dashboardUpcomingTournaments">
-                        {% for tournament in upcoming_tournaments %}
-                        <tr>
-                            <td>
-                                <strong>{{ tournament.name }}</strong>
-                                {% if tournament.is_featured %}
-                                    <i class="fas fa-star text-warning ms-1" title="Featured"></i>
-                                {% endif %}
-                            </td>
-                            <td>{{ tournament.get_category_display|title }}</td>
-                            <td class="text-nowrap">{{ tournament.start_date|date:"M d, Y H:i" }}</td>
-                            <td>{{ tournament.venue }}</td>
-                            <td class="text-nowrap">
-                                {{ tournament.current_players }}/{{ tournament.max_players }}
-                                {% if tournament.available_slots > 0 %}
-                                    <small class="text-muted">({{ tournament.available_slots }} slots)</small>
-                                {% else %}
-                                    <small class="text-success">(Full)</small>
-                                {% endif %}
-                            </td>
-                            <td><span class="badge bg-primary">{{ tournament.status|title }}</span></td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center text-muted py-4">
-                                <i class="fas fa-trophy fa-lg mb-2 d-block"></i>
-                                No tournaments are scheduled in the next 7 days.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Upcoming Tournaments</h5>
+            <span class="small text-muted">Scheduled in the next 7 days</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 dashboard-tournaments-table">
+                <thead>
+                    <tr>
+                        <th>Tournament</th>
+                        <th>Category</th>
+                        <th>Start</th>
+                        <th>Venue</th>
+                        <th>Players</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="dashboardUpcomingTournaments">
+                    {% for tournament in upcoming_tournaments %}
+                    <tr>
+                        <td>
+                            <strong>{{ tournament.name }}</strong>
+                            {% if tournament.is_featured %}
+                                <i class="fas fa-star text-warning ms-1" title="Featured"></i>
+                            {% endif %}
+                        </td>
+                        <td>{{ tournament.get_category_display|title }}</td>
+                        <td class="text-nowrap">{{ tournament.start_date|date:"M d, Y H:i" }}</td>
+                        <td>{{ tournament.venue }}</td>
+                        <td class="text-nowrap">
+                            {{ tournament.current_players }}/{{ tournament.max_players }}
+                            {% if tournament.available_slots > 0 %}
+                                <small class="text-muted">({{ tournament.available_slots }} slots)</small>
+                            {% else %}
+                                <small class="text-success">(Full)</small>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-primary">{{ tournament.status|title }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="fas fa-trophy fa-lg mb-2 d-block"></i>
+                            No tournaments are scheduled in the next 7 days.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
 
     </div>
@@ -359,75 +353,61 @@
         
         <!-- Stats Overview -->
         <div class="row mb-4">
-            <div class="col-md-3 mb-3">
+            <div class="col-4 col-md-3 mb-3">
                 <div class="card player-stat-card border shadow-sm p-3">
                     <h4 class="mb-1" id="totalPlayers">0</h4>
                     <p class="mb-0 text-muted">Total Players</p>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-4 col-md-3 mb-3">
                 <div class="card player-stat-card border shadow-sm p-3">
                     <h4 class="mb-1" id="activePlayers">0</h4>
                     <p class="mb-0 text-muted">Active Players</p>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-4 col-md-3 mb-3">
                 <div class="card player-stat-card border shadow-sm p-3">
                     <h4 class="mb-1" id="totalGames">0</h4>
-                    <p class="mb-0 text-muted">Total Games Played</p>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card player-stat-card border shadow-sm p-3">
-                    <h4 class="mb-1" id="avgRating">0</h4>
-                    <p class="mb-0 text-muted">Average Rating</p>
+                    <p class="mb-0 text-muted">Total Games</p>
                 </div>
             </div>
         </div>
 
         <!-- Players Table -->
-        <div class="card">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-chess me-2"></i>Player Management</h5>
-                <div class="d-flex gap-2">
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
                     <button class="btn btn-sm btn-primary" onclick="showAddPlayerModal()">
-                        <i class="fas fa-user-plus me-1"></i>Add Player
+                        Add Player
                     </button>
-                    <input type="text" class="form-control form-control-sm" id="playerSearch" placeholder="Search players..." style="width: 200px;">
+                    <input type="text" class="form-control form-control-sm flex-grow-1" id="playerSearch" placeholder="Search players..." style="max-width: 250px;">
                     <button class="btn btn-sm btn-outline-primary" onclick="loadPlayers()">
-                        <i class="fas fa-sync me-1"></i>Refresh
+                        Refresh
                     </button>
                 </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0" id="playersTable">
-                        <thead>
-                            <tr>
-                                <th>Username</th>
-                                <th>Email</th>
-                                <th>Games Played</th>
-                                <th>Wins</th>
-                                <th>Losses</th>
-                                <th>Win Rate</th>
-                                <th>Rating</th>
-                                <th>Status</th>
-                                <th>Joined</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="playersTableBody">
-                            <tr>
-                                <td colspan="10" class="text-center py-4">
-                                    <i class="fas fa-spinner fa-spin fa-2x text-muted mb-2"></i>
-                                    <p class="text-muted">Loading players...</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover" id="playersTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Games Played</th>
+                        <th>Wins</th>
+                        <th>Losses</th>
+                        <th>Win Rate</th>
+                        <th>Rating</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="playersTableBody">
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <p class="text-muted">Loading players...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -668,49 +648,40 @@
 
         <!-- Tournament List View -->
         <div id="tournamentsListView">
-            <div class="card">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Tournament Management</h5>
-                    <div class="d-flex gap-2">
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
                         <button class="btn btn-sm btn-primary" onclick="showTournamentForm()">
-                            <i class="fas fa-plus me-1"></i>Create Tournament
+                            Create Tournament
                         </button>
-                        <input type="text" class="form-control form-control-sm" id="tournamentSearch" placeholder="Search tournaments..." style="width: 200px;">
-                        <select class="form-select form-select-sm" id="tournamentFilter" style="width: 150px;">
+                        <input type="text" class="form-control form-control-sm flex-grow-1" id="tournamentSearch" placeholder="Search tournaments..." style="max-width: 250px;">
+                        <select class="form-select form-select-sm" id="tournamentFilter" style="width: auto; min-width: 150px;">
                             <option value="">All Status</option>
                             <option value="upcoming">Upcoming</option>
                             <option value="ongoing">Ongoing</option>
                             <option value="completed">Completed</option>
                             <option value="cancelled">Cancelled</option>
                         </select>
-                                            </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="tournamentsTable">
-                            <thead>
-                                <tr>
-                                    <th>Tournament Name</th>
-                                    <th>Format</th>
-                                    <th>Category</th>
-                                    <th>Date</th>
-                                    <th>Venue</th>
-                                    <th>Participants</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tournamentsTableBody">
-                                <tr>
-                                    <td colspan="8" class="text-center py-4">
-                                        <i class="fas fa-spinner fa-spin fa-2x text-muted mb-2"></i>
-                                        <p class="text-muted">Loading tournaments...</p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
                     </div>
                 </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover" id="tournamentsTable">
+                    <thead>
+                        <tr>
+                            <th>Tournament Name</th>
+                            <th>Participants</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tournamentsTableBody">
+                        <tr>
+                            <td colspan="3" class="text-center py-4">
+                                <p class="text-muted">Loading tournaments...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -808,6 +779,12 @@
                             </div>
                             <button class="btn btn-sm btn-success" onclick="pairNextRound()" id="pairNextRoundBtn">
                                 <i class="fas fa-plus me-1"></i>Pair Next
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="pairCurrentRound()" id="pairCurrentRoundBtn" style="display: none;">
+                                <i class="fas fa-redo me-1"></i>Re-Pair Round
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteRoundPairings()" id="deletePairingsBtn" style="display: none;">
+                                <i class="fas fa-trash me-1"></i>Delete Pairings
                             </button>
                             <button class="btn btn-sm btn-outline-secondary" onclick="printPairings()">
                                 <i class="fas fa-print me-1"></i>Pairings
@@ -1188,7 +1165,6 @@
             document.getElementById('totalPlayers').textContent = data.stats.total_players;
             document.getElementById('activePlayers').textContent = data.stats.active_players;
             document.getElementById('totalGames').textContent = data.stats.total_games_played;
-            document.getElementById('avgRating').textContent = data.stats.average_rating;
             renderUpcomingTournaments(data.upcoming_tournaments);
         } catch (error) {
             console.error('Error refreshing dashboard:', error);
@@ -1972,7 +1948,7 @@
             console.error('Error loading players:', error);
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="text-center py-4">
+                    <td colspan="7" class="text-center py-4">
                         <i class="fas fa-exclamation-circle fa-2x text-danger mb-2"></i>
                         <p class="text-muted mb-0">Unable to load players.</p>
                     </td>
@@ -1999,7 +1975,7 @@
         if (playersData.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="text-center py-4">
+                    <td colspan="7" class="text-center py-4">
                         <i class="fas fa-users-slash fa-2x text-muted mb-2"></i>
                         <p class="text-muted">No players found</p>
                     </td>
@@ -2009,13 +1985,13 @@
         }
 
         tableBody.innerHTML = playersData.map(player => {
-            const winRate = player.games_played > 0 
-                ? ((player.wins / player.games_played) * 100).toFixed(1) 
+            const winRate = player.games_played > 0
+                ? ((player.wins / player.games_played) * 100).toFixed(1)
                 : '0.0';
-            
-            const statusBadge = player.status === 'active' 
-                ? '<span class="badge bg-success">Active</span>'
-                : '<span class="badge bg-secondary">Inactive</span>';
+
+            const displayName = player.first_name && player.last_name
+                ? `${escapeHtml(player.first_name)} ${escapeHtml(player.last_name)}`
+                : escapeHtml(player.username);
 
             return `
                 <tr>
@@ -2024,17 +2000,14 @@
                             <div class="profile-icon me-2" style="width: 35px; height: 35px; font-size: 0.9rem;">
                                 <i class="fas fa-user"></i>
                             </div>
-                            <strong>${escapeHtml(player.username)}</strong>
+                            <strong>${displayName}</strong>
                         </div>
                     </td>
-                    <td>${escapeHtml(player.email)}</td>
                     <td>${player.games_played}</td>
                     <td><span class="text-success">${player.wins}</span></td>
                     <td><span class="text-danger">${player.losses}</span></td>
                     <td>${winRate}%</td>
                     <td><strong>${player.rating}</strong></td>
-                    <td>${statusBadge}</td>
-                    <td>${escapeHtml(player.joined)}</td>
                     <td>
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-outline-primary" onclick="viewPlayerDetails(${player.id})">
@@ -2056,16 +2029,17 @@
     // Search players
     document.getElementById('playerSearch')?.addEventListener('input', function(e) {
         const searchTerm = e.target.value.toLowerCase();
-        const filteredPlayers = (playersData || []).filter(player => 
+        const filteredPlayers = (playersData || []).filter(player =>
             player.username.toLowerCase().includes(searchTerm) ||
-            player.email.toLowerCase().includes(searchTerm)
+            (player.first_name && player.first_name.toLowerCase().includes(searchTerm)) ||
+            (player.last_name && player.last_name.toLowerCase().includes(searchTerm))
         );
-        
+
         const tableBody = document.getElementById('playersTableBody');
         if (filteredPlayers.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="text-center py-4">
+                    <td colspan="7" class="text-center py-4">
                         <i class="fas fa-search fa-2x text-muted mb-2"></i>
                         <p class="text-muted">No players match your search</p>
                     </td>
@@ -2084,13 +2058,25 @@
     function viewPlayerDetails(playerId) {
         const player = playersData.find(p => p.id === playerId);
         if (player) {
-            const details = '<strong>Username:</strong> ' + player.username + '<br>' +
+            const displayName = player.first_name && player.last_name
+                ? `${player.first_name} ${player.last_name}`
+                : player.username;
+
+            const winRate = player.games_played > 0
+                ? ((player.wins / player.games_played) * 100).toFixed(1)
+                : '0.0';
+
+            const details = '<strong>Name:</strong> ' + displayName + '<br>' +
+                '<strong>Username:</strong> ' + player.username + '<br>' +
                 '<strong>Email:</strong> ' + player.email + '<br>' +
                 '<strong>Rating:</strong> ' + player.rating + '<br>' +
-                '<strong>Games:</strong> ' + player.games_played + '<br>' +
+                '<strong>Games Played:</strong> ' + player.games_played + '<br>' +
                 '<strong>Wins:</strong> ' + player.wins + '<br>' +
                 '<strong>Losses:</strong> ' + player.losses + '<br>' +
-                '<strong>Status:</strong> ' + player.status;
+                '<strong>Win Rate:</strong> ' + winRate + '%<br>' +
+                '<strong>Status:</strong> ' + player.status + '<br>' +
+                '<strong>Date Joined:</strong> ' + (player.joined || 'N/A') + '<br>' +
+                '<strong>Tournaments Participated:</strong> ' + (player.tournaments_count || 0);
             showTTSAAdminInfo('Player Details', details);
         }
     }
@@ -2602,7 +2588,7 @@
         if (tournamentsData.length === 0) {
             const emptyRow = document.createElement('tr');
             emptyRow.innerHTML = `
-                <td colspan="8" class="text-center py-4">
+                <td colspan="3" class="text-center py-4">
                     <i class="fas fa-trophy fa-2x text-muted mb-2"></i>
                     <p class="text-muted">No tournaments found</p>
                 </td>
@@ -2615,36 +2601,10 @@
         const fragment = document.createDocumentFragment();
         
         tournamentsData.forEach(tournament => {
-            const formatLabels = {
-                swiss: 'Swiss System',
-                round_robin: 'Round Robin',
-                knockout: 'Knockout',
-                team: 'Team Event'
-            };
-            const categoryLabels = {
-                open: 'Open',
-                junior: 'Junior',
-                senior: 'Senior',
-                women: 'Women',
-                rapid: 'Rapid',
-                blitz: 'Blitz'
-            };
-            const statusLabels = {
-                upcoming: '<span class="badge bg-primary">Upcoming</span>',
-                ongoing: '<span class="badge bg-success">Ongoing</span>',
-                completed: '<span class="badge bg-secondary">Completed</span>',
-                cancelled: '<span class="badge bg-danger">Cancelled</span>'
-            };
-
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><strong>${tournament.name}</strong></td>
-                <td>${formatLabels[tournament.format] || tournament.format}</td>
-                <td>${categoryLabels[tournament.category] || tournament.category}</td>
-                <td>${tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : 'TBD'}</td>
-                <td>${tournament.venue}</td>
                 <td>${tournament.current_players || 0}</td>
-                <td>${statusLabels[tournament.status] || tournament.status}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-primary" onclick="viewTournamentDetails(${tournament.id})">
@@ -3468,6 +3428,9 @@
         
         // Update Pair Next Round button text
         const pairNextRoundBtn = document.getElementById('pairNextRoundBtn');
+        const deletePairingsBtn = document.getElementById('deletePairingsBtn');
+        const pairCurrentRoundBtn = document.getElementById('pairCurrentRoundBtn');
+        
         if (pairNextRoundBtn) {
             const maxExistingRound = Math.max(...rounds.map(r => r.round_number), 0);
             const activeRound = rounds.find(r => r.status === 'active');
@@ -3489,6 +3452,43 @@
             } else {
                 pairNextRoundBtn.textContent = `Pair Round ${nextRoundToPair}`;
                 pairNextRoundBtn.disabled = false;
+            }
+        }
+        
+        // Show delete button when viewing a round that exists (any round can be deleted)
+        // Show re-pair button when there's a gap in rounds (deleted round)
+        if (deletePairingsBtn && pairCurrentRoundBtn) {
+            const activeRound = rounds.find(r => r.status === 'active');
+            const allRoundNumbers = rounds.map(r => r.round_number).sort((a, b) => a - b);
+            
+            // Check if there are gaps in round numbers (indicating deleted rounds)
+            const hasGaps = allRoundNumbers.length > 0 && 
+                           allRoundNumbers[allRoundNumbers.length - 1] > allRoundNumbers.length;
+            
+            // Find the missing round number
+            let missingRound = null;
+            if (hasGaps) {
+                for (let i = 1; i <= allRoundNumbers[allRoundNumbers.length - 1]; i++) {
+                    if (!allRoundNumbers.includes(i)) {
+                        missingRound = i;
+                        break;
+                    }
+                }
+            }
+            
+            // Show delete button when viewing any existing round
+            if (currentRoundData > 0 && allRoundNumbers.includes(currentRoundData)) {
+                deletePairingsBtn.style.display = 'inline-block';
+                deletePairingsBtn.textContent = `Delete Round ${currentRoundData} Pairings`;
+                pairCurrentRoundBtn.style.display = 'none';
+            } else if (missingRound && currentRoundData === missingRound) {
+                // Show re-pair button for the missing round
+                deletePairingsBtn.style.display = 'none';
+                pairCurrentRoundBtn.style.display = 'inline-block';
+                pairCurrentRoundBtn.textContent = `Pair Round ${missingRound}`;
+            } else {
+                deletePairingsBtn.style.display = 'none';
+                pairCurrentRoundBtn.style.display = 'none';
             }
         }
     }
@@ -3552,6 +3552,96 @@
         try {
             const formData = new FormData();
             const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/generate-next-round/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('tournamentAlertContainer', data.message, 'success');
+                    // Reload round data
+                    await loadRoundManagementData();
+                    // Show pairings section
+                    showSection('pairings');
+                } else {
+                    showAlert('tournamentAlertContainer', data.error, 'error');
+                }
+            } else {
+                showAlert('tournamentAlertContainer', 'Failed to generate pairings', 'error');
+            }
+        } catch (error) {
+            console.error('Error generating pairings:', error);
+            showAlert('tournamentAlertContainer', 'Error generating pairings', 'error');
+        }
+    }
+
+    // Delete round pairings
+    async function deleteRoundPairings() {
+        if (!currentTournamentId) return;
+        
+        const currentRound = currentRoundData;
+        if (!currentRound) {
+            showAlert('tournamentAlertContainer', 'No round selected', 'error');
+            return;
+        }
+        
+        if (!confirm(`Are you sure you want to delete all pairings for Round ${currentRound}? This will delete all games and results for this round. This action cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const formData = new FormData();
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/delete-round-pairings/${currentRound}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('tournamentAlertContainer', data.message, 'success');
+                    // Reload round data
+                    await loadRoundManagementData();
+                    // Show pairings section
+                    showSection('pairings');
+                } else {
+                    showAlert('tournamentAlertContainer', data.error, 'error');
+                }
+            } else {
+                showAlert('tournamentAlertContainer', 'Failed to delete pairings', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting pairings:', error);
+            showAlert('tournamentAlertContainer', 'Error deleting pairings', 'error');
+        }
+    }
+
+    // Re-pair current round (after deletion)
+    async function pairCurrentRound() {
+        if (!currentTournamentId) return;
+        
+        const currentRound = currentRoundData;
+        if (!currentRound) {
+            showAlert('tournamentAlertContainer', 'No round selected', 'error');
+            return;
+        }
+        
+        if (!confirm(`Generate new pairings for Round ${currentRound}? This will create fresh pairings using the FIDE Dutch system.`)) {
+            return;
+        }
+        
+        try {
+            const formData = new FormData();
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/generate-round/${currentRound}/`, {
                 method: 'POST',
                 body: formData,
                 headers: {

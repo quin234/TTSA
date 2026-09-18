@@ -226,6 +226,17 @@ def admin_players_data(request):
                 player_stats[profile_id]['losses'] += 1
 
     active_since = (timezone.now() - timedelta(days=30)).date()
+
+    # Get tournament participation count for each player
+    from ttsaadmin.models import TournamentPlayer
+    player_tournaments = {}
+    for tp in TournamentPlayer.objects.filter(
+        email__in=[profile.user.email for profile in profiles]
+    ).values('email').annotate(
+        tournaments_count=Count('id')
+    ):
+        player_tournaments[tp['email']] = tp['tournaments_count']
+
     players = [
         {
             'id': profile.user_id,
@@ -241,6 +252,7 @@ def admin_players_data(request):
             'id_number': profile.id_number or '',
             'first_name': profile.user.first_name or '',
             'last_name': profile.user.last_name or '',
+            'tournaments_count': player_tournaments.get(profile.user.email, 0),
         }
         for profile in profiles
     ]
@@ -1727,6 +1739,110 @@ def generate_next_round(request, tournament_id):
         return JsonResponse({'success': False, 'error': 'Failed to generate pairings'}, status=500)
 
 
+@login_required
+def delete_round_pairings(request, tournament_id, round_number):
+    """API endpoint to delete pairings for a specific round"""
+    
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    
+    if not request.user.can_manage_tournaments:
+        return JsonResponse({'success': False, 'error': 'You do not have permission to delete pairings.'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+    
+    try:
+        from .pairing_manager import get_pairing_manager
+        
+        pairing_manager = get_pairing_manager()
+        result = pairing_manager.delete_round_pairings(tournament, round_number)
+        
+        if result['success']:
+            return JsonResponse(result)
+        else:
+            return JsonResponse(result, status=400)
+        
+    except Exception as e:
+        logger.error(f"Error deleting round pairings: {e}")
+        return JsonResponse({'success': False, 'error': 'Failed to delete round pairings'}, status=500)
+
+
+@login_required
+def generate_specific_round(request, tournament_id, round_number):
+    """API endpoint to generate pairings for a specific round (for re-pairing)"""
+    
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    
+    if not request.user.can_manage_tournaments:
+        return JsonResponse({'success': False, 'error': 'You do not have permission to generate rounds.'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+    
+    try:
+        from .pairing_manager import get_pairing_manager
+        
+        pairing_manager = get_pairing_manager()
+        result = pairing_manager.generate_specific_round(tournament, round_number)
+        
+        if result['success']:
+            # Get the created round
+            current_round = TournamentRound.objects.get(
+                tournament=tournament, 
+                round_number=round_number
+            )
+            
+            # Get games for this round
+            games = TournamentGame.objects.filter(
+                tournament=tournament, 
+                round_number=round_number
+            )
+            
+            games_data = []
+            for game in games:
+                games_data.append({
+                    'id': game.id,
+                    'board_number': game.board_number,
+                    'white_player': {
+                        'id': game.white_player.id,
+                        'name': game.white_player.player_name,
+                        'rating': game.white_player.rating
+                    },
+                    'black_player': {
+                        'id': game.black_player.id,
+                        'name': game.black_player.player_name,
+                        'rating': game.black_player.rating
+                    },
+                    'result': game.result,
+                    'status': game.status,
+                    'scheduled_time': game.scheduled_time.isoformat() if game.scheduled_time else None
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'round': {
+                    'id': current_round.id,
+                    'round_number': current_round.round_number,
+                    'status': current_round.status,
+                    'games_count': len(games_data)
+                },
+                'games': games_data,
+                'message': result['message']
+            })
+        else:
+            return JsonResponse(result, status=400)
+        
+    except Exception as e:
+        logger.error(f"Error generating specific round: {e}")
+        return JsonResponse({'success': False, 'error': 'Failed to generate pairings'}, status=500)
+
+
 @tournament_manager_required
 @require_POST
 def update_game_result_api(request, tournament_id, game_id):
@@ -1799,15 +1915,22 @@ def submit_round_results_api(request, tournament_id):
         from .pairing_manager import get_pairing_manager
         pairing_manager = get_pairing_manager()
         result = pairing_manager.submit_round_results(tournament, round_number)
-        
+
         if result['success']:
+            # Update player ratings using Glicko-2 algorithm
+            try:
+                from ttsa_utils.rating_utils import update_tournament_ratings
+                update_tournament_ratings(tournament)
+            except Exception as e:
+                logger.error(f"Error updating tournament ratings: {e}")
+
             # Broadcast standings update
             try:
                 from ttsa_app.consumers import broadcast_tournament_standings
                 broadcast_tournament_standings(tournament_id, 'round_submitted')
             except Exception as e:
                 logger.error(f"Error broadcasting round submission: {e}")
-        
+
         if result['success']:
             return JsonResponse(result)
         else:
@@ -1918,10 +2041,9 @@ def tournament_games_api(request, tournament_id, round_number=None):
                     tournament_round.end_time = timezone.now()
                     tournament_round.save()
                     
-                    # Update standings
-                    from .swiss_pairing import StandingsService
-                    standings_service = StandingsService(tournament)
-                    standings_service.update_standings(round_obj)
+                    # Update standings using the new pairing converter
+                    from .pairing_converter import PairingDataConverter
+                    PairingDataConverter.recalculate_standings(tournament, round_obj)
                 
                 return JsonResponse({
                     'success': True,
