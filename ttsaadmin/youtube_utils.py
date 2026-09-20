@@ -130,7 +130,7 @@ def extract_channel_id(url_or_id):
     # Handle format (@)
     handle_match = re.search(r'youtube\.com/@([A-Za-z0-9_.-]+)', url_or_id)
     if handle_match:
-        return handle_match.group(1)
+        return f"@{handle_match.group(1)}"
     
     # User format
     user_match = re.search(r'youtube\.com/user/([A-Za-z0-9_-]+)', url_or_id)
@@ -285,8 +285,13 @@ def validate_and_fetch_channel_metadata(url_or_id, use_api=True, api_key=None):
     if not channel_id:
         raise YouTubeChannelError("Invalid YouTube channel URL or ID format")
     
+    # Check if this is a handle (starts with @) or if the original input was a handle URL
+    is_handle = channel_id.startswith('@') or re.search(r'youtube\.com/@', url_or_id)
+    
     # Try RSS first if use_api is False, or as fallback
     if not use_api:
+        if is_handle:
+            raise YouTubeChannelError("YouTube handles (@username) require the YouTube Data API. Please provide a channel ID (UC...) or configure a YouTube API key.")
         try:
             return fetch_channel_metadata_from_rss(channel_id)
         except YouTubeChannelError:
@@ -295,12 +300,16 @@ def validate_and_fetch_channel_metadata(url_or_id, use_api=True, api_key=None):
     # Try YouTube Data API first if available
     try:
         return fetch_channel_metadata_from_api(channel_id, api_key)
-    except YouTubeChannelError:
-        # Fallback to RSS feed
+    except YouTubeChannelError as api_error:
+        # Only fallback to RSS if this is not a handle (handles don't work with RSS)
+        if is_handle:
+            raise YouTubeChannelError(f"Could not fetch channel metadata for handle '{channel_id}'. YouTube handles require the YouTube Data API. Please configure a YouTube API key or use the channel ID instead.")
+        
+        # Fallback to RSS feed for channel IDs
         try:
             return fetch_channel_metadata_from_rss(channel_id)
-        except YouTubeChannelError as e:
-            raise YouTubeChannelError(f"Could not fetch channel metadata: {str(e)}")
+        except YouTubeChannelError as rss_error:
+            raise YouTubeChannelError(f"Could not fetch channel metadata. API error: {str(api_error)}. RSS error: {str(rss_error)}")
 
 
 def extract_video_id(url_or_id):

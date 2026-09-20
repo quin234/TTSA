@@ -214,18 +214,28 @@ class AdminPlayerEditForm(forms.ModelForm):
 
     def clean_id_number(self):
         id_number = self.cleaned_data.get('id_number')
-        if id_number and self.player_instance and id_number != self.player_instance.playerprofile.id_number:
-            if PlayerProfile.objects.filter(id_number=id_number).exists():
-                existing_profile = PlayerProfile.objects.filter(id_number=id_number).first()
-                raise forms.ValidationError(f'ID Number/Passport already exists. User: {existing_profile.user.username}')
+        if id_number and self.player_instance:
+            try:
+                current_id_number = self.player_instance.playerprofile.id_number
+                if id_number != current_id_number:
+                    if PlayerProfile.objects.filter(id_number=id_number).exists():
+                        existing_profile = PlayerProfile.objects.filter(id_number=id_number).first()
+                        raise forms.ValidationError(f'ID Number/Passport already exists. User: {existing_profile.user.username}')
+            except PlayerProfile.DoesNotExist:
+                pass
         return id_number
 
     def clean_phone_number(self):
         phone_number = self.cleaned_data.get('phone_number')
-        if phone_number and self.player_instance and phone_number != self.player_instance.playerprofile.phone_number:
-            if PlayerProfile.objects.filter(phone_number=phone_number).exists():
-                existing_profile = PlayerProfile.objects.filter(phone_number=phone_number).first()
-                raise forms.ValidationError(f'Phone number already exists. User: {existing_profile.user.username}')
+        if phone_number and self.player_instance:
+            try:
+                current_phone_number = self.player_instance.playerprofile.phone_number
+                if phone_number != current_phone_number:
+                    if PlayerProfile.objects.filter(phone_number=phone_number).exists():
+                        existing_profile = PlayerProfile.objects.filter(phone_number=phone_number).first()
+                        raise forms.ValidationError(f'Phone number already exists. User: {existing_profile.user.username}')
+            except PlayerProfile.DoesNotExist:
+                pass
         return phone_number
 
     def save(self, commit=True):
@@ -248,11 +258,14 @@ class AdminPlayerEditForm(forms.ModelForm):
         self.player_instance.save()
 
         # Update profile fields
-        profile = self.player_instance.playerprofile
-        profile.id_number = id_number
-        profile.phone_number = phone_number
-        if rating is not None:
-            profile.rating = rating
-        profile.save()
+        try:
+            profile = self.player_instance.playerprofile
+            profile.id_number = id_number
+            profile.phone_number = phone_number
+            if rating is not None:
+                profile.rating = rating
+            profile.save()
+        except PlayerProfile.DoesNotExist:
+            raise ValueError('Player profile does not exist for this user')
 
         return profile

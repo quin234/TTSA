@@ -358,6 +358,18 @@ class TournamentForm(forms.ModelForm):
 
 class TournamentPlayerForm(forms.ModelForm):
     """Form for adding players to tournaments"""
+    
+    first_name = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={
+        'class': 'form-control',
+        'placeholder': 'First name',
+        'required': True
+    }))
+    
+    last_name = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={
+        'class': 'form-control',
+        'placeholder': 'Last name',
+        'required': True
+    }))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -365,32 +377,30 @@ class TournamentPlayerForm(forms.ModelForm):
         self.fields['rating'].initial = 1500
         self.fields['rating'].required = False
         self.fields['category'].initial = 'junior'
+        # Remove player_name from the form since we'll generate it from first_name + last_name
+        if 'player_name' in self.fields:
+            del self.fields['player_name']
 
     class Meta:
         model = TournamentPlayer
-        fields = ['player_name', 'rating', 'email', 'phone', 'category']
+        fields = ['rating', 'email', 'phone', 'category']
         widgets = {
-            'player_name': forms.TextInput(attrs={
-                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                'placeholder': 'Enter player name',
-                'required': True
-            }),
             'rating': forms.NumberInput(attrs={
-                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                'class': 'form-control',
                 'min': 1000,
                 'max': 3000,
                 'placeholder': 'Enter rating',
             }),
             'email': forms.EmailInput(attrs={
-                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                'class': 'form-control',
                 'placeholder': 'Enter email (optional)'
             }),
             'phone': forms.TextInput(attrs={
-                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                'class': 'form-control',
                 'placeholder': 'Enter phone (optional)'
             }),
             'category': forms.Select(attrs={
-                'class': 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                'class': 'form-control',
                 'required': True
             })
         }
@@ -402,6 +412,27 @@ class TournamentPlayerForm(forms.ModelForm):
             raise ValidationError('Rating must be between 1000 and 3000')
         # Return 1500 if no rating provided
         return rating if rating else 1500
+    
+    def save(self, commit=True):
+        """Combine first_name and last_name into player_name"""
+        instance = super().save(commit=False)
+        first_name = self.cleaned_data.get('first_name', '').strip()
+        last_name = self.cleaned_data.get('last_name', '').strip()
+        
+        # Combine first and last name into player_name
+        if first_name and last_name:
+            instance.player_name = f"{first_name} {last_name}"
+        elif first_name:
+            instance.player_name = first_name
+        elif last_name:
+            instance.player_name = last_name
+        else:
+            instance.player_name = "Unknown Player"
+        
+        if commit:
+            instance.save()
+        
+        return instance
 
 
 class TournamentTeamForm(forms.ModelForm):

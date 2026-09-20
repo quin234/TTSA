@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
 from functools import wraps
+from datetime import timedelta
 import logging
 import os
 
@@ -410,14 +411,39 @@ def admin_search_players(request):
         return JsonResponse({'success': False, 'error': 'Search query is required'}, status=400)
     
     try:
-        # Search across multiple fields
-        players = PlayerProfile.objects.select_related('user').filter(
-            Q(user__id__icontains=search_query) |
-            Q(id_number__icontains=search_query) |
-            Q(phone_number__icontains=search_query) |
-            Q(user__email__icontains=search_query) |
-            Q(user__username__icontains=search_query)
-        ).distinct()[:10]  # Limit to 10 results
+        from django.core.cache import cache
+        
+        # Create cache key for this search
+        cache_key = f'admin_player_search_{search_query.lower()}'
+        cached_results = cache.get(cache_key)
+        
+        if cached_results:
+            return JsonResponse({
+                'success': True,
+                'players': cached_results,
+                'cached': True
+            })
+        
+        # Optimized search with exact matches first
+        exact_matches = PlayerProfile.objects.select_related('user').filter(
+            Q(user__id__iexact=search_query) |
+            Q(id_number__iexact=search_query) |
+            Q(phone_number__iexact=search_query) |
+            Q(user__email__iexact=search_query) |
+            Q(user__username__iexact=search_query)
+        ).only('user__id', 'user__username', 'user__email', 'user__first_name', 'user__last_name', 'phone_number', 'id_number', 'rating')[:10]
+        
+        # If no exact matches, do partial search
+        if not exact_matches:
+            players = PlayerProfile.objects.select_related('user').filter(
+                Q(user__id__icontains=search_query) |
+                Q(id_number__icontains=search_query) |
+                Q(phone_number__icontains=search_query) |
+                Q(user__email__icontains=search_query) |
+                Q(user__username__icontains=search_query)
+            ).only('user__id', 'user__username', 'user__email', 'user__first_name', 'user__last_name', 'phone_number', 'id_number', 'rating')[:10]
+        else:
+            players = exact_matches
         
         players_data = [
             {
@@ -433,9 +459,13 @@ def admin_search_players(request):
             for profile in players
         ]
         
+        # Cache results for 5 minutes
+        cache.set(cache_key, players_data, 300)
+        
         return JsonResponse({
             'success': True,
-            'players': players_data
+            'players': players_data,
+            'cached': False
         })
         
     except Exception as e:

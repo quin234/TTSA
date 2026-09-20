@@ -16,7 +16,7 @@ from .pairing_converter import PairingDataConverter
 
 # Import pairing services to ensure registration
 from .bbp_pairings_service import BBPPairingsService
-from .caissify_pairings_service import CaissifyPairingsService
+# from .caissify_pairings_service import CaissifyPairingsService  # Temporarily disabled - module not found
 from .models import Tournament, TournamentPlayer, TournamentGame, TournamentRound, TournamentStanding
 
 logger = logging.getLogger(__name__)
@@ -30,12 +30,12 @@ class PairingManager:
     keeping the pairing logic modular and replaceable.
     """
     
-    def __init__(self, service_name: str = 'caissify'):
+    def __init__(self, service_name: str = 'bbp'):
         """
         Initialize the pairing manager.
         
         Args:
-            service_name: Name of the pairing service to use (default: caissify)
+            service_name: Name of the pairing service to use (default: bbp)
         """
         self.service_name = service_name
         self.service = None
@@ -556,12 +556,12 @@ class PairingManager:
 # Global pairing manager instance
 _pairing_manager = None
 
-def get_pairing_manager(service_name: str = 'caissify') -> PairingManager:
+def get_pairing_manager(service_name: str = 'bbp') -> PairingManager:
     """
     Get the global pairing manager instance.
     
     Args:
-        service_name: Name of the pairing service to use (default: caissify)
+        service_name: Name of the pairing service to use (default: bbp)
         
     Returns:
         PairingManager instance

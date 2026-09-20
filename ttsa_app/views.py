@@ -28,7 +28,7 @@ from .models import (
     Friend, Message, AcademyNews, MultiplayerGame, GameMove, VideoLesson, GuestSession
 )
 from ttsaadmin.models import Tournament, TournamentPlayer, TournamentGame, TournamentRound, TournamentStanding, TournamentTeam
-from ttsaadmin.forms import TournamentForm, TournamentPlayerForm
+from ttsaadmin.forms import TournamentForm
 from ttsaadmin.pairing_manager import get_pairing_manager
 from ttsaadmin.pairing_converter import PairingDataConverter
 from .stockfish_service import stockfish_service, DifficultyLevel
@@ -1528,16 +1528,41 @@ def search_players_api(request):
     try:
         from ttsa_app.models import PlayerProfile
         from django.contrib.auth.models import User
+        from django.core.cache import cache
 
-        # Search in PlayerProfile by email, phone, id_number
-        profiles = PlayerProfile.objects.filter(
-            Q(user__email__icontains=search_query) |
-            Q(phone_number__icontains=search_query) |
-            Q(id_number__icontains=search_query) |
-            Q(user__username__icontains=search_query) |
-            Q(user__first_name__icontains=search_query) |
-            Q(user__last_name__icontains=search_query)
-        ).select_related('user')[:20]  # Limit to 20 results
+        # Create cache key for this search
+        cache_key = f'player_search_{search_query.lower()}'
+        cached_results = cache.get(cache_key)
+        
+        if cached_results:
+            return JsonResponse({
+                'success': True,
+                'results': cached_results,
+                'count': len(cached_results),
+                'cached': True
+            })
+
+        # Optimized search with only necessary fields
+        # Start with exact matches first for faster results
+        exact_matches = PlayerProfile.objects.filter(
+            Q(user__email__iexact=search_query) |
+            Q(phone_number__iexact=search_query) |
+            Q(id_number__iexact=search_query) |
+            Q(user__username__iexact=search_query)
+        ).select_related('user').only('user__email', 'user__username', 'user__first_name', 'user__last_name', 'phone_number', 'id_number', 'rating')[:10]
+
+        # If no exact matches, do partial search
+        if not exact_matches:
+            profiles = PlayerProfile.objects.filter(
+                Q(user__email__icontains=search_query) |
+                Q(phone_number__icontains=search_query) |
+                Q(id_number__icontains=search_query) |
+                Q(user__username__icontains=search_query) |
+                Q(user__first_name__icontains=search_query) |
+                Q(user__last_name__icontains=search_query)
+            ).select_related('user').only('user__email', 'user__username', 'user__first_name', 'user__last_name', 'phone_number', 'id_number', 'rating')[:10]
+        else:
+            profiles = exact_matches
 
         results = []
         for profile in profiles:
@@ -1554,10 +1579,14 @@ def search_players_api(request):
                 'rating': profile.rating
             })
 
+        # Cache results for 5 minutes
+        cache.set(cache_key, results, 300)
+
         return JsonResponse({
             'success': True,
             'results': results,
-            'count': len(results)
+            'count': len(results),
+            'cached': False
         })
 
     except Exception as e:
@@ -1933,39 +1962,88 @@ def player_tournament_manage(request, tournament_id):
         extra_round = None  # used to keep the rounds tab on the active round after POST
 
         if action == 'add_player':
-            form = TournamentPlayerForm(request.POST)
-            if form.is_valid():
-                player_name = form.cleaned_data['player_name']
-                email = form.cleaned_data.get('email', '')
-                phone = form.cleaned_data.get('phone', '')
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            email = request.POST.get('email', '').strip()
+            phone = request.POST.get('phone', '').strip()
+            category = request.POST.get('category', 'junior')
+            rating = request.POST.get('rating', '')
+            
+            # Check if this is an AJAX request
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            
+            if not first_name or not last_name:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': 'First name and last name are required.'}, status=400)
+                messages.error(request, 'First name and last name are required.')
+            else:
+                player_name = f"{first_name} {last_name}".strip()
                 
-                # Check if player already exists in this tournament
+                # Use exists() for faster duplicate check
                 if tournament.players.filter(player_name__iexact=player_name).exists():
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'error': f'A player named "{player_name}" already exists in this tournament.'}, status=400)
                     messages.error(request, f'A player named "{player_name}" already exists in this tournament.')
                 else:
                     try:
-                        with transaction.atomic():
-                            player = form.save(commit=False)
-                            player.tournament = tournament
-                            player.save()
-                            tournament.current_players = tournament.players.filter(status='registered').count()
-                            tournament.save()
+                        # Create player without transaction for speed (single operation)
+                        player = TournamentPlayer.objects.create(
+                            tournament=tournament,
+                            player_name=player_name,
+                            email=email,
+                            phone=phone,
+                            category=category,
+                            rating=int(rating) if rating else 1500
+                        )
+                        # Simple increment - assume race conditions are acceptable for this use case
+                        tournament.current_players = tournament.current_players + 1
+                        tournament.save(update_fields=['current_players'])
+                        
+                        if is_ajax:
+                            return JsonResponse({
+                                'success': True,
+                                'message': f'Player "{player.player_name}" added successfully.',
+                                'player': {
+                                    'id': player.id,
+                                    'name': player.player_name,
+                                    'points': float(player.points),
+                                    'wins': player.wins,
+                                    'draws': player.draws,
+                                    'losses': player.losses
+                                },
+                                'total_players': tournament.current_players
+                            })
                         messages.success(request, f'Player "{player.player_name}" added successfully.')
                     except IntegrityError:
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'error': f'A player named "{player_name}" already exists in this tournament.'}, status=400)
                         messages.error(request, f'A player named "{player_name}" already exists in this tournament.')
                     except Exception as e:
                         logger.error(f"Error adding player: {e}")
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'error': 'An error occurred while adding the player. Please try again.'}, status=500)
                         messages.error(request, 'An error occurred while adding the player. Please try again.')
-            else:
-                messages.error(request, 'Please correct the player form and try again.')
 
         elif action == 'remove_player':
             player_id = request.POST.get('player_id')
             player = get_object_or_404(TournamentPlayer, id=player_id, tournament=tournament)
             player_name = player.player_name
+            
+            # Check if this is an AJAX request
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            
+            # Delete player without transaction for speed (single operation)
             player.delete()
-            tournament.current_players = tournament.players.filter(status='registered').count()
-            tournament.save()
+            # Simple decrement - assume race conditions are acceptable for this use case
+            tournament.current_players = max(0, tournament.current_players - 1)
+            tournament.save(update_fields=['current_players'])
+            
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Player "{player_name}" removed successfully.',
+                    'total_players': tournament.current_players
+                })
             messages.success(request, f'Player "{player_name}" removed successfully.')
 
         elif action == 'create_team':
@@ -2194,10 +2272,15 @@ def player_tournament_manage(request, tournament_id):
             messages.success(request, f'Tournament "{tournament_name}" deleted successfully.')
             return redirect('player_tournament_list')
 
-        redirect_url = f'/my-tournaments/{tournament_id}/?tab={tab}'
-        if extra_round:
-            redirect_url += f'&round={extra_round}'
-        return redirect(redirect_url)
+        # Check if this is an AJAX request
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
+        if not is_ajax:
+            # For regular requests, redirect
+            redirect_url = f'/my-tournaments/{tournament_id}/?tab={tab}'
+            if extra_round:
+                redirect_url += f'&round={extra_round}'
+            return redirect(redirect_url)
 
     # Build context per tab
     players = tournament.players.order_by('-points', '-buchholz', '-sonneborn_berger', 'player_name')
@@ -2264,8 +2347,6 @@ def player_tournament_manage(request, tournament_id):
         selected_round > 0
     )
 
-    player_form = TournamentPlayerForm(initial={'category': 'junior'})
-
     # Get teams for this tournament
     teams = tournament.teams.all().prefetch_related('members')
 
@@ -2306,7 +2387,6 @@ def player_tournament_manage(request, tournament_id):
         'current_round': current_round,
         'selected_round': selected_round,
         'completed_games': completed_games,
-        'player_form': player_form,
         'standings': standings,
         'result_choices': TournamentGame.RESULT_CHOICES,
         'can_generate': can_generate,

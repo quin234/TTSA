@@ -280,6 +280,7 @@ class TournamentPlayer(models.Model):
             models.Index(fields=['rating']),
             models.Index(fields=['player_name']),
             models.Index(fields=['team']),
+            models.Index(fields=['tournament', 'player_name']),  # Composite index for faster duplicate checks
         ]
         unique_together = ['tournament', 'player_name', 'team']
     
