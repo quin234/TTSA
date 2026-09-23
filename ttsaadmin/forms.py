@@ -239,7 +239,7 @@ class TournamentForm(forms.ModelForm):
         self.fields['rounds'].help_text = '1-15 rounds'
         self.fields['time_control'].help_text = 'Minutes+increment (e.g., 90+30)'
         self.fields['max_players'].help_text = '2-1000 players'
-        self.fields['entry_fee'].help_text = 'USD (0 for free)'
+        self.fields['entry_fee'].help_text = 'Ksh (0 for free)'
         
         # Make fields required
         self.fields['name'].required = True
@@ -359,15 +359,9 @@ class TournamentForm(forms.ModelForm):
 class TournamentPlayerForm(forms.ModelForm):
     """Form for adding players to tournaments"""
     
-    first_name = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={
+    player_name = forms.CharField(max_length=255, required=True, widget=forms.TextInput(attrs={
         'class': 'form-control',
-        'placeholder': 'First name',
-        'required': True
-    }))
-    
-    last_name = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={
-        'class': 'form-control',
-        'placeholder': 'Last name',
+        'placeholder': 'Player name',
         'required': True
     }))
 
@@ -377,13 +371,11 @@ class TournamentPlayerForm(forms.ModelForm):
         self.fields['rating'].initial = 1500
         self.fields['rating'].required = False
         self.fields['category'].initial = 'junior'
-        # Remove player_name from the form since we'll generate it from first_name + last_name
-        if 'player_name' in self.fields:
-            del self.fields['player_name']
+        self.fields['category'].required = True
 
     class Meta:
         model = TournamentPlayer
-        fields = ['rating', 'email', 'phone', 'category']
+        fields = ['player_name', 'rating', 'email', 'phone', 'category']
         widgets = {
             'rating': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -413,26 +405,27 @@ class TournamentPlayerForm(forms.ModelForm):
         # Return 1500 if no rating provided
         return rating if rating else 1500
     
-    def save(self, commit=True):
-        """Combine first_name and last_name into player_name"""
-        instance = super().save(commit=False)
-        first_name = self.cleaned_data.get('first_name', '').strip()
-        last_name = self.cleaned_data.get('last_name', '').strip()
+    def clean(self):
+        """Additional validation for player uniqueness"""
+        cleaned_data = super().clean()
+        player_name = cleaned_data.get('player_name')
+        tournament = cleaned_data.get('tournament')
+        team = cleaned_data.get('team')
         
-        # Combine first and last name into player_name
-        if first_name and last_name:
-            instance.player_name = f"{first_name} {last_name}"
-        elif first_name:
-            instance.player_name = first_name
-        elif last_name:
-            instance.player_name = last_name
-        else:
-            instance.player_name = "Unknown Player"
+        # Check if player already exists in this tournament
+        if player_name and tournament:
+            existing_player = TournamentPlayer.objects.filter(
+                tournament=tournament,
+                player_name__iexact=player_name,
+                team=team
+            ).exclude(id=self.instance.id if self.instance.id else None).first()
+            
+            if existing_player:
+                raise ValidationError(
+                    f'Player "{player_name}" is already registered in this tournament.'
+                )
         
-        if commit:
-            instance.save()
-        
-        return instance
+        return cleaned_data
 
 
 class TournamentTeamForm(forms.ModelForm):

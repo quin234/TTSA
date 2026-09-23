@@ -558,7 +558,7 @@
                             </div>
                             
                             <div class="col-md-4">
-                                <label for="{{ form.entry_fee.id_for_label }}" class="form-label fw-semibold">Entry Fee ($)</label>
+                                <label for="{{ form.entry_fee.id_for_label }}" class="form-label fw-semibold">Entry Fee (Ksh)</label>
                                 {{ form.entry_fee }}
                                 {% if form.entry_fee.errors %}
                                     <div class="invalid-feedback d-block">
@@ -3154,6 +3154,8 @@
         document.getElementById('addTournamentPlayerForm').reset();
         delete document.getElementById('addTournamentPlayerForm').dataset.playerId;
         delete document.getElementById('addTournamentPlayerForm').dataset.idNumber;
+        // Set category to junior by default
+        document.getElementById('playerCategory').value = 'junior';
     }
 
     // Search for existing players
@@ -3268,7 +3270,16 @@
                 modal.hide();
                 document.getElementById('addTournamentPlayerForm').reset();
             } else {
-                showMessage(data.error || 'Error adding player', 'error');
+                // Show specific validation errors if available
+                if (data.errors) {
+                    let errorMessage = 'Form validation failed:\n';
+                    for (const [field, errors] of Object.entries(data.errors)) {
+                        errorMessage += `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}\n`;
+                    }
+                    showMessage(errorMessage, 'error');
+                } else {
+                    showMessage(data.error || 'Error adding player', 'error');
+                }
             }
         })
         .catch(error => {
@@ -3286,20 +3297,40 @@
         }
         
         showTTSAAdminConfirm('Are you sure you want to remove this player from the tournament?', function() {
-            registeredPlayersData = (registeredPlayersData || []).filter(p => p && p.id !== playerId);
-            
-            // Update tournament participants
-            const tournament = tournamentsData.find(t => t.id === currentTournamentId);
-            if (tournament) {
-                tournament.participants = (tournament.participants || []).filter(id => id !== playerId);
-            }
-            
-            updateTournamentStats();
-            renderRegisteredPlayersTable();
-            document.getElementById('detailParticipants').textContent = registeredPlayersData.length;
-            
-            // Show success message using Bootstrap alert
-            showAlert('tournamentAlertContainer', 'Player removed from tournament', 'success');
+            // Make API call to remove player
+            fetch(`/ttsa-admin/tournaments/${currentTournamentId}/players/${playerId}/remove/`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update local data
+                    registeredPlayersData = (registeredPlayersData || []).filter(p => p && p.id !== playerId);
+                    
+                    // Update tournament participants
+                    const tournament = tournamentsData.find(t => t.id === currentTournamentId);
+                    if (tournament) {
+                        tournament.participants = (tournament.participants || []).filter(id => id !== playerId);
+                    }
+                    
+                    updateTournamentStats();
+                    renderRegisteredPlayersTable();
+                    document.getElementById('detailParticipants').textContent = registeredPlayersData.length;
+                    
+                    // Show success message
+                    showAlert('tournamentAlertContainer', data.message || 'Player removed from tournament', 'success');
+                } else {
+                    showAlert('tournamentAlertContainer', data.error || 'Error removing player', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('tournamentAlertContainer', 'Error removing player', 'error');
+            });
         });
     }
 
@@ -4511,6 +4542,7 @@ loadTournaments();
                 
                 <!-- Manual entry form -->
                 <form id="addTournamentPlayerForm">
+                    {% csrf_token %}
                     <div class="mb-3">
                         <label for="playerName" class="form-label">Player Name</label>
                         <input type="text" class="form-control" id="playerName" placeholder="Enter player name" required>
@@ -4531,7 +4563,7 @@ loadTournaments();
                         <label for="playerCategory" class="form-label">Category</label>
                         <select class="form-select" id="playerCategory" required>
                             <option value="">Select category</option>
-                            <option value="junior">Junior</option>
+                            <option value="junior" selected>Junior</option>
                             <option value="senior">Senior</option>
                             <option value="open">Open</option>
                         </select>

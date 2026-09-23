@@ -430,6 +430,10 @@ def change_username(request):
         # Change username
         user.username = new_username
         user.save()
+        
+        # Update the session to reflect the new username
+        update_session_auth_hash(request, user)
+        
         messages.success(request, 'Username changed successfully!')
         return redirect('settings')
 
@@ -1455,9 +1459,15 @@ def tournament_register_api(request, tournament_id):
                     'error': 'Player profile not found. Please complete your profile first.'
                 }, status=400)
 
+            # Use combined first and last name for player name
+            player_name = f"{profile.user.first_name} {profile.user.last_name}".strip()
+            if not player_name:
+                # Fallback to username if no names are set
+                player_name = profile.user.username
+
             # Check if already registered
             existing_registration = TournamentPlayer.objects.filter(
-                player_name=profile.user.username,
+                player_name=player_name,
                 tournament=tournament
             ).first()
 
@@ -1485,7 +1495,7 @@ def tournament_register_api(request, tournament_id):
 
             # Create registration
             registration = TournamentPlayer.objects.create(
-                player_name=profile.user.username,
+                player_name=player_name,
                 rating=profile.rating or 1200,
                 email=profile.user.email,
                 phone=getattr(profile, 'phone', '') or '',
@@ -2118,9 +2128,15 @@ def player_tournament_manage(request, tournament_id):
         elif action == 'update_game_result':
             game_id = request.POST.get('game_id')
             result = request.POST.get('result')
+            
+            # Check if this is an AJAX request
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            
             try:
                 game = TournamentGame.objects.select_related('white_player', 'black_player').get(id=int(game_id), tournament=tournament)
             except (ValueError, TournamentGame.DoesNotExist):
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': 'Game not found.'}, status=404)
                 messages.error(request, 'Game not found.')
             else:
                 extra_round = game.round_number
@@ -2128,14 +2144,22 @@ def player_tournament_manage(request, tournament_id):
                 # A round is locked once it has been submitted (completed) or any of its games are completed.
                 round_locked = round_obj and round_obj.status == 'completed'
                 if round_locked:
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'error': f'Round {game.round_number} has already been submitted and cannot be edited.'}, status=400)
                     messages.error(request, f'Round {game.round_number} has already been submitted and cannot be edited.')
                 elif result in dict(TournamentGame.RESULT_CHOICES):
                     success = PairingDataConverter.update_game_result(int(game_id), result)
                     if success:
+                        if is_ajax:
+                            return JsonResponse({'success': True, 'message': 'Game result updated.'})
                         messages.success(request, 'Game result updated.')
                     else:
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'error': 'Failed to update game result.'}, status=500)
                         messages.error(request, 'Failed to update game result.')
                 else:
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'error': 'Invalid game result.'}, status=400)
                     messages.error(request, 'Invalid game result.')
 
         elif action == 'submit_round':

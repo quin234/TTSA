@@ -74,7 +74,7 @@
                         <p><span class="font-semibold">Category:</span> {{ tournament.get_category_display|title }}</p>
                         <p><span class="font-semibold">Format:</span> {{ tournament.get_format_display }}</p>
                         <p><span class="font-semibold">Time Control:</span> {{ tournament.time_control }}</p>
-                        <p><span class="font-semibold">Entry Fee:</span> ${{ tournament.entry_fee }}</p>
+                        <p><span class="font-semibold">Entry Fee:</span> Ksh {{ tournament.entry_fee }}</p>
                         <p><span class="font-semibold">Max Players:</span> {{ tournament.max_players }}</p>
                         <p><span class="font-semibold">Registration Deadline:</span> {{ tournament.registration_deadline|date:"M d, Y H:i" }}</p>
                     </div>
@@ -335,7 +335,7 @@
                             {% endif %}
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            {% if not rd.is_locked and rd.all_results_set and rd.round.status == 'active' %}
+                            {% if not rd.is_locked and rd.round.status == 'active' %}
                             <form method="post" class="inline">
                                 {% csrf_token %}
                                 <input type="hidden" name="tab" value="{{ tab }}">
@@ -366,8 +366,8 @@
                                 <tr>
                                     <th class="px-4 py-2 font-semibold text-gray-700">Board</th>
                                     <th class="px-4 py-2 font-semibold text-gray-700">White</th>
-                                    <th class="px-4 py-2 font-semibold text-gray-700">Black</th>
                                     <th class="px-4 py-2 font-semibold text-gray-700">Result</th>
+                                    <th class="px-4 py-2 font-semibold text-gray-700">Black</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y">
@@ -375,24 +375,19 @@
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-2 text-gray-600">{{ game.board_number }}</td>
                                     <td class="px-4 py-2 font-medium text-gray-900">{{ game.white_player.player_name|upper }}</td>
-                                    <td class="px-4 py-2 font-medium text-gray-900">{{ game.black_player.player_name|upper }}</td>
                                     <td class="px-4 py-2">
                                         {% if rd.is_editable %}
-                                        <form method="post" class="flex items-center gap-2">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="tab" value="{{ tab }}">
-                                            <input type="hidden" name="action" value="update_game_result">
-                                            <input type="hidden" name="game_id" value="{{ game.id }}">
-                                            <select name="result" class="text-sm border rounded px-2 py-1" onchange="this.form.submit()">
-                                                {% for value, label in result_choices %}
-                                                    <option value="{{ value }}" {% if game.result == value %}selected{% endif %}>{{ label }}</option>
+                                        <select name="result" class="text-sm border rounded px-2 py-1 game-result-select" data-game-id="{{ game.id }}">
+                                            <option value="" {% if game.result == '' or game.result == '*' %}selected{% endif %}>-</option>
+                                            {% for value, label in result_choices %}
+                                                <option value="{{ value }}" {% if game.result == value %}selected{% endif %}>{{ label }}</option>
                                                 {% endfor %}
-                                            </select>
-                                        </form>
+                                        </select>
                                         {% else %}
                                         <span class="font-medium">{{ game.result }}</span>
                                         {% endif %}
                                     </td>
+                                    <td class="px-4 py-2 font-medium text-gray-900">{{ game.black_player.player_name|upper }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -428,6 +423,9 @@
                             var baseUrl = "{% url 'player_tournament_print_pairings' tournament.id %}";
                             printBtn.href = baseUrl + "?round=" + roundNumber;
                         }
+                        
+                        // Initialize AJAX handlers for game result selects in the visible round
+                        initializeGameResultHandlers();
                     }
 
                     function printPairings(event, url) {
@@ -929,11 +927,37 @@
                         messageDiv.innerHTML = '';
                     }, 3000);
                 } else {
-                    alert(data.error || 'An error occurred');
+                    // Show error message inline
+                    const messageDiv = document.getElementById('add-player-message');
+                    if (messageDiv) {
+                        messageDiv.innerHTML = `
+                            <div class="px-4 py-3 rounded-lg bg-red-100 text-red-800">
+                                <i class="fas fa-exclamation-circle mr-1"></i>${data.error || 'An error occurred'}
+                            </div>
+                        `;
+                        setTimeout(() => {
+                            messageDiv.innerHTML = '';
+                        }, 3000);
+                    }
+                    // Revert selection
+                    this.value = originalValue;
                 }
             })
             .catch(error => {
-                alert(error.message || 'An error occurred. Please try again.');
+                // Show error message inline
+                const messageDiv = document.getElementById('add-player-message');
+                if (messageDiv) {
+                    messageDiv.innerHTML = `
+                        <div class="px-4 py-3 rounded-lg bg-red-100 text-red-800">
+                            <i class="fas fa-exclamation-circle mr-1"></i>${error.message || 'An error occurred. Please try again.'}
+                        </div>
+                    `;
+                    setTimeout(() => {
+                        messageDiv.innerHTML = '';
+                    }, 3000);
+                }
+                // Revert selection
+                this.value = originalValue;
             })
             .finally(() => {
                 // Only re-enable button if the request failed (row still exists)
@@ -1033,11 +1057,37 @@
                         messageDiv.innerHTML = '';
                     }, 3000);
                 } else {
-                    alert(data.error || 'An error occurred');
+                    // Show error message inline
+                    const messageDiv = document.getElementById('add-player-message');
+                    if (messageDiv) {
+                        messageDiv.innerHTML = `
+                            <div class="px-4 py-3 rounded-lg bg-red-100 text-red-800">
+                                <i class="fas fa-exclamation-circle mr-1"></i>${data.error || 'An error occurred'}
+                            </div>
+                        `;
+                        setTimeout(() => {
+                            messageDiv.innerHTML = '';
+                        }, 3000);
+                    }
+                    // Revert selection
+                    this.value = originalValue;
                 }
             })
             .catch(error => {
-                alert(error.message || 'An error occurred. Please try again.');
+                // Show error message inline
+                const messageDiv = document.getElementById('add-player-message');
+                if (messageDiv) {
+                    messageDiv.innerHTML = `
+                        <div class="px-4 py-3 rounded-lg bg-red-100 text-red-800">
+                            <i class="fas fa-exclamation-circle mr-1"></i>${error.message || 'An error occurred. Please try again.'}
+                        </div>
+                    `;
+                    setTimeout(() => {
+                        messageDiv.innerHTML = '';
+                    }, 3000);
+                }
+                // Revert selection
+                this.value = originalValue;
             })
             .finally(() => {
                 // Only re-enable button if the request failed (row still exists)
@@ -1097,6 +1147,107 @@
             if (event.target === this) {
                 closeAssignTeamModal();
             }
+        });
+    }
+
+    // Initialize game result handlers on page load
+    initializeGameResultHandlers();
+
+    function initializeGameResultHandlers() {
+        // Add handlers to all game result selects
+        document.querySelectorAll('.game-result-select').forEach(select => {
+            // Remove existing listener if any
+            const newSelect = select.cloneNode(true);
+            select.parentNode.replaceChild(newSelect, select);
+            
+            newSelect.addEventListener('change', function(e) {
+                const gameId = this.getAttribute('data-game-id');
+                const result = this.value;
+                const currentTab = '{{ tab }}';
+                const originalValue = this.getAttribute('data-original-value');
+                
+                const formData = new FormData();
+                formData.append('tab', currentTab);
+                formData.append('action', 'update_game_result');
+                formData.append('game_id', gameId);
+                formData.append('result', result);
+                formData.append('csrfmiddlewaretoken', document.querySelector('[name="csrfmiddlewaretoken"]').value);
+                
+                // Disable select during request
+                this.disabled = true;
+                
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || 'Request failed');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Update original value on success
+                        this.setAttribute('data-original-value', result);
+                        
+                        // Show success message
+                        const messageDiv = document.getElementById('add-player-message');
+                        if (messageDiv) {
+                            messageDiv.innerHTML = `
+                                <div class="px-4 py-3 rounded-lg bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i>${data.message}
+                                </div>
+                            `;
+                            setTimeout(() => {
+                                messageDiv.innerHTML = '';
+                            }, 2000);
+                        }
+                    } else {
+                        // Show error message inline
+                        const messageDiv = document.getElementById('add-player-message');
+                        if (messageDiv) {
+                            messageDiv.innerHTML = `
+                                <div class="px-4 py-3 rounded-lg bg-red-100 text-red-800">
+                                    <i class="fas fa-exclamation-circle mr-1"></i>${data.error || 'An error occurred'}
+                                </div>
+                            `;
+                            setTimeout(() => {
+                                messageDiv.innerHTML = '';
+                            }, 3000);
+                        }
+                        // Revert selection
+                        this.value = originalValue;
+                    }
+                })
+                .catch(error => {
+                    // Show error message inline
+                    const messageDiv = document.getElementById('add-player-message');
+                    if (messageDiv) {
+                        messageDiv.innerHTML = `
+                            <div class="px-4 py-3 rounded-lg bg-red-100 text-red-800">
+                                <i class="fas fa-exclamation-circle mr-1"></i>${error.message || 'An error occurred. Please try again.'}
+                            </div>
+                        `;
+                        setTimeout(() => {
+                            messageDiv.innerHTML = '';
+                        }, 3000);
+                    }
+                    // Revert selection
+                    this.value = originalValue;
+                })
+                .finally(() => {
+                    this.disabled = false;
+                });
+            });
+            
+            // Store original value for revert on error
+            newSelect.setAttribute('data-original-value', newSelect.value);
         });
     }
 </script>

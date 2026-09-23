@@ -1327,16 +1327,13 @@ def tournament_players(request, tournament_id):
     return render(request, 'ttsaadmin/tournament_players.html', context)
 
 
-@require_POST
+@login_required
 def tournament_remove_player(request, tournament_id, player_id):
     """View for removing a player from tournament"""
     
-    # Check if user is authenticated for API requests
-    if not request.user.is_authenticated:
-        return JsonResponse({
-            'success': False, 
-            'error': 'Authentication required'
-        }, status=401)
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST method required'}, status=405)
+    """View for removing a player from tournament"""
     
     if not request.user.can_manage_tournaments:
         return JsonResponse({
@@ -1352,26 +1349,16 @@ def tournament_remove_player(request, tournament_id, player_id):
         player.delete()
         
         # Update tournament player count
-        tournament.current_players = tournament.players.count()
+        tournament.current_players = tournament.players.filter(status='registered').count()
         tournament.save()
         
-        # Return JSON if requested via AJAX
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True, 
-                'message': f'Player "{player_name}" removed successfully!'
-            })
-        
-        messages.success(request, f'Player "{player_name}" removed successfully!')
-        return redirect('tournament_players', tournament_id=tournament_id)
+        return JsonResponse({
+            'success': True, 
+            'message': f'Player "{player_name}" removed successfully!'
+        })
         
     except Exception as e:
-        # Return JSON if requested via AJAX
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'success': False, 'error': str(e)})
-        
-        messages.error(request, f'Error removing player: {str(e)}')
-        return redirect('tournament_players', tournament_id=tournament_id)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required
