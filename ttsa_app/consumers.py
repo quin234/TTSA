@@ -41,13 +41,17 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
             return
         self.player_name = await self.get_player_name(self.user)
 
-        # Verify user is part of the game
+        # Verify user is part of the game or is a spectator
         game = await self.get_game()
         if not game:
             await self.close()
             return
 
-        if game.white_player != self.user and game.black_player != self.user:
+        # Allow spectators to connect but restrict their actions
+        is_spectator = game.white_player != self.user and game.black_player != self.user
+        self.is_spectator = is_spectator
+        
+        if is_spectator and game.visibility != 'public' and game.status not in ['playing', 'completed']:
             await self.close()
             return
 
@@ -122,6 +126,12 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
 
     async def handle_move(self, data):
         print(f"handle_move called by user: {self.player_name}")
+        
+        # Spectators cannot make moves
+        if getattr(self, 'is_spectator', False):
+            print("Spectators cannot make moves")
+            return
+        
         game = await self.get_game()
         if not game or game.status != 'playing':
             print(f"Game not found or not playing: {game}")
@@ -287,6 +297,10 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         )
 
     async def handle_draw_offer(self):
+        # Spectators cannot offer draws
+        if getattr(self, 'is_spectator', False):
+            return
+        
         game = await self.get_game()
         if not game:
             return
@@ -326,6 +340,10 @@ class MultiplayerGameConsumer(AsyncWebsocketConsumer):
         )
 
     async def handle_resign(self):
+        # Spectators cannot resign
+        if getattr(self, 'is_spectator', False):
+            return
+        
         game = await self.get_game()
         if not game:
             return

@@ -2245,6 +2245,96 @@ def print_standings(request, tournament_id, round_number=None):
     return response
 
 
+@login_required
+def print_certificates(request, tournament_id):
+    """API endpoint to generate participant certificates"""
+    
+    if not request.user.can_manage_tournaments:
+        return JsonResponse({'success': False, 'error': 'You do not have permission to print certificates.'}, status=403)
+    
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+    
+    # Get all participants for this tournament
+    players = tournament.players.filter(status='registered').select_related('team')
+    
+    if not players.exists():
+        return JsonResponse({'success': False, 'error': 'No participants found for this tournament.'}, status=400)
+    
+    # Check if individual or bulk printing
+    player_id = request.GET.get('player_id')
+    bulk = request.GET.get('bulk', 'false').lower() == 'true'
+    
+    from .pdf_utils import _generate_single_certificate, generate_bulk_certificates_pdf
+    
+    if player_id:
+        # Generate single certificate
+        try:
+            player = players.get(id=player_id)
+            
+            # Determine position (top 3) - use rank if available, otherwise calculate
+            if player.rank and player.rank <= 3:
+                position = player.rank
+            else:
+                sorted_players = list(players.order_by('-points', '-buchholz', '-sonneborn_berger', 'player_name'))
+                position = None
+                for idx, p in enumerate(sorted_players[:3], 1):
+                    if p.id == player.id:
+                        position = idx
+                        break
+            
+            pdf_buffer = _generate_single_certificate(tournament, player, position)
+            filename = f"Certificate_{player.player_name.replace(' ', '_')}_{tournament.name.replace(' ', '_')}.pdf"
+            
+            response = FileResponse(
+                pdf_buffer,
+                content_type='application/pdf',
+                filename=filename,
+                as_attachment=False
+            )
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+            
+        except TournamentPlayer.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Player not found.'}, status=404)
+    elif bulk:
+        # Generate bulk PDF with all certificates
+        pdf_buffer = generate_bulk_certificates_pdf(tournament, players)
+        filename = f"All_Certificates_{tournament.name.replace(' ', '_')}.pdf"
+        
+        response = FileResponse(
+            pdf_buffer,
+            content_type='application/pdf',
+            filename=filename,
+            as_attachment=False
+        )
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
+    else:
+        # Return list of participants for bulk selection
+        sorted_players = list(players.order_by('-points', '-buchholz', '-sonneborn_berger', 'player_name'))
+        
+        # Determine positions for top 3
+        player_positions = {}
+        for idx, player in enumerate(sorted_players[:3], 1):
+            player_positions[player.id] = idx
+        
+        participants_data = []
+        for player in sorted_players:
+            participants_data.append({
+                'id': player.id,
+                'player_name': player.player_name,
+                'position': player_positions.get(player.id, None),
+                'points': float(player.points),
+                'rank': player.rank
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'tournament_name': tournament.name,
+            'participants': participants_data
+        })
+
+
 # Player Plus Application Review Views
 
 @login_required

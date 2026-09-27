@@ -789,6 +789,9 @@
                             <button class="btn btn-sm btn-outline-secondary" onclick="printPairings()">
                                 <i class="fas fa-print me-1"></i>Pairings
                             </button>
+                            <button class="btn btn-sm btn-outline-success" onclick="printCertificates()">
+                                <i class="fas fa-certificate me-1"></i>Certificate
+                            </button>
                             <button class="btn btn-sm btn-outline-info" onclick="printStandings()">
                                 <i class="fas fa-print me-1"></i>Standings
                             </button>
@@ -3900,6 +3903,353 @@
             }
         } catch (error) {
             console.error('Error printing standings:', error);
+        }
+    }
+
+    // Print certificates
+    async function printCertificates(playerId = null) {
+        if (!currentTournamentId) {
+            showAlert('tournamentAlertContainer', 'No tournament selected', 'error');
+            return;
+        }
+        
+        try {
+            let url = `/ttsa-admin/api/tournaments/${currentTournamentId}/print-certificates/`;
+            if (playerId) {
+                url += `?player_id=${playerId}`;
+            }
+            
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/pdf')) {
+                    // Single certificate - direct PDF
+                    const blob = await response.blob();
+                    const pdfUrl = window.URL.createObjectURL(blob);
+                    const printWindow = window.open(pdfUrl, '_blank');
+                    if (printWindow) {
+                        printWindow.onload = function() {
+                            try { printWindow.print(); } catch (e) { console.error(e); }
+                        };
+                    }
+                } else if (contentType && contentType.includes('application/json')) {
+                    // List of participants - show modal with options
+                    const data = await response.json();
+                    if (data.success && data.participants) {
+                        showCertificateModal(data);
+                    } else {
+                        showAlert('tournamentAlertContainer', data.error || 'Failed to load participants', 'error');
+                    }
+                }
+            } else {
+                const errorData = await response.json();
+                showAlert('tournamentAlertContainer', errorData.error || 'Failed to generate certificates', 'error');
+            }
+        } catch (error) {
+            console.error('Error printing certificates:', error);
+            showAlert('tournamentAlertContainer', 'Error generating certificates', 'error');
+        }
+    }
+
+    // Show certificate selection modal
+    function showCertificateModal(data) {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('certificateModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'certificateModal';
+            modal.className = 'modal fade';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Participant Certificates</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info" id="certificateModalInfo">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span id="certificateModalInfoText"></span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Player</th>
+                                            <th>Points</th>
+                                            <th>Position</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="certificateTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-outline-success" onclick="downloadAllCertificates(this)">
+                                <i class="fas fa-download me-2"></i>Download All
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="printAllCertificates(this)">
+                                <i class="fas fa-print me-2"></i>Print All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        // Update info text
+        const infoText = document.getElementById('certificateModalInfoText');
+        if (infoText) {
+            infoText.innerHTML = `<strong>${data.tournament_name}</strong> - ${data.participants.length} participants<br><small class="text-muted">Click "Print All" for a single PDF with all certificates, or use individual actions below.</small>`;
+        }
+        
+        // Populate table
+        const tbody = document.getElementById('certificateTableBody');
+        tbody.innerHTML = '';
+        
+        data.participants.forEach((participant) => {
+            const row = document.createElement('tr');
+            const positionText = participant.position ? 
+                (participant.position === 1 ? '🥇 1st Place' : participant.position === 2 ? '🥈 2nd Place' : '🥉 3rd Place') : 
+                'Participant';
+            
+            row.innerHTML = `
+                <td>${participant.player_name}</td>
+                <td>${participant.points}</td>
+                <td>${positionText}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="printSingleCertificate(${participant.id}, this)">
+                        <i class="fas fa-print me-1"></i>Print
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="downloadSingleCertificate(${participant.id}, this)">
+                        <i class="fas fa-download me-1"></i>Download
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        // Store participant data globally
+        window.currentParticipants = data.participants;
+        
+        // Show modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
+    // Print single certificate
+    async function printSingleCertificate(playerId, buttonElement = null) {
+        let btn = null;
+        try {
+            // Show loading indicator
+            btn = buttonElement || (window.event && window.event.target.closest('button'));
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating...';
+            }
+            
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/print-certificates/?player_id=${playerId}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const printWindow = window.open(url, '_blank');
+                if (printWindow) {
+                    printWindow.onload = function() {
+                        try { printWindow.print(); } catch (e) { console.error(e); }
+                    };
+                }
+            } else {
+                showAlert('tournamentAlertContainer', 'Failed to generate certificate', 'error');
+            }
+        } catch (error) {
+            console.error('Error printing certificate:', error);
+            showAlert('tournamentAlertContainer', 'Error generating certificate', 'error');
+        } finally {
+            // Reset button
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-print me-1"></i>Print';
+            }
+        }
+    }
+
+    // Download single certificate
+    async function downloadSingleCertificate(playerId, buttonElement = null) {
+        let btn = null;
+        try {
+            // Show loading indicator
+            btn = buttonElement || (window.event && window.event.target.closest('button'));
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Downloading...';
+            }
+            
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/print-certificates/?player_id=${playerId}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                
+                const participant = window.currentParticipants.find(p => p.id === playerId);
+                const filename = participant ? 
+                    `Certificate_${participant.player_name.replace(/ /g, '_')}.pdf` : 
+                    'Certificate.pdf';
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } else {
+                showAlert('tournamentAlertContainer', 'Failed to download certificate', 'error');
+            }
+        } catch (error) {
+            console.error('Error downloading certificate:', error);
+            showAlert('tournamentAlertContainer', 'Error downloading certificate', 'error');
+        } finally {
+            // Reset button
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download me-1"></i>Download';
+            }
+        }
+    }
+
+    // Print all certificates - generate single multi-page PDF
+    async function printAllCertificates(buttonElement = null) {
+        let btn = null;
+        if (!currentTournamentId) {
+            showAlert('tournamentAlertContainer', 'No tournament selected', 'error');
+            return;
+        }
+        
+        try {
+            // Show loading indicator
+            btn = buttonElement || (window.event && window.event.target.closest('button'));
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+            }
+            
+            const url = `/ttsa-admin/api/tournaments/${currentTournamentId}/print-certificates/?bulk=true`;
+            
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const pdfUrl = window.URL.createObjectURL(blob);
+                const printWindow = window.open(pdfUrl, '_blank');
+                if (printWindow) {
+                    printWindow.onload = function() {
+                        try { printWindow.print(); } catch (e) { console.error(e); }
+                    };
+                }
+                
+                // Close the modal after successful generation
+                const modal = document.getElementById('certificateModal');
+                if (modal) {
+                    const bsModal = bootstrap.Modal.getInstance(modal);
+                    if (bsModal) {
+                        bsModal.hide();
+                    }
+                }
+            } else {
+                const errorData = await response.json();
+                showAlert('tournamentAlertContainer', errorData.error || 'Failed to generate bulk certificates', 'error');
+            }
+        } catch (error) {
+            console.error('Error printing all certificates:', error);
+            showAlert('tournamentAlertContainer', 'Error generating bulk certificates', 'error');
+        } finally {
+            // Reset button
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-print me-2"></i>Print All';
+            }
+        }
+    }
+
+    // Download all certificates - generate single multi-page PDF
+    async function downloadAllCertificates(buttonElement = null) {
+        let btn = null;
+        if (!currentTournamentId) {
+            showAlert('tournamentAlertContainer', 'No tournament selected', 'error');
+            return;
+        }
+        
+        try {
+            // Show loading indicator
+            btn = buttonElement || (window.event && window.event.target.closest('button'));
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+            }
+            
+            const url = `/ttsa-admin/api/tournaments/${currentTournamentId}/print-certificates/?bulk=true`;
+            
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const pdfUrl = window.URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = pdfUrl;
+                a.download = `All_Certificates_${new Date().toISOString().slice(0,10)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(pdfUrl);
+                
+                // Close the modal after successful download
+                const modal = document.getElementById('certificateModal');
+                if (modal) {
+                    const bsModal = bootstrap.Modal.getInstance(modal);
+                    if (bsModal) {
+                        bsModal.hide();
+                    }
+                }
+            } else {
+                const errorData = await response.json();
+                showAlert('tournamentAlertContainer', errorData.error || 'Failed to generate bulk certificates', 'error');
+            }
+        } catch (error) {
+            console.error('Error downloading all certificates:', error);
+            showAlert('tournamentAlertContainer', 'Error generating bulk certificates', 'error');
+        } finally {
+            // Reset button
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download me-2"></i>Download All';
+            }
         }
     }
 

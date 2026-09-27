@@ -1220,19 +1220,29 @@ def multiplayer_game(request, game_code):
         return render(request, 'ttsa_app/error.html', {'error': 'Unable to start a guest session'})
     game = get_object_or_404(MultiplayerGame, game_code=game_code)
     
+    # Determine if user is a player or spectator
+    is_player = game.white_player == player or game.black_player == player
+    is_spectator = not is_player
+    
     # Join waiting games atomically and randomly assign the two players' colors.
-    if game.white_player != player and game.black_player != player:
+    if is_spectator:
         if game.status == 'waiting' and game.black_player is None:
             with transaction.atomic():
                 game = MultiplayerGame.objects.select_for_update().get(pk=game.pk)
                 if game.status != 'waiting' or game.black_player is not None:
-                    return render(request, 'ttsa_app/error.html', {
-                        'error': 'This game is no longer available to join'
-                    })
-                assign_multiplayer_opponent(game, player)
+                    # Game is no longer available, but allow spectator view
+                    is_spectator = True
+                else:
+                    # Join the game
+                    assign_multiplayer_opponent(game, player)
+                    is_player = True
+                    is_spectator = False
+        # For public games or games in progress/completed, allow spectator access
+        elif game.visibility == 'public' or game.status in ['playing', 'completed']:
+            is_spectator = True
         else:
             return render(request, 'ttsa_app/error.html', {
-                'error': 'You are not authorized to view this game'
+                'error': 'This is a private game. You can only join if you have the game link and the game is waiting for an opponent.'
             })
     
     # Determine user's color
@@ -1253,6 +1263,7 @@ def multiplayer_game(request, game_code):
     return render(request, 'ttsa_app/multiplayer_game.html', {
         'game': game,
         'my_color': my_color,
+        'is_spectator': is_spectator,
         'white_profile': white_profile,
         'black_profile': black_profile,
         'white_player_name': multiplayer_player_name(game.white_player),
@@ -1267,7 +1278,12 @@ def multiplayer_status_api(request, game_code):
     except RuntimeError:
         return JsonResponse({'success': False, 'error': 'Unable to start a guest session'}, status=503)
     game = get_object_or_404(MultiplayerGame, game_code=game_code)
-    if game.white_player != player and game.black_player != player:
+    
+    # Allow spectators to check status for public games or games in progress
+    is_player = game.white_player == player or game.black_player == player
+    is_spectator = not is_player
+    
+    if is_spectator and game.visibility != 'public' and game.status not in ['playing', 'completed']:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
     if game.is_lobby_game and game.status == 'waiting' and game.lobby_fallback_at and timezone.now() >= game.lobby_fallback_at:

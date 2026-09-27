@@ -45,6 +45,7 @@ urlpatterns = [
     path('api/tournaments/<int:tournament_id>/standings/', views.tournament_standings_api, name='tournament_standings_api'),
     path('api/tournaments/<int:tournament_id>/standings/<int:round_number>/', views.tournament_standings_api, name='tournament_standings_round'),
     path('api/tournaments/<int:tournament_id>/print-pairings/<int:round_number>/', views.print_pairings, name='print_pairings'),
+    path('api/tournaments/<int:tournament_id>/print-certificates/', views.print_certificates, name='print_certificates'),
     path('api/tournaments/<int:tournament_id>/print-standings/', views.print_standings, name='print_standings'),
     path('api/tournaments/<int:tournament_id>/print-standings/<int:round_number>/', views.print_standings, name='print_standings_round'),
     

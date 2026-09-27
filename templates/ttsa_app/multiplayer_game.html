@@ -146,7 +146,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="mt-3 flex flex-wrap justify-center gap-2">
+                <div class="mt-3 flex flex-wrap justify-center gap-2" id="gameControls">
                     <button onclick="resignGame()" class="rounded-md bg-red-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-600">
                         <i class="fas fa-flag mr-1"></i>Resign
                     </button>
@@ -157,6 +157,11 @@
                         <i class="fas fa-redo mr-1"></i>Rematch
                     </button>
                 </div>
+                {% if is_spectator %}
+                <div class="mt-2 text-center text-sm text-gray-500">
+                    <i class="fas fa-eye mr-1"></i>Watching as spectator
+                </div>
+                {% endif %}
             </div>
         </div>
         
@@ -218,11 +223,14 @@
 
 <!-- Chess.js is already loaded in base.html -->
 
+<div id="gameData" data-is-spectator="{% if is_spectator %}true{% else %}false{% endif %}" style="display: none;"></div>
+
 <script>
 let game = null;
 let board = null; // Chessboard.js instance
 let websocket = null;
 let myColor = null;
+let isSpectator = false;
 let gameEnded = false;
 let selectedSquare = null;
 let gameTimer = null;
@@ -241,6 +249,12 @@ let clockStarted = false; // Whether clock has started (after first move)
 
 // Initialize game
 document.addEventListener('DOMContentLoaded', function() {
+    // Read spectator status from data attribute
+    const gameData = document.getElementById('gameData');
+    if (gameData) {
+        isSpectator = gameData.dataset.isSpectator === 'true';
+    }
+    
     initializeGame();
     connectWebSocket();
 });
@@ -251,6 +265,7 @@ function initializeGame() {
     // Determine my color
     myColor = "{{ my_color|safe }}";
     console.log('My color:', myColor);
+    console.log('Is spectator:', isSpectator);
     
     // Check if Chessboard.js is loaded
     if (typeof Chessboard === 'undefined') {
@@ -272,8 +287,11 @@ function initializeGame() {
     
     // Initialize Chessboard.js
     const config = {
-        draggable: false,
+        draggable: !isSpectator, // Enable drag for players, disable for spectators
         position: fen || 'start',
+        onDragStart: onDragStart,
+        onDrop: onDrop,
+        onSnapEnd: onSnapEnd,
         onSquareClick: onSquareClick,
         pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
         orientation: myColor === 'white' ? 'white' : 'black'
@@ -292,26 +310,19 @@ function initializeGame() {
     board = Chessboard('multiplayerBoard', config);
     console.log('Chessboard initialized:', board);
     
-    // Add fallback click handler in case chessboard.js click handler doesn't work
-    setTimeout(() => {
-        console.log('Adding fallback click handlers...');
-        document.querySelectorAll('.square-55d63').forEach(square => {
-            square.addEventListener('click', function(e) {
-                const squareId = this.getAttribute('data-square');
-                console.log('Fallback click handler triggered for square:', squareId);
-                if (squareId && typeof onSquareClick === 'function') {
-                    onSquareClick(squareId);
-                }
-            });
-        });
-        console.log('Fallback click handlers added');
-    }, 1000);
-    
     // Initialize player profiles
     initializePlayerProfiles();
     
     // Initialize clocks
     initializeClocks();
+    
+    // Hide game controls for spectators
+    if (isSpectator) {
+        const gameControls = document.getElementById('gameControls');
+        if (gameControls) {
+            gameControls.style.display = 'none';
+        }
+    }
     
     // Update UI
     
@@ -332,8 +343,91 @@ function initializeGame() {
     }
 }
 
+// Drag and drop handlers for chessboard.js
+function onDragStart(source, piece, position, orientation) {
+    // Spectators cannot drag pieces
+    if (isSpectator) {
+        return false;
+    }
+    
+    // Do not pick up pieces if the game is over
+    if (gameEnded || game.game_over()) {
+        return false;
+    }
+    
+    // Only allow dragging during player's turn
+    if (!isMyTurn()) {
+        return false;
+    }
+    
+    // Only allow picking up pieces for the side to move
+    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+        (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+        return false;
+    }
+    
+    // Initialize audio on first interaction
+    if (typeof chessSounds !== 'undefined') {
+        chessSounds.init();
+    }
+}
+
+function onDrop(source, target) {
+    // Spectators cannot drop pieces
+    if (isSpectator) {
+        return 'snapback';
+    }
+    
+    // Do not allow moves if game is over
+    if (gameEnded || game.game_over()) {
+        return 'snapback';
+    }
+    
+    // Only allow moves during player's turn
+    if (!isMyTurn()) {
+        return 'snapback';
+    }
+    
+    // Try to make the move
+    const move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q'
+    });
+    
+    // Illegal move
+    if (move === null) {
+        return 'snapback';
+    }
+    
+    // Valid move - send to server
+    sendMoveToServer(source, target, move);
+    
+    // Update UI
+    clearHighlights();
+    highlightMovePath(source, target);
+    highlightCheck();
+    
+    // Play move sound
+    if (typeof chessSounds !== 'undefined') {
+        chessSounds.playMoveSound(move, {in_check: game.in_check()});
+    }
+}
+
+function onSnapEnd() {
+    // Update the board position after the piece snap (for castling, en passant, promotion)
+    board.position(game.fen());
+}
+
 // Click-to-move functionality
 function onSquareClick(square) {
+    // Spectators cannot make moves
+    if (isSpectator) {
+        console.log('Spectators cannot make moves');
+        showTTSAToast('You are watching as a spectator. Only players can make moves.', 'info');
+        return;
+    }
+    
     // Initialize/resume audio on the first user interaction so move sounds are immediate
     if (typeof chessSounds !== 'undefined') {
         chessSounds.init();
@@ -400,6 +494,8 @@ function onSquareClick(square) {
         } else {
             // Try to move to the clicked square
             console.log('Attempting move from', selectedSquare, 'to', square);
+            
+            // Validate move using chess.js rules
             const move = game.move({
                 from: selectedSquare,
                 to: square,
@@ -407,6 +503,7 @@ function onSquareClick(square) {
             });
             
             console.log('Move result:', move);
+            console.log('Game FEN after move:', game.fen());
             
             if (move) {
                 // Move successful
@@ -434,8 +531,9 @@ function onSquareClick(square) {
                 
                 // Keep the move locally - server will broadcast confirmation to both players
             } else {
-                // Invalid move, deselect
+                // Invalid move - show feedback and deselect
                 console.log('Invalid move, deselecting');
+                showTTSAToast('Invalid move. Please try again.', 'error');
                 clearHighlights();
                 selectedSquare = null;
             }
@@ -458,6 +556,12 @@ function highlightSquare(square) {
         console.log('Added selected-square class');
     } else {
         console.error('Square element not found for:', square);
+        // Try alternative selector
+        const altSquareElement = document.querySelector(`[data-square="${square}"]`);
+        if (altSquareElement) {
+            altSquareElement.classList.add('selected-square');
+            console.log('Added selected-square class using alternative selector');
+        }
     }
 }
 
@@ -469,8 +573,15 @@ function highlightLegalMoves(square) {
     
     // Highlight valid move squares
     moves.forEach(move => {
-        const targetSquare = document.querySelector(`.square-${move.to}`);
+        let targetSquare = document.querySelector(`.square-${move.to}`);
         console.log('Target square for', move.to, ':', targetSquare);
+        
+        // Try alternative selector if main one doesn't work
+        if (!targetSquare) {
+            targetSquare = document.querySelector(`[data-square="${move.to}"]`);
+            console.log('Alternative selector for', move.to, ':', targetSquare);
+        }
+        
         if (targetSquare) {
             if (move.captured) {
                 targetSquare.classList.add('capture-move');
@@ -497,8 +608,15 @@ function highlightCheck() {
         const kingSquare = findKingSquare(turn);
         console.log('King square:', kingSquare);
         if (kingSquare) {
-            const kingElement = document.querySelector(`.square-${kingSquare}`);
+            let kingElement = document.querySelector(`.square-${kingSquare}`);
             console.log('King element:', kingElement);
+            
+            // Try alternative selector if main one doesn't work
+            if (!kingElement) {
+                kingElement = document.querySelector(`[data-square="${kingSquare}"]`);
+                console.log('Alternative king element:', kingElement);
+            }
+            
             if (kingElement) {
                 kingElement.classList.add('check-square');
                 // Force inline style to override chessboard.js styles
@@ -550,8 +668,16 @@ function highlightMovePath(from, to) {
     });
     
     // Highlight origin and destination squares
-    const fromElement = document.querySelector(`.square-${from}`);
-    const toElement = document.querySelector(`.square-${to}`);
+    let fromElement = document.querySelector(`.square-${from}`);
+    let toElement = document.querySelector(`.square-${to}`);
+    
+    // Try alternative selectors if main ones don't work
+    if (!fromElement) {
+        fromElement = document.querySelector(`[data-square="${from}"]`);
+    }
+    if (!toElement) {
+        toElement = document.querySelector(`[data-square="${to}"]`);
+    }
     
     if (fromElement) {
         fromElement.classList.add('move-path-from');
@@ -563,7 +689,7 @@ function highlightMovePath(from, to) {
 
 function clearHighlights() {
     document.querySelectorAll('.square-55d63').forEach(el => {
-        el.classList.remove('selected-square', 'valid-move', 'capture-move', 'check-square');
+        el.classList.remove('selected-square', 'valid-move', 'capture-move', 'check-square', 'move-path-from', 'move-path-to');
         // Clear inline styles for check highlight
         el.style.backgroundColor = '';
         el.style.background = '';
@@ -759,6 +885,8 @@ function handleWebSocketMessage(data) {
             try {
                 let soundMove = null;
                 let isOwnMove = false;
+                
+                // Check if this is our own move that we already validated locally
                 if (
                     pendingLocalMove
                     && data.move
@@ -768,15 +896,12 @@ function handleWebSocketMessage(data) {
                     soundMove = pendingLocalMove;
                     pendingLocalMove = null;
                     isOwnMove = true;
-                } else if (data.move && data.move.from && data.move.to) {
-                    soundMove = game.move({
-                        from: data.move.from,
-                        to: data.move.to,
-                        promotion: data.move.promotion || 'q'
-                    });
                 }
+                
+                // Load the validated game state from server
                 game.load(data.fen);
                 board.position(data.fen, !isOwnMove);
+                
                 // Play the move for opponent/Stockfish moves; the user move sound is already played on click
                 if (soundMove && !isOwnMove && typeof chessSounds !== 'undefined') {
                     chessSounds.playMoveSound(soundMove, {in_check: game.in_check()});
@@ -981,6 +1106,10 @@ function closeGameOverModal() {
 }
 
 function resignGame() {
+    if (isSpectator) {
+        showTTSAToast('Spectators cannot resign. Only players can control the game.', 'info');
+        return;
+    }
     showTTSAConfirm('Are you sure you want to resign?', function() {
         websocket.send(JSON.stringify({
             type: 'resign'
@@ -992,6 +1121,10 @@ function resignGame() {
 }
 
 function offerDraw() {
+    if (isSpectator) {
+        showTTSAToast('Spectators cannot offer draws. Only players can control the game.', 'info');
+        return;
+    }
     websocket.send(JSON.stringify({
         type: 'draw_offer'
     }));
