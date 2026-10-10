@@ -335,3 +335,7 @@ if not os.access(LOGS_DIR, os.W_OK):
     LOGGING['root']['handlers'] = [h for h in LOGGING['root']['handlers'] if h != 'file']
     for logger_cfg in LOGGING['loggers'].values():
         logger_cfg['handlers'] = [h for h in logger_cfg['handlers'] if h != 'file']
+
+# Rate limiting configuration
+# Disable rate limiting in DEBUG mode for development convenience
+RATE_LIMIT_IN_DEBUG = False

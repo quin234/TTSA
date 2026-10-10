@@ -533,7 +533,6 @@ def user_role_api(request):
     })
 
 
-@rate_limit(rate='10/m')
 def login_view(request):
     tournament_id = request.GET.get('tournament_id') or request.POST.get('tournament_id')
     tournament_slug = request.GET.get('tournament_slug') or request.POST.get('tournament_slug')
@@ -2534,9 +2533,11 @@ def player_tournament_print_standings(request, tournament_id):
     if latest_completed:
         standings_list = PairingDataConverter.recalculate_standings(tournament, latest_completed.round_number)
         for rank, standing in enumerate(standings_list, 1):
+            team_first_word = standing['player'].team.team_name.split()[0] if standing['player'].team else '—'
             standings.append({
                 'rank': rank,
                 'player': standing['player'],
+                'team_first_word': team_first_word.upper(),
                 'points': float(standing['points']),
                 'wins': standing['wins'],
                 'draws': standing['draws'],

@@ -54,17 +54,20 @@
             color: #2c3e50;
         }
         
-        .meta { font-size: 0.9rem; color: #555; margin-bottom: 1.5rem; }
+        .meta { font-size: 0.9rem; color: #555; margin-bottom: 0.5rem; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; }
         th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.95rem; }
         th { background: #2c3e50; color: white; font-weight: bold; }
         tr:nth-child(even) { background: #f9fafb; }
         .right { text-align: right; }
         
         @media print {
-            body { margin: 0; }
-            table { page-break-inside: avoid; }
+            @page {
+                size: A4 landscape;
+                margin: 0.5cm;
+            }
+            body { margin: 0.5cm; }
             .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
@@ -94,6 +97,7 @@
             <tr>
                 <th>Rank</th>
                 <th>Player</th>
+                <th>Team</th>
                 <th>Rating</th>
                 <th class="right">Points</th>
                 <th class="right">Games</th>
@@ -109,6 +113,7 @@
             <tr>
                 <td>{{ standing.rank }}</td>
                 <td>{{ standing.player.player_name|upper }}</td>
+                <td>{{ standing.team_first_word }}</td>
                 <td>{{ standing.player.rating|default:"—" }}</td>
                 <td class="right">{{ standing.points }}</td>
                 <td class="right">{{ standing.games_played }}</td>
