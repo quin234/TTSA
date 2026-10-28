@@ -619,3 +619,68 @@ class AcademySettings(models.Model):
             'academy_name': 'TTSA Chess Academy',
         })
         return settings_obj
+
+
+class SMSMessage(models.Model):
+    """Model for tracking SMS messages sent to players"""
+    
+    MESSAGE_TYPE_CHOICES = [
+        ('broadcast', 'Broadcast'),
+        ('personalized', 'Personalized'),
+        ('transactional', 'Transactional'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('delivered', 'Delivered'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    # Message details
+    message_type = models.CharField(max_length=20, choices=MESSAGE_TYPE_CHOICES, db_index=True)
+    content = models.TextField()
+    recipient_count = models.PositiveIntegerField(default=0, db_index=True)
+    
+    # Recipients (stored as JSON array of phone numbers)
+    recipients = models.JSONField(default=list, help_text="List of recipient phone numbers")
+    
+    # Status tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    
+    # API response details
+    api_message_id = models.CharField(max_length=255, blank=True, db_index=True, help_text="Message ID from SMS provider")
+    api_response = models.JSONField(default=dict, blank=True, help_text="Full API response from SMS provider")
+    
+    # Delivery tracking
+    delivery_status = models.JSONField(default=dict, blank=True, help_text="Delivery status for each recipient")
+    callback_received = models.BooleanField(default=False, db_index=True)
+    
+    # Error handling
+    error_message = models.TextField(blank=True)
+    retry_count = models.PositiveIntegerField(default=0)
+    
+    # Metadata
+    sent_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, db_index=True, db_constraint=False)
+    sent_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    delivered_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['message_type', '-created_at']),
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['sent_by', '-created_at']),
+            models.Index(fields=['api_message_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.message_type} message to {self.recipient_count} recipients - {self.status}"
+    
+    @property
+    def segments_count(self):
+        """Calculate SMS segments based on character count"""
+        return max(1, (len(self.content) + 159) // 160)

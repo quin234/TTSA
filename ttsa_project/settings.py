@@ -273,6 +273,12 @@ CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
 # YouTube API configuration (no default production key)
 YOUTUBE_API_KEY = config('YOUTUBE_API_KEY', default='')
 
+# Eleza SMS API configuration
+ELEZA_SMS_API_KEY = config('ELEZA_SMS_API_KEY', default='')
+ELEZA_SMS_BASE_URL = config('ELEZA_SMS_BASE_URL', default='https://api.elezasms.com')
+ELEZA_SMS_SENDER_ID = config('ELEZA_SMS_SENDER_ID', default='Cambridge')
+ELEZA_SMS_TIMEOUT = config('ELEZA_SMS_TIMEOUT', default=30, cast=int)
+
 
 # Logging
 LOGS_DIR = BASE_DIR / 'logs'

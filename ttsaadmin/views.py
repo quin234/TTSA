@@ -10,6 +10,7 @@ from django.db.models import Q, Count, Sum, Avg, F, Max
 from django.utils import timezone
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
+from django.db import models
 from functools import wraps
 from datetime import timedelta
 import logging
@@ -27,7 +28,7 @@ from .forms import (
 from ttsa_app.forms import AdminPlayerCreationForm, AdminPlayerEditForm
 from .models import (
     YouTubeChannel, SyncNotification, Tournament, TournamentPlayer, TournamentGame,
-    TournamentRound, TournamentStanding, TournamentResult, AcademySettings
+    TournamentRound, TournamentStanding, TournamentResult, AcademySettings, SMSMessage
 )
 from .youtube_utils import validate_and_fetch_channel_metadata, YouTubeChannelError, fetch_channel_videos
 from ttsa_app.models import (
@@ -2335,6 +2336,442 @@ def print_certificates(request, tournament_id):
         })
 
 
+@login_required
+def print_player_statistics(request, tournament_id):
+    """API endpoint to generate player statistics reports."""
+    
+    if not request.user.can_manage_tournaments:
+        return JsonResponse({'success': False, 'error': 'You do not have permission to print statistics.'}, status=403)
+    
+    tournament = get_object_or_404(Tournament, id=tournament_id)
+    
+    # Get all participants for this tournament
+    players = tournament.players.filter(status='registered').select_related('team')
+    
+    if not players.exists():
+        return JsonResponse({'success': False, 'error': 'No participants found for this tournament.'}, status=400)
+    
+    # Check if individual or bulk printing
+    player_id = request.GET.get('player_id')
+    bulk = request.GET.get('bulk', 'false').lower() == 'true'
+    
+    from .pdf_utils import generate_player_statistics_pdf, generate_bulk_player_statistics_pdf
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    if player_id:
+        # Generate single player statistics
+        try:
+            player = players.get(id=player_id)
+            
+            # Get current tournament data for this player
+            current_round = tournament.tournament_rounds.filter(status='completed').count() if tournament.tournament_rounds.exists() else 0
+            current_position = player.rank if player.rank else 'N/A'
+            total_players = tournament.players.filter(status='registered').count()
+            
+            # Get current tournament standings (top 10)
+            tournament_standings = tournament.players.filter(status='registered').order_by('-points', '-buchholz', '-sonneborn_berger', 'player_name')[:10]
+            current_standings_data = []
+            for idx, standing_player in enumerate(tournament_standings):
+                current_standings_data.append({
+                    'rank': idx + 1,
+                    'player_name': standing_player.player_name,
+                    'rating': standing_player.rating,
+                    'points': float(standing_player.points),
+                    'played': standing_player.games_played,
+                    'wins': standing_player.wins,
+                    'draws': standing_player.draws,
+                    'losses': standing_player.losses,
+                })
+            
+            # Get opponent data for current tournament
+            from .models import TournamentGame
+            opponent_games = TournamentGame.objects.filter(
+                tournament=tournament
+            ).filter(
+                models.Q(white_player=player) | models.Q(black_player=player)
+            ).select_related('white_player', 'black_player').order_by('round_number', 'board_number')
+            
+            current_opponents = []
+            for game in opponent_games:
+                opponent = game.black_player if game.white_player == player else game.white_player
+                result = game.result
+                # Convert result to score (1 for win, 0.5 for draw, 0 for loss)
+                if game.white_player == player:
+                    if result == '1-0':
+                        score = 1
+                    elif result == '½-½':
+                        score = 0.5
+                    elif result == '0-1':
+                        score = 0
+                    else:
+                        score = 'N/A'
+                else:
+                    if result == '0-1':
+                        score = 1
+                    elif result == '½-½':
+                        score = 0.5
+                    elif result == '1-0':
+                        score = 0
+                    else:
+                        score = 'N/A'
+                
+                current_opponents.append({
+                    'board_number': game.board_number,
+                    'round_number': game.round_number,
+                    'opponent_name': opponent.player_name,
+                    'opponent_rating': opponent.rating,
+                    'score': score,
+                    'result': result,
+                })
+            
+            # Get player's tournament history (last 5)
+            twelve_months_ago = timezone.now() - timedelta(days=365)
+            player_tournaments = TournamentPlayer.objects.filter(
+                player_name=player.player_name,
+                tournament__start_date__gte=twelve_months_ago,
+                tournament__status='completed'
+            ).select_related('tournament').order_by('-tournament__start_date')[:5]
+            
+            last_5_tournaments = []
+            for tp in player_tournaments:
+                last_5_tournaments.append({
+                    'name': tp.tournament.name,
+                    'position': tp.rank,
+                    'points': float(tp.points),
+                })
+            
+            # Calculate overall stats from all tournaments
+            all_tournaments = TournamentPlayer.objects.filter(
+                player_name=player.player_name,
+                tournament__start_date__gte=twelve_months_ago
+            ).select_related('tournament')
+            
+            total_wins = sum(tp.wins for tp in all_tournaments)
+            total_draws = sum(tp.draws for tp in all_tournaments)
+            total_losses = sum(tp.losses for tp in all_tournaments)
+            
+            # Rating history (last 12 months)
+            rating_history = []
+            for tp in all_tournaments.order_by('tournament__start_date'):
+                rating_history.append({
+                    'date': tp.tournament.start_date.strftime('%b %Y') if tp.tournament.start_date else 'N/A',
+                    'rating': tp.rating,
+                })
+            
+            # Calculate rating change
+            current_rating = player.rating
+            rating_change = 0
+            if len(rating_history) > 1:
+                rating_change = current_rating - rating_history[0]['rating']
+            
+            # All tournaments with details
+            all_tournaments_data = []
+            for tp in all_tournaments.order_by('-tournament__start_date'):
+                position = tp.rank
+                all_tournaments_data.append({
+                    'date': tp.tournament.start_date.strftime('%d %b %Y') if tp.tournament.start_date else 'N/A',
+                    'name': tp.tournament.name,
+                    'location': tp.tournament.venue,
+                    'type': tp.tournament.format,
+                    'position': position,
+                    'rating_after': tp.rating,
+                })
+            
+            # Last 5 games
+            from .models import TournamentGame
+            recent_games = TournamentGame.objects.filter(
+                tournament__players__player_name=player.player_name,
+                tournament__start_date__gte=twelve_months_ago
+            ).filter(
+                models.Q(white_player__player_name=player.player_name) |
+                models.Q(black_player__player_name=player.player_name)
+            ).select_related('tournament', 'white_player', 'black_player').order_by('-scheduled_time')[:5]
+            
+            last_5_games = []
+            opponent_ratings = []
+            for game in recent_games:
+                opponent = game.black_player.player_name if game.white_player.player_name == player.player_name else game.white_player.player_name
+                opponent_rating = game.black_player.rating if game.white_player.player_name == player.player_name else game.white_player.rating
+                if opponent_rating:
+                    opponent_ratings.append(opponent_rating)
+                result = game.result
+                last_5_games.append({
+                    'date': game.scheduled_time.strftime('%d %b %Y') if game.scheduled_time else 'N/A',
+                    'opponent': opponent,
+                    'result': result,
+                    'tournament': game.tournament.name,
+                })
+            
+            # Calculate average opponent rating
+            average_opponent_rating = sum(opponent_ratings) / len(opponent_ratings) if opponent_ratings else 'N/A'
+            
+            player_data = {
+                'player_name': player.player_name,
+                'player_id': f"TTSA-{player.id:05d}",
+                'date_of_birth': 'N/A',  # Can be enhanced with player profile model
+                'category': player.category,
+                'club_school': 'TTSA',  # Can be enhanced with player profile model
+                'location': 'Voi, Taita Taveta',  # Can be enhanced with player profile model
+                'phone': player.phone if player.phone else 'N/A',
+                'current_rating': current_rating,
+                'rating_change': rating_change,
+                'total_tournaments': all_tournaments.count(),
+                'wins': total_wins,
+                'draws': total_draws,
+                'losses': total_losses,
+                'last_5_tournaments': last_5_tournaments,
+                'all_tournaments': all_tournaments_data,
+                'rating_history': rating_history,
+                'last_5_games': last_5_games,
+                'average_opponent_rating': average_opponent_rating,
+                'tournament_name': tournament.name,  # Add tournament name
+                'current_round': current_round,
+                'current_position': current_position,
+                'total_players': total_players,
+                'current_standings': current_standings_data,
+                'current_opponents': current_opponents,
+                'achievements': [],  # Can be enhanced with achievement model
+                'strengths': [],  # Can be enhanced with coach assessments
+                'areas_for_improvement': [],  # Can be enhanced with coach assessments
+                'next_goal': '',  # Can be enhanced with development plans
+                'training_attendance': {},  # Can be enhanced with attendance tracking
+            }
+            
+            try:
+                pdf_buffer = generate_player_statistics_pdf(player_data)
+                filename = f"Statistics_{player.player_name.replace(' ', '_')}.pdf"
+                
+                response = FileResponse(
+                    pdf_buffer,
+                    content_type='application/pdf',
+                    filename=filename,
+                    as_attachment=False
+                )
+                response['Content-Disposition'] = f'inline; filename="{filename}"'
+                return response
+            except Exception as e:
+                import traceback
+                return JsonResponse({'success': False, 'error': f'Error generating PDF: {str(e)}', 'traceback': traceback.format_exc()}, status=500)
+            
+        except TournamentPlayer.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Player not found.'}, status=404)
+    elif bulk:
+        # Generate bulk PDF with all player statistics
+        players_data = []
+        
+        # Get current tournament data once for all players
+        current_round = tournament.tournament_rounds.filter(status='completed').count() if tournament.tournament_rounds.exists() else 0
+        total_players = tournament.players.filter(status='registered').count()
+        
+        # Get current tournament standings (top 10)
+        tournament_standings = tournament.players.filter(status='registered').order_by('-points', '-buchholz', '-sonneborn_berger', 'player_name')[:10]
+        current_standings_data = []
+        for idx, standing_player in enumerate(tournament_standings):
+            current_standings_data.append({
+                'rank': idx + 1,
+                'player_name': standing_player.player_name,
+                'rating': standing_player.rating,
+                'points': float(standing_player.points),
+                'played': standing_player.games_played,
+                'wins': standing_player.wins,
+                'draws': standing_player.draws,
+                'losses': standing_player.losses,
+            })
+        
+        for player in players:
+            # Get opponent data for current tournament
+            from .models import TournamentGame
+            opponent_games = TournamentGame.objects.filter(
+                tournament=tournament
+            ).filter(
+                models.Q(white_player=player) | models.Q(black_player=player)
+            ).select_related('white_player', 'black_player').order_by('round_number', 'board_number')
+            
+            current_opponents = []
+            for game in opponent_games:
+                opponent = game.black_player if game.white_player == player else game.white_player
+                result = game.result
+                # Convert result to score (1 for win, 0.5 for draw, 0 for loss)
+                if game.white_player == player:
+                    if result == '1-0':
+                        score = 1
+                    elif result == '½-½':
+                        score = 0.5
+                    elif result == '0-1':
+                        score = 0
+                    else:
+                        score = 'N/A'
+                else:
+                    if result == '0-1':
+                        score = 1
+                    elif result == '½-½':
+                        score = 0.5
+                    elif result == '1-0':
+                        score = 0
+                    else:
+                        score = 'N/A'
+                
+                current_opponents.append({
+                    'board_number': game.board_number,
+                    'round_number': game.round_number,
+                    'opponent_name': opponent.player_name,
+                    'opponent_rating': opponent.rating,
+                    'score': score,
+                    'result': result,
+                })
+            
+            # Get player's tournament history (last 5)
+            twelve_months_ago = timezone.now() - timedelta(days=365)
+            player_tournaments = TournamentPlayer.objects.filter(
+                player_name=player.player_name,
+                tournament__start_date__gte=twelve_months_ago,
+                tournament__status='completed'
+            ).select_related('tournament').order_by('-tournament__start_date')[:5]
+            
+            last_5_tournaments = []
+            for tp in player_tournaments:
+                last_5_tournaments.append({
+                    'name': tp.tournament.name,
+                    'position': tp.rank,
+                    'points': float(tp.points),
+                })
+            
+            # Calculate overall stats from all tournaments
+            all_tournaments = TournamentPlayer.objects.filter(
+                player_name=player.player_name,
+                tournament__start_date__gte=twelve_months_ago
+            ).select_related('tournament')
+            
+            total_wins = sum(tp.wins for tp in all_tournaments)
+            total_draws = sum(tp.draws for tp in all_tournaments)
+            total_losses = sum(tp.losses for tp in all_tournaments)
+            
+            # Rating history (last 12 months)
+            rating_history = []
+            for tp in all_tournaments.order_by('tournament__start_date'):
+                rating_history.append({
+                    'date': tp.tournament.start_date.strftime('%b %Y') if tp.tournament.start_date else 'N/A',
+                    'rating': tp.rating,
+                })
+            
+            # Calculate rating change
+            current_rating = player.rating
+            rating_change = 0
+            if len(rating_history) > 1:
+                rating_change = current_rating - rating_history[0]['rating']
+            
+            # All tournaments with details
+            all_tournaments_data = []
+            for tp in all_tournaments.order_by('-tournament__start_date'):
+                position = tp.rank
+                all_tournaments_data.append({
+                    'date': tp.tournament.start_date.strftime('%d %b %Y') if tp.tournament.start_date else 'N/A',
+                    'name': tp.tournament.name,
+                    'location': tp.tournament.venue,
+                    'type': tp.tournament.format,
+                    'position': position,
+                    'rating_after': tp.rating,
+                })
+            
+            # Last 5 games
+            recent_games = TournamentGame.objects.filter(
+                tournament__players__player_name=player.player_name,
+                tournament__start_date__gte=twelve_months_ago
+            ).filter(
+                models.Q(white_player__player_name=player.player_name) |
+                models.Q(black_player__player_name=player.player_name)
+            ).select_related('tournament', 'white_player', 'black_player').order_by('-scheduled_time')[:5]
+            
+            last_5_games = []
+            opponent_ratings = []
+            for game in recent_games:
+                opponent = game.black_player.player_name if game.white_player.player_name == player.player_name else game.white_player.player_name
+                opponent_rating = game.black_player.rating if game.white_player.player_name == player.player_name else game.white_player.rating
+                if opponent_rating:
+                    opponent_ratings.append(opponent_rating)
+                result = game.result
+                last_5_games.append({
+                    'date': game.scheduled_time.strftime('%d %b %Y') if game.scheduled_time else 'N/A',
+                    'opponent': opponent,
+                    'result': result,
+                    'tournament': game.tournament.name,
+                })
+            
+            # Calculate average opponent rating
+            average_opponent_rating = sum(opponent_ratings) / len(opponent_ratings) if opponent_ratings else 'N/A'
+            
+            current_position = player.rank if player.rank else 'N/A'
+            
+            player_data = {
+                'player_name': player.player_name,
+                'player_id': f"TTSA-{player.id:05d}",
+                'date_of_birth': 'N/A',
+                'category': player.category,
+                'club_school': 'TTSA',
+                'location': 'Voi, Taita Taveta',
+                'phone': player.phone if player.phone else 'N/A',
+                'current_rating': current_rating,
+                'rating_change': rating_change,
+                'total_tournaments': all_tournaments.count(),
+                'wins': total_wins,
+                'draws': total_draws,
+                'losses': total_losses,
+                'last_5_tournaments': last_5_tournaments,
+                'all_tournaments': all_tournaments_data,
+                'rating_history': rating_history,
+                'last_5_games': last_5_games,
+                'average_opponent_rating': average_opponent_rating,
+                'tournament_name': tournament.name,
+                'current_round': current_round,
+                'current_position': current_position,
+                'total_players': total_players,
+                'current_standings': current_standings_data,
+                'current_opponents': current_opponents,
+                'achievements': [],
+                'strengths': [],
+                'areas_for_improvement': [],
+                'next_goal': '',
+                'training_attendance': {},
+            }
+            players_data.append(player_data)
+        
+        try:
+            pdf_buffer = generate_bulk_player_statistics_pdf(players_data)
+            filename = f"All_Statistics_{tournament.name.replace(' ', '_')}.pdf"
+            
+            response = FileResponse(
+                pdf_buffer,
+                content_type='application/pdf',
+                filename=filename,
+                as_attachment=False
+            )
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+        except Exception as e:
+            import traceback
+            return JsonResponse({'success': False, 'error': f'Error generating bulk PDF: {str(e)}', 'traceback': traceback.format_exc()}, status=500)
+    else:
+        # Return list of participants for bulk selection
+        sorted_players = list(players.order_by('-points', '-buchholz', '-sonneborn_berger', 'player_name'))
+        
+        participants_data = []
+        for player in sorted_players:
+            participants_data.append({
+                'id': player.id,
+                'player_name': player.player_name,
+                'rating': player.rating,
+                'points': float(player.points),
+                'rank': player.rank
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'tournament_name': tournament.name,
+            'participants': participants_data
+        })
+
+
 # Player Plus Application Review Views
 
 @login_required
@@ -2586,3 +3023,212 @@ def admin_update_branding(request):
         response_data['favicon_url'] = settings_obj.favicon.url
 
     return JsonResponse(response_data)
+
+
+# ==================== SMS MESSAGING VIEWS ====================
+
+@ttsa_admin_required
+@require_POST
+def send_sms_message(request):
+    """Send SMS message to selected players"""
+    try:
+        import json
+        from .eleza_sms_service import get_eleza_sms_service, ElezaSMSError
+        from .models import SMSMessage
+
+        # Get SMS service
+        sms_service = get_eleza_sms_service()
+        if not sms_service:
+            return JsonResponse({
+                'success': False,
+                'error': 'SMS service is not configured. Please set ELEZA_SMS_API_KEY in your environment.'
+            }, status=500)
+
+        data = json.loads(request.body)
+        message_type = data.get('message_type', 'broadcast')
+        message_content = data.get('message', '').strip()
+        recipients_data = data.get('recipients', [])
+
+        if not message_content:
+            return JsonResponse({'success': False, 'error': 'Message content is required'}, status=400)
+
+        if not recipients_data:
+            return JsonResponse({'success': False, 'error': 'At least one recipient is required'}, status=400)
+
+        # Extract phone numbers from recipient data
+        phone_numbers = []
+        recipient_details = []
+
+        for recipient in recipients_data:
+            phone = recipient.get('phone_number') or recipient.get('phone')
+            if phone:
+                try:
+                    validated_phone = sms_service.validate_phone_number(phone)
+                    phone_numbers.append(validated_phone)
+                    recipient_details.append({
+                        'phone_number': validated_phone,
+                        'name': recipient.get('name', recipient.get('username', ''))
+                    })
+                except ElezaSMSError as e:
+                    logger.warning(f"Invalid phone number {phone}: {str(e)}")
+
+        if not phone_numbers:
+            return JsonResponse({'success': False, 'error': 'No valid phone numbers provided'}, status=400)
+
+        # Create SMS message record
+        sms_message = SMSMessage.objects.create(
+            message_type=message_type,
+            content=message_content,
+            recipient_count=len(phone_numbers),
+            recipients=phone_numbers,
+            status='pending',
+            sent_by=request.user
+        )
+
+        # Send SMS via Eleza API
+        try:
+            if message_type == 'personalized':
+                # For personalized messages, replace {name} placeholder with recipient's name
+                messages = []
+                for phone, detail in zip(phone_numbers, recipient_details):
+                    # Replace {name} with the recipient's name, or use a generic greeting if no name
+                    recipient_name = detail.get('name', 'Player')
+                    personalized_message = message_content.replace('{name}', recipient_name)
+                    messages.append({
+                        'phone_number': phone,
+                        'message': personalized_message
+                    })
+                api_response = sms_service.send_personalized_sms(messages)
+            else:
+                # Broadcast message
+                api_response = sms_service.send_broadcast_sms(phone_numbers, message_content)
+
+            # Update SMS message record with API response
+            # API returns a list of message results
+            if isinstance(api_response, list) and len(api_response) > 0:
+                # Extract message IDs from the response list
+                message_ids = [msg.get('message_id', '') for msg in api_response]
+                sms_message.api_message_id = ','.join(message_ids)
+            else:
+                sms_message.api_message_id = str(api_response) if api_response else ''
+            sms_message.api_response = api_response
+            sms_message.status = 'sent'
+            sms_message.sent_at = timezone.now()
+            sms_message.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': f'SMS sent successfully to {len(phone_numbers)} recipient(s)',
+                'message_id': sms_message.id,
+                'api_message_id': sms_message.api_message_id,
+                'recipient_count': len(phone_numbers)
+            })
+
+        except ElezaSMSError as e:
+            sms_message.status = 'failed'
+            sms_message.error_message = str(e)
+            sms_message.save()
+            
+            return JsonResponse({
+                'success': False,
+                'error': f'Failed to send SMS: {str(e)}'
+            }, status=500)
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger.exception('Error sending SMS message')
+        return JsonResponse({'success': False, 'error': f'Error sending SMS: {str(e)}'}, status=500)
+
+
+@login_required
+@require_GET
+def sms_message_history(request):
+    """Get SMS message history"""
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'TTSA Admin access required'}, status=403)
+    
+    try:
+        limit = int(request.GET.get('limit', 20))
+        offset = int(request.GET.get('offset', 0))
+        
+        messages = SMSMessage.objects.select_related('sent_by').order_by('-created_at')[offset:offset+limit]
+        
+        messages_data = []
+        for msg in messages:
+            messages_data.append({
+                'id': msg.id,
+                'message_type': msg.message_type,
+                'content': msg.content[:100] + '...' if len(msg.content) > 100 else msg.content,
+                'recipient_count': msg.recipient_count,
+                'status': msg.status,
+                'sent_at': msg.sent_at.isoformat() if msg.sent_at else None,
+                'created_at': msg.created_at.isoformat(),
+                'sent_by': msg.sent_by.username if msg.sent_by else 'System',
+                'segments': msg.segments_count,
+            })
+        
+        total_count = SMSMessage.objects.count()
+        
+        return JsonResponse({
+            'success': True,
+            'messages': messages_data,
+            'total_count': total_count,
+            'has_more': offset + limit < total_count
+        })
+        
+    except Exception as e:
+        logger.exception('Error fetching SMS history')
+        return JsonResponse({'success': False, 'error': f'Error fetching history: {str(e)}'}, status=500)
+
+
+@login_required
+@require_GET
+def get_quick_select_players(request):
+    """Get players for quick select (active players, player plus, etc.)"""
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'TTSA Admin access required'}, status=403)
+    
+    try:
+        from datetime import timedelta
+        from ttsa_app.models import PlayerProfile
+        
+        select_type = request.GET.get('type', 'active')
+        active_since = (timezone.now() - timedelta(days=30)).date()
+        
+        if select_type == 'active':
+            # Active players (played in last 30 days)
+            profiles = PlayerProfile.objects.select_related('user').filter(
+                user__role__in=['player', 'player_plus'],
+                last_played__gte=active_since,
+                phone_number__isnull=False
+            ).exclude(phone_number='').only('user__id', 'user__username', 'user__first_name', 'user__last_name', 'phone_number')[:100]
+        elif select_type == 'player_plus':
+            # Player Plus members
+            profiles = PlayerProfile.objects.select_related('user').filter(
+                user__role='player_plus',
+                phone_number__isnull=False
+            ).exclude(phone_number='').only('user__id', 'user__username', 'user__first_name', 'user__last_name', 'phone_number')[:100]
+        else:
+            return JsonResponse({'success': False, 'error': 'Invalid select type'}, status=400)
+        
+        players_data = [
+            {
+                'id': profile.user_id,
+                'username': profile.user.username,
+                'first_name': profile.user.first_name or '',
+                'last_name': profile.user.last_name or '',
+                'phone_number': profile.phone_number or '',
+            }
+            for profile in profiles
+        ]
+        
+        return JsonResponse({
+            'success': True,
+            'players': players_data,
+            'count': len(players_data)
+        })
+        
+    except Exception as e:
+        logger.exception('Error fetching quick select players')
+        return JsonResponse({'success': False, 'error': f'Error fetching players: {str(e)}'}, status=500)

@@ -10,6 +10,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.pdfgen import canvas
 
 # Cache for template images to avoid repeated file I/O
 _template_merit_cache = None
@@ -464,3 +465,368 @@ def generate_bulk_certificates_pdf(tournament, players):
     pdf_canvas.save()
     buffer.seek(0)
     return buffer
+
+
+def generate_player_statistics_pdf(player_data):
+    """Generate a professional single-page A4 portrait PDF chess player profile for TTSA."""
+    from reportlab.pdfgen import canvas as pdf_canvas_module
+    
+    buffer = io.BytesIO()
+    page_width, page_height = A4
+    
+    # Create PDF canvas
+    pdf_canvas = pdf_canvas_module.Canvas(buffer, pagesize=A4)
+    
+    # Colors
+    black_color = colors.black
+    blue_color = colors.HexColor('#2c5aa0')
+    gray_color = colors.HexColor('#666666')
+    
+    # Margins
+    left_margin = 15 * mm
+    right_margin = 15 * mm
+    top_margin = 15 * mm
+    bottom_margin = 12 * mm
+    
+    y_pos = page_height - top_margin
+    
+    # Header section with logo and academy name
+    logo_path = '/home/Django/apps/TTSA/static/images/logo.png'
+    logo_width = 25 * mm
+    logo_height = 25 * mm
+    logo_x = left_margin
+    logo_y = y_pos - 25 * mm
+    
+    try:
+        pdf_canvas.drawImage(logo_path, logo_x, logo_y, width=logo_width, height=logo_height, mask='auto')
+    except:
+        # Fallback to placeholder if logo not found
+        logo_radius = 12.5 * mm
+        pdf_canvas.setFillColor(colors.HexColor('#f5f5f5'))
+        pdf_canvas.circle(logo_x + logo_radius, logo_y + logo_radius, logo_radius, fill=1, stroke=0)
+        pdf_canvas.setStrokeColor(black_color)
+        pdf_canvas.setLineWidth(1)
+        pdf_canvas.circle(logo_x + logo_radius, logo_y + logo_radius, logo_radius, fill=0, stroke=1)
+        
+        pdf_canvas.setFillColor(black_color)
+        pdf_canvas.setFont("Helvetica-Bold", 10)
+        text_width = pdf_canvas.stringWidth("TTSA", "Helvetica-Bold", 10)
+        pdf_canvas.drawString(logo_x + logo_radius - text_width/2, logo_y + logo_radius - 4, "TTSA")
+    
+    # Academy name in uppercase
+    academy_x = logo_x + logo_width + 10 * mm
+    pdf_canvas.setFillColor(black_color)
+    pdf_canvas.setFont("Helvetica-Bold", 14)
+    header_text = "TAITA TAVETA SPORTS ACADEMY"
+    pdf_canvas.drawString(academy_x, y_pos - 10 * mm, header_text)
+    
+    y_pos -= 5 * mm
+    pdf_canvas.setFont("Helvetica-Oblique", 9)
+    tagline_text = "Creating Champions On And Off The Board"
+    pdf_canvas.drawString(academy_x, y_pos - 10 * mm, tagline_text)
+    
+    y_pos -= 15 * mm
+    pdf_canvas.setStrokeColor(black_color)
+    pdf_canvas.setLineWidth(1)
+    pdf_canvas.line(left_margin, y_pos, page_width - right_margin, y_pos)
+    
+    # Player name in header
+    y_pos -= 15 * mm
+    pdf_canvas.setFillColor(black_color)
+    pdf_canvas.setFont("Helvetica-Bold", 16)
+    player_name = player_data.get('player_name', 'N/A').upper()
+    text_width = pdf_canvas.stringWidth(player_name, "Helvetica-Bold", 16)
+    pdf_canvas.drawString((page_width - text_width) / 2, y_pos, player_name)
+    
+    # Player details in two columns
+    y_pos -= 8 * mm
+    pdf_canvas.setFont("Helvetica", 9)
+    pdf_canvas.setFillColor(gray_color)
+    
+    col1_x = left_margin
+    col2_x = page_width / 2 + 20 * mm
+    
+    pdf_canvas.drawString(col1_x, y_pos, f"Location: {player_data.get('location', 'N/A')}")
+    pdf_canvas.drawString(col2_x, y_pos, f"Phone: {player_data.get('phone', 'N/A')}")
+    
+    y_pos -= 6 * mm
+    pdf_canvas.drawString(col1_x, y_pos, f"Tournament: {player_data.get('tournament_name', 'N/A')}")
+    
+    # Key stats in two columns
+    y_pos -= 12 * mm
+    pdf_canvas.setFillColor(black_color)
+    pdf_canvas.setFont("Helvetica-Bold", 10)
+    pdf_canvas.drawString(left_margin, y_pos, "Key Statistics")
+    
+    y_pos -= 6 * mm
+    pdf_canvas.setFont("Helvetica", 9)
+    current_rating = player_data.get('current_rating', 'N/A')
+    rating_change = player_data.get('rating_change', 0)
+    total_tournaments = player_data.get('total_tournaments', 0)
+    
+    # Column 1 - Left side
+    col1_x = left_margin
+    stats_line1 = f"Current Rating: {current_rating}"
+    pdf_canvas.drawString(col1_x, y_pos, stats_line1)
+    
+    y_pos -= 6 * mm
+    stats_line2 = f"Rating Change: {rating_change:+}"
+    pdf_canvas.drawString(col1_x, y_pos, stats_line2)
+    
+    y_pos -= 6 * mm
+    stats_line3 = f"Total Tournaments: {total_tournaments}"
+    pdf_canvas.drawString(col1_x, y_pos, stats_line3)
+    
+    # Win/Draw/Loss stats
+    y_pos -= 8 * mm
+    wins = player_data.get('wins', 0)
+    draws = player_data.get('draws', 0)
+    losses = player_data.get('losses', 0)
+    total_games = wins + draws + losses
+    win_rate = (wins / total_games * 100) if total_games > 0 else 0
+    
+    stats_line4 = f"Wins: {wins}"
+    pdf_canvas.drawString(col1_x, y_pos, stats_line4)
+    
+    y_pos -= 6 * mm
+    stats_line5 = f"Draws: {draws}"
+    pdf_canvas.drawString(col1_x, y_pos, stats_line5)
+    
+    y_pos -= 6 * mm
+    stats_line6 = f"Losses: {losses}"
+    pdf_canvas.drawString(col1_x, y_pos, stats_line6)
+    
+    y_pos -= 6 * mm
+    stats_line7 = f"Win Rate: {win_rate:.1f}%"
+    pdf_canvas.drawString(col1_x, y_pos, stats_line7)
+    
+    # Column 2 - Opponents from current tournament
+    y_pos_start_opponents = page_height - top_margin - 65 * mm
+    col2_x = left_margin + 80 * mm
+    
+    pdf_canvas.setFillColor(black_color)
+    pdf_canvas.setFont("Helvetica-Bold", 10)
+    pdf_canvas.drawString(col2_x, y_pos_start_opponents, "Current Tournament Opponents")
+    
+    y_pos_start_opponents -= 5 * mm
+    current_opponents = player_data.get('current_opponents', [])
+    
+    # Table header
+    header_y = y_pos_start_opponents
+    pdf_canvas.setFont("Helvetica-Bold", 8)
+    col_widths_opp = [15 * mm, 45 * mm, 15 * mm]
+    col_x_opp = col2_x
+    headers_opp = ['Board', 'Opponent', 'Score']
+    for i, header in enumerate(headers_opp):
+        pdf_canvas.drawString(col_x_opp + 2 * mm, header_y, header)
+        col_x_opp += col_widths_opp[i]
+    
+    y_pos_start_opponents -= 2 * mm
+    pdf_canvas.setStrokeColor(black_color)
+    pdf_canvas.setLineWidth(0.5)
+    pdf_canvas.line(col2_x, y_pos_start_opponents, page_width - right_margin, y_pos_start_opponents)
+    
+    # Table rows
+    y_pos_start_opponents -= 5 * mm
+    row_height_opp = 5 * mm
+    pdf_canvas.setFont("Helvetica", 8)
+    
+    for opponent in current_opponents:
+        if y_pos_start_opponents - row_height_opp < bottom_margin + 50 * mm:
+            break
+        
+        col_x_opp = col2_x
+        
+        # Board
+        pdf_canvas.drawString(col_x_opp + 2 * mm, y_pos_start_opponents, str(opponent.get('board_number', 'N/A')))
+        col_x_opp += col_widths_opp[0]
+        
+        # Opponent
+        opponent_name = opponent.get('opponent_name', 'N/A').upper()[:20]
+        pdf_canvas.drawString(col_x_opp + 2 * mm, y_pos_start_opponents, opponent_name)
+        col_x_opp += col_widths_opp[1]
+        
+        # Score
+        score = opponent.get('score', 'N/A')
+        pdf_canvas.drawString(col_x_opp + 2 * mm, y_pos_start_opponents, str(score))
+        
+        y_pos_start_opponents -= row_height_opp
+    
+    # Current Tournament Information
+    y_pos -= 15 * mm
+    pdf_canvas.setFillColor(black_color)
+    pdf_canvas.setFont("Helvetica-Bold", 10)
+    pdf_canvas.drawString(left_margin, y_pos, "Current Tournament")
+    
+    y_pos -= 8 * mm
+    pdf_canvas.setFont("Helvetica", 9)
+    pdf_canvas.setFillColor(gray_color)
+    
+    current_tournament_name = player_data.get('tournament_name', 'N/A')
+    current_rating = player_data.get('current_rating', 'N/A')
+    current_round = player_data.get('current_round', 'N/A')
+    current_position = player_data.get('current_position', 'N/A')
+    total_players = player_data.get('total_players', 'N/A')
+    
+    tournament_info = f"Tournament: {current_tournament_name}   |   Rating: {current_rating}   |   Round: {current_round}   |   Position: {current_position}   |   Players: {total_players}"
+    pdf_canvas.drawString(left_margin, y_pos, tournament_info)
+    
+    # Current Tournament Standings Table (Top 10)
+    y_pos -= 12 * mm
+    pdf_canvas.setFillColor(black_color)
+    pdf_canvas.setFont("Helvetica-Bold", 10)
+    pdf_canvas.drawString(left_margin, y_pos, "Tournament Standings (Top 10)")
+    
+    y_pos -= 5 * mm
+    current_standings = player_data.get('current_standings', [])
+    
+    # Table header
+    header_y = y_pos
+    pdf_canvas.setFont("Helvetica-Bold", 8)
+    col_widths = [12 * mm, 55 * mm, 20 * mm, 20 * mm, 20 * mm, 20 * mm]
+    col_x = left_margin
+    headers = ['Rank', 'Player', 'Rating', 'Points', 'Played', 'W-D-L']
+    for i, header in enumerate(headers):
+        pdf_canvas.drawString(col_x + 2 * mm, header_y, header)
+        col_x += col_widths[i]
+    
+    y_pos -= 2 * mm
+    pdf_canvas.setStrokeColor(black_color)
+    pdf_canvas.setLineWidth(0.5)
+    pdf_canvas.line(left_margin, y_pos, page_width - right_margin, y_pos)
+    
+    # Table rows
+    y_pos -= 5 * mm
+    row_height = 6 * mm
+    pdf_canvas.setFont("Helvetica", 8)
+    
+    for standing in current_standings[:10]:
+        if y_pos - row_height < bottom_margin + 50 * mm:
+            break
+        
+        col_x = left_margin
+        
+        # Rank
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, str(standing.get('rank', 'N/A')))
+        col_x += col_widths[0]
+        
+        # Player
+        player_name_text = standing.get('player_name', 'N/A').upper()[:22]
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, player_name_text)
+        col_x += col_widths[1]
+        
+        # Rating
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, str(standing.get('rating', 'N/A')))
+        col_x += col_widths[2]
+        
+        # Points
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, str(standing.get('points', 'N/A')))
+        col_x += col_widths[3]
+        
+        # Played
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, str(standing.get('played', 'N/A')))
+        col_x += col_widths[4]
+        
+        # W-D-L
+        wins = standing.get('wins', 0)
+        draws = standing.get('draws', 0)
+        losses = standing.get('losses', 0)
+        wdl_text = f"{wins}-{draws}-{losses}"
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, wdl_text)
+        
+        y_pos -= row_height
+    
+    # Recent Tournaments table
+    y_pos -= 12 * mm
+    pdf_canvas.setFillColor(black_color)
+    pdf_canvas.setFont("Helvetica-Bold", 10)
+    pdf_canvas.drawString(left_margin, y_pos, "Recent Tournaments")
+    
+    y_pos -= 5 * mm
+    all_tournaments = player_data.get('all_tournaments', [])
+    
+    # Table header
+    header_y = y_pos
+    pdf_canvas.setFont("Helvetica-Bold", 9)
+    col_widths = [30 * mm, 60 * mm, 40 * mm, 25 * mm, 25 * mm]
+    col_x = left_margin
+    headers = ['Date', 'Tournament', 'Location', 'Position', 'Rating']
+    for i, header in enumerate(headers):
+        pdf_canvas.drawString(col_x + 2 * mm, header_y, header)
+        col_x += col_widths[i]
+    
+    y_pos -= 2 * mm
+    pdf_canvas.setStrokeColor(black_color)
+    pdf_canvas.setLineWidth(0.5)
+    pdf_canvas.line(left_margin, y_pos, page_width - right_margin, y_pos)
+    
+    # Table rows
+    y_pos -= 5 * mm
+    row_height = 7 * mm
+    pdf_canvas.setFont("Helvetica", 9)
+    
+    for idx, tournament in enumerate(all_tournaments[:8]):
+        if y_pos - row_height < bottom_margin + 10 * mm:
+            break
+        
+        col_x = left_margin
+        
+        # Date
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, tournament.get('date', 'N/A')[:10])
+        col_x += col_widths[0]
+        
+        # Tournament
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, tournament.get('name', 'N/A')[:35])
+        col_x += col_widths[1]
+        
+        # Location
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, tournament.get('location', 'N/A')[:20])
+        col_x += col_widths[2]
+        
+        # Position
+        position = tournament.get('position', 'N/A')
+        if position and position <= 3:
+            pdf_canvas.setFillColor(blue_color)
+            position_text = f"{position}{'st' if position == 1 else 'nd' if position == 2 else 'rd'}"
+        else:
+            pdf_canvas.setFillColor(black_color)
+            position_text = str(position) if position else 'N/A'
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, position_text)
+        col_x += col_widths[3]
+        
+        # Rating
+        pdf_canvas.setFillColor(black_color)
+        pdf_canvas.drawString(col_x + 2 * mm, y_pos, str(tournament.get('rating_after', 'N/A')))
+        
+        y_pos -= row_height
+    
+    # Footer
+    footer_y = bottom_margin + 5 * mm
+    pdf_canvas.setFillColor(gray_color)
+    pdf_canvas.setFont("Helvetica", 7)
+    footer_text = "Creating Champions On And Off The Board"
+    text_width = pdf_canvas.stringWidth(footer_text, "Helvetica", 7)
+    pdf_canvas.drawString((page_width - text_width) / 2, footer_y, footer_text)
+    
+    pdf_canvas.save()
+    buffer.seek(0)
+    return buffer
+
+
+def generate_bulk_player_statistics_pdf(players_data):
+    """Generate a multi-page PDF with player statistics for multiple players."""
+    from PyPDF2 import PdfReader, PdfWriter
+    
+    writer = PdfWriter()
+    
+    for player_data in players_data:
+        player_buffer = generate_player_statistics_pdf(player_data)
+        player_buffer.seek(0)
+        reader = PdfReader(player_buffer)
+        for page in reader.pages:
+            writer.add_page(page)
+    
+    output_buffer = io.BytesIO()
+    writer.write(output_buffer)
+    output_buffer.seek(0)
+    return output_buffer

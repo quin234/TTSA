@@ -347,6 +347,182 @@
         </div>
     </div>
 
+    <!-- Messages Section -->
+    <div id="section-messages" class="content-section" style="display: none;">
+        <h2 class="section-title mb-4">SMS Messages</h2>
+        
+        <div class="row">
+            <!-- Left Column: Player Selection -->
+            <div class="col-md-5 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-users me-2"></i>Select Recipients</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Player Search -->
+                        <div class="mb-3">
+                            <label for="messagePlayerSearch" class="form-label">Search Players</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="messagePlayerSearch" placeholder="Search by name, phone, or email...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="searchMessagePlayers()">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Search by name, phone number, or email address</div>
+                        </div>
+
+                        <!-- Search Results -->
+                        <div id="messagePlayerSearchResults" class="mb-3" style="display: none;">
+                            <div class="list-group" id="messagePlayerList">
+                                <!-- Player results will be populated here -->
+                            </div>
+                        </div>
+
+                        <!-- Selected Recipients -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0">Selected Recipients</label>
+                                <button class="btn btn-sm btn-outline-danger" onclick="clearAllRecipients()">
+                                    <i class="fas fa-times me-1"></i>Clear All
+                                </button>
+                            </div>
+                            <div id="selectedRecipientsList" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                                <div class="text-center text-muted py-3">
+                                    <i class="fas fa-user-plus fa-2x mb-2"></i>
+                                    <p class="small mb-0">No recipients selected</p>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <span class="badge bg-primary" id="recipientCount">0 selected</span>
+                            </div>
+                        </div>
+
+                        <!-- Quick Select -->
+                        <div class="mb-3">
+                            <label class="form-label">Quick Select</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="selectAllActivePlayers()">
+                                    <i class="fas fa-check-circle me-1"></i>All Active
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="selectAllPlayerPlus()">
+                                    <i class="fas fa-star me-1"></i>Player Plus
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Message Composition -->
+            <div class="col-md-7 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Compose Message</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Message Type Selection -->
+                        <div class="mb-3">
+                            <label class="form-label">Message Type</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="messageType" id="broadcastType" value="broadcast" checked onchange="toggleMessageType()">
+                                <label class="btn btn-outline-primary" for="broadcastType">
+                                    <i class="fas fa-bullhorn me-1"></i>Broadcast
+                                </label>
+                                <input type="radio" class="btn-check" name="messageType" id="personalizedType" value="personalized" onchange="toggleMessageType()">
+                                <label class="btn btn-outline-primary" for="personalizedType">
+                                    <i class="fas fa-user me-1"></i>Personalized
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Message Template (for personalized) -->
+                        <div id="personalizedTemplateSection" class="mb-3" style="display: none;">
+                            <label for="messageTemplate" class="form-label">Message Template</label>
+                            <select class="form-select" id="messageTemplate" onchange="loadTemplate()">
+                                <option value="">Select a template...</option>
+                                <option value="tournament_reminder">Tournament Reminder</option>
+                                <option value="payment_reminder">Payment Reminder</option>
+                                <option value="welcome">Welcome Message</option>
+                                <option value="custom">Custom Template</option>
+                            </select>
+                            <div class="form-text">
+                                Available placeholders: {name}, {phone}, {tournament}, {date}, {venue}
+                            </div>
+                        </div>
+
+                        <!-- Message Content -->
+                        <div class="mb-3">
+                            <label for="messageContent" class="form-label">Message Content</label>
+                            <textarea class="form-control" id="messageContent" rows="6" placeholder="Type your message here..." oninput="updateCharacterCount()"></textarea>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <div>
+                                    <span class="small text-muted">Characters: </span>
+                                    <span id="charCount" class="fw-bold">0</span>
+                                    <span class="small text-muted"> / 160 (SMS)</span>
+                                </div>
+                                <div>
+                                    <span class="badge bg-info" id="segmentCount">1 segment</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Message Preview -->
+                        <div class="mb-3">
+                            <label class="form-label">Preview</label>
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <div id="messagePreview" class="text-muted">
+                                        <em>Your message preview will appear here...</em>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Send Button -->
+                        <div class="d-grid">
+                            <button class="btn btn-primary btn-lg" id="sendMessageBtn" disabled>
+                                <i class="fas fa-paper-plane me-2"></i>Send Message
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message History -->
+        <div class="card mt-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Message History</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadMessageHistory()">
+                    <i class="fas fa-sync me-1"></i>Refresh
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Recipients</th>
+                                <th>Message Preview</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="messageHistoryTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-4">
+                                    <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                                    <p class="text-muted mb-0">No messages sent yet</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Players Section -->
     <div id="section-players" class="content-section" style="display: none;">
         <h2 class="section-title mb-4">Players</h2>
@@ -714,9 +890,14 @@
             <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0"><i class="fas fa-users me-2"></i>Registered Players</h5>
-                    <button class="btn btn-sm btn-primary" onclick="showRegistrationModal()">
-                        <i class="fas fa-user-plus me-1"></i>Add Player
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-warning" onclick="printStatistics()">
+                            <i class="fas fa-chart-line me-1"></i>Print All Statistics
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="showRegistrationModal()">
+                            <i class="fas fa-user-plus me-1"></i>Add Player
+                        </button>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover" id="registeredPlayersTable">
@@ -791,6 +972,9 @@
                             </button>
                             <button class="btn btn-sm btn-outline-success" onclick="printCertificates()">
                                 <i class="fas fa-certificate me-1"></i>Certificate
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="printStatistics()">
+                                <i class="fas fa-chart-line me-1"></i>Statistics
                             </button>
                             <button class="btn btn-sm btn-outline-info" onclick="printStandings()">
                                 <i class="fas fa-print me-1"></i>Standings
@@ -3135,6 +3319,9 @@
                 <td><span class="text-warning">${player.draws || 0}</span></td>
                 <td><span class="badge bg-success">${player.status || 'Registered'}</span></td>
                 <td>
+                    <button class="btn btn-sm btn-outline-warning" onclick="printStatistics(${player.id || 0})" title="Print Statistics">
+                        <i class="fas fa-chart-line"></i>
+                    </button>
                     <button class="btn btn-sm btn-outline-danger" onclick="removePlayerFromTournament(${player.id || 0})">
                         <i class="fas fa-user-minus"></i>
                     </button>
@@ -3993,6 +4180,9 @@
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-outline-warning" onclick="printStatistics()">
+                                <i class="fas fa-chart-line me-2"></i>Print All Statistics
+                            </button>
                             <button type="button" class="btn btn-outline-success" onclick="downloadAllCertificates(this)">
                                 <i class="fas fa-download me-2"></i>Download All
                             </button>
@@ -4244,6 +4434,350 @@
         } catch (error) {
             console.error('Error downloading all certificates:', error);
             showAlert('tournamentAlertContainer', 'Error generating bulk certificates', 'error');
+        } finally {
+            // Reset button
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download me-2"></i>Download All';
+            }
+        }
+    }
+
+    // Print statistics
+    async function printStatistics(playerId = null) {
+        if (!currentTournamentId) {
+            showAlert('tournamentAlertContainer', 'No tournament selected', 'error');
+            return;
+        }
+        
+        try {
+            let url = `/ttsa-admin/api/tournaments/${currentTournamentId}/print-statistics/`;
+            if (playerId) {
+                url += `?player_id=${playerId}`;
+            }
+            
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/pdf')) {
+                    // Single statistics - direct PDF
+                    const blob = await response.blob();
+                    const pdfUrl = window.URL.createObjectURL(blob);
+                    const printWindow = window.open(pdfUrl, '_blank');
+                    if (printWindow) {
+                        printWindow.onload = function() {
+                            try { printWindow.print(); } catch (e) { console.error(e); }
+                        };
+                    }
+                } else if (contentType && contentType.includes('application/json')) {
+                    // List of participants - show modal with options
+                    const data = await response.json();
+                    if (data.success && data.participants) {
+                        showStatisticsModal(data);
+                    } else {
+                        showAlert('tournamentAlertContainer', data.error || 'Failed to load participants', 'error');
+                    }
+                }
+            } else {
+                const errorData = await response.json();
+                showAlert('tournamentAlertContainer', errorData.error || 'Failed to generate statistics', 'error');
+            }
+        } catch (error) {
+            console.error('Error printing statistics:', error);
+            showAlert('tournamentAlertContainer', 'Error generating statistics', 'error');
+        }
+    }
+
+    // Show statistics selection modal
+    function showStatisticsModal(data) {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('statisticsModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'statisticsModal';
+            modal.className = 'modal fade';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Player Statistics Reports</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info" id="statisticsModalInfo">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span id="statisticsModalInfoText"></span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Player</th>
+                                            <th>Rating</th>
+                                            <th>Points</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="statisticsTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-outline-success" onclick="downloadAllStatistics(this)">
+                                <i class="fas fa-download me-2"></i>Download All
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="printAllStatistics(this)">
+                                <i class="fas fa-print me-2"></i>Print All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        // Update info text
+        const infoText = document.getElementById('statisticsModalInfoText');
+        if (infoText) {
+            infoText.innerHTML = `<strong>${data.tournament_name}</strong> - ${data.participants.length} participants<br><small class="text-muted">Click "Print All" for a single PDF with all statistics, or use individual actions below.</small>`;
+        }
+        
+        // Populate table
+        const tbody = document.getElementById('statisticsTableBody');
+        tbody.innerHTML = '';
+        
+        data.participants.forEach((participant) => {
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>${participant.player_name}</td>
+                <td>${participant.rating}</td>
+                <td>${participant.points}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="printSingleStatistics(${participant.id}, this)">
+                        <i class="fas fa-print me-1"></i>Print
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="downloadSingleStatistics(${participant.id}, this)">
+                        <i class="fas fa-download me-1"></i>Download
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        // Store participant data globally
+        window.currentStatisticsParticipants = data.participants;
+        
+        // Show modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
+    // Print single statistics
+    async function printSingleStatistics(playerId, buttonElement = null) {
+        let btn = null;
+        try {
+            // Show loading indicator
+            btn = buttonElement || (window.event && window.event.target.closest('button'));
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating...';
+            }
+            
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/print-statistics/?player_id=${playerId}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const printWindow = window.open(url, '_blank');
+                if (printWindow) {
+                    printWindow.onload = function() {
+                        try { printWindow.print(); } catch (e) { console.error(e); }
+                    };
+                }
+            } else {
+                showAlert('tournamentAlertContainer', 'Failed to generate statistics', 'error');
+            }
+        } catch (error) {
+            console.error('Error printing statistics:', error);
+            showAlert('tournamentAlertContainer', 'Error generating statistics', 'error');
+        } finally {
+            // Reset button
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-print me-1"></i>Print';
+            }
+        }
+    }
+
+    // Download single statistics
+    async function downloadSingleStatistics(playerId, buttonElement = null) {
+        let btn = null;
+        try {
+            // Show loading indicator
+            btn = buttonElement || (window.event && window.event.target.closest('button'));
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Downloading...';
+            }
+            
+            const response = await fetch(`/ttsa-admin/api/tournaments/${currentTournamentId}/print-statistics/?player_id=${playerId}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                
+                const participant = window.currentStatisticsParticipants.find(p => p.id === playerId);
+                const filename = participant ? 
+                    `Statistics_${participant.player_name.replace(/ /g, '_')}.pdf` : 
+                    'Statistics.pdf';
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } else {
+                showAlert('tournamentAlertContainer', 'Failed to download statistics', 'error');
+            }
+        } catch (error) {
+            console.error('Error downloading statistics:', error);
+            showAlert('tournamentAlertContainer', 'Error downloading statistics', 'error');
+        } finally {
+            // Reset button
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download me-1"></i>Download';
+            }
+        }
+    }
+
+    // Print all statistics - generate single multi-page PDF
+    async function printAllStatistics(buttonElement = null) {
+        let btn = null;
+        if (!currentTournamentId) {
+            showAlert('tournamentAlertContainer', 'No tournament selected', 'error');
+            return;
+        }
+        
+        try {
+            // Show loading indicator
+            btn = buttonElement || (window.event && window.event.target.closest('button'));
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+            }
+            
+            const url = `/ttsa-admin/api/tournaments/${currentTournamentId}/print-statistics/?bulk=true`;
+            
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const pdfUrl = window.URL.createObjectURL(blob);
+                const printWindow = window.open(pdfUrl, '_blank');
+                if (printWindow) {
+                    printWindow.onload = function() {
+                        try { printWindow.print(); } catch (e) { console.error(e); }
+                    };
+                }
+                
+                // Close the modal after successful generation
+                const modal = document.getElementById('statisticsModal');
+                if (modal) {
+                    const bsModal = bootstrap.Modal.getInstance(modal);
+                    if (bsModal) {
+                        bsModal.hide();
+                    }
+                }
+            } else {
+                const errorData = await response.json();
+                showAlert('tournamentAlertContainer', errorData.error || 'Failed to generate bulk statistics', 'error');
+            }
+        } catch (error) {
+            console.error('Error printing all statistics:', error);
+            showAlert('tournamentAlertContainer', 'Error generating bulk statistics', 'error');
+        } finally {
+            // Reset button
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-print me-2"></i>Print All';
+            }
+        }
+    }
+
+    // Download all statistics - generate single multi-page PDF
+    async function downloadAllStatistics(buttonElement = null) {
+        let btn = null;
+        if (!currentTournamentId) {
+            showAlert('tournamentAlertContainer', 'No tournament selected', 'error');
+            return;
+        }
+        
+        try {
+            // Show loading indicator
+            btn = buttonElement || (window.event && window.event.target.closest('button'));
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+            }
+            
+            const url = `/ttsa-admin/api/tournaments/${currentTournamentId}/print-statistics/?bulk=true`;
+            
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok && response.headers.get('content-type').includes('application/pdf')) {
+                const blob = await response.blob();
+                const pdfUrl = window.URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = pdfUrl;
+                a.download = `All_Statistics_${new Date().toISOString().slice(0,10)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(pdfUrl);
+                
+                // Close the modal after successful download
+                const modal = document.getElementById('statisticsModal');
+                if (modal) {
+                    const bsModal = bootstrap.Modal.getInstance(modal);
+                    if (bsModal) {
+                        bsModal.hide();
+                    }
+                }
+            } else {
+                const errorData = await response.json();
+                showAlert('tournamentAlertContainer', errorData.error || 'Failed to generate bulk statistics', 'error');
+            }
+        } catch (error) {
+            console.error('Error downloading all statistics:', error);
+            showAlert('tournamentAlertContainer', 'Error generating bulk statistics', 'error');
         } finally {
             // Reset button
             if (btn) {
@@ -4804,6 +5338,448 @@ startPingInterval();
 
 // Initialize tournaments on page load
 loadTournaments();
+
+// ==================== MESSAGES SECTION ====================
+
+// Store selected recipients
+let selectedRecipients = [];
+let allPlayersCache = [];
+
+// Message templates for personalized messages
+const messageTemplates = {
+    tournament_reminder: "Hello {name}, this is a reminder that the {tournament} tournament is scheduled for {date} at {venue}. Please ensure you're registered!",
+    payment_reminder: "Hello {name}, this is a reminder to complete your payment for the {tournament} tournament. Your registration is pending payment confirmation.",
+    welcome: "Welcome to TTSA, {name}! We're excited to have you join our chess community. Contact us at {phone} for any questions.",
+    custom: ""
+};
+
+// Search players for messaging
+async function searchMessagePlayers() {
+    const searchQuery = document.getElementById('messagePlayerSearch').value.trim();
+    const resultsContainer = document.getElementById('messagePlayerSearchResults');
+    const playerList = document.getElementById('messagePlayerList');
+
+    if (!searchQuery) {
+        resultsContainer.style.display = 'none';
+        return;
+    }
+
+    try {
+        const response = await fetch(`/ttsa-admin/api/players/search/?q=${encodeURIComponent(searchQuery)}`);
+        const data = await response.json();
+
+        if (data.success && data.players.length > 0) {
+            // Cache all players for quick select features
+            allPlayersCache = data.players;
+
+            playerList.innerHTML = data.players.map(player => {
+                const isSelected = selectedRecipients.some(r => r.id === player.id);
+                const displayName = `${player.first_name} ${player.last_name}`.trim() || player.username;
+                const phoneDisplay = player.phone_number || 'No phone';
+                return `
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${isSelected ? 'list-group-item-success' : ''}"
+                         onclick="toggleRecipient(${JSON.stringify(player).replace(/"/g, '&quot;')})">
+                        <div>
+                            <div class="fw-semibold">${escapeHtml(displayName)}</div>
+                            <div class="small text-muted">${escapeHtml(player.username)} • ${escapeHtml(phoneDisplay)}</div>
+                        </div>
+                        <div>
+                            ${isSelected ? '<i class="fas fa-check-circle text-success"></i>' : '<i class="fas fa-plus-circle text-primary"></i>'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            resultsContainer.style.display = 'block';
+        } else {
+            playerList.innerHTML = '<div class="list-group-item text-muted">No players found</div>';
+            resultsContainer.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error searching players:', error);
+        playerList.innerHTML = '<div class="list-group-item text-danger">Error searching players</div>';
+        resultsContainer.style.display = 'block';
+    }
+}
+
+// Toggle recipient selection
+function toggleRecipient(player) {
+    const index = selectedRecipients.findIndex(r => r.id === player.id);
+    if (index > -1) {
+        selectedRecipients.splice(index, 1);
+    } else {
+        selectedRecipients.push(player);
+    }
+    updateSelectedRecipientsList();
+    updateSendButton();
+    // Refresh search results to show updated selection state
+    if (document.getElementById('messagePlayerSearchResults').style.display !== 'none') {
+        searchMessagePlayers();
+    }
+}
+
+// Update selected recipients list
+function updateSelectedRecipientsList() {
+    const listContainer = document.getElementById('selectedRecipientsList');
+    const countBadge = document.getElementById('recipientCount');
+
+    if (selectedRecipients.length === 0) {
+        listContainer.innerHTML = `
+            <div class="text-center text-muted py-3">
+                <i class="fas fa-user-plus fa-2x mb-2"></i>
+                <p class="small mb-0">No recipients selected</p>
+            </div>
+        `;
+        countBadge.textContent = '0 selected';
+    } else {
+        listContainer.innerHTML = selectedRecipients.map(player => {
+            const displayName = `${player.first_name} ${player.last_name}`.trim() || player.username;
+            const phoneDisplay = player.phone_number || 'No phone';
+            return `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-semibold">${escapeHtml(displayName)}</div>
+                        <div class="small text-muted">${escapeHtml(phoneDisplay)}</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger" onclick="toggleRecipient(${JSON.stringify(player).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
+        countBadge.textContent = `${selectedRecipients.length} selected`;
+    }
+}
+
+// Clear all recipients
+function clearAllRecipients() {
+    selectedRecipients = [];
+    updateSelectedRecipientsList();
+    updateSendButton();
+    if (document.getElementById('messagePlayerSearchResults').style.display !== 'none') {
+        searchMessagePlayers();
+    }
+}
+
+// Select all active players
+async function selectAllActivePlayers() {
+    try {
+        const response = await fetch('/ttsa-admin/api/sms/quick-select/?type=active');
+        const data = await response.json();
+        
+        if (data.success && data.players.length > 0) {
+            // Add all players to selected recipients
+            data.players.forEach(player => {
+                if (!selectedRecipients.some(r => r.id === player.id)) {
+                    selectedRecipients.push(player);
+                }
+            });
+            updateSelectedRecipientsList();
+            updateSendButton();
+            showTTSAAdminToast(`Added ${data.players.length} active players to recipients`, 'success');
+        } else {
+            showTTSAAdminToast('No active players found with phone numbers', 'warning');
+        }
+    } catch (error) {
+        console.error('Error fetching active players:', error);
+        showTTSAAdminToast('Error fetching active players', 'error');
+    }
+}
+
+// Select all Player Plus members
+async function selectAllPlayerPlus() {
+    try {
+        const response = await fetch('/ttsa-admin/api/sms/quick-select/?type=player_plus');
+        const data = await response.json();
+        
+        if (data.success && data.players.length > 0) {
+            // Add all players to selected recipients
+            data.players.forEach(player => {
+                if (!selectedRecipients.some(r => r.id === player.id)) {
+                    selectedRecipients.push(player);
+                }
+            });
+            updateSelectedRecipientsList();
+            updateSendButton();
+            showTTSAAdminToast(`Added ${data.players.length} Player Plus members to recipients`, 'success');
+        } else {
+            showTTSAAdminToast('No Player Plus members found with phone numbers', 'warning');
+        }
+    } catch (error) {
+        console.error('Error fetching Player Plus members:', error);
+        showTTSAAdminToast('Error fetching Player Plus members', 'error');
+    }
+}
+
+// Toggle message type (broadcast vs personalized)
+function toggleMessageType() {
+    const isPersonalized = document.getElementById('personalizedType').checked;
+    const templateSection = document.getElementById('personalizedTemplateSection');
+    templateSection.style.display = isPersonalized ? 'block' : 'none';
+}
+
+// Load message template
+function loadTemplate() {
+    const templateKey = document.getElementById('messageTemplate').value;
+    const messageContent = document.getElementById('messageContent');
+    if (templateKey && messageTemplates[templateKey]) {
+        messageContent.value = messageTemplates[templateKey];
+        updateCharacterCount();
+    }
+}
+
+// Update character count and segment count
+function updateCharacterCount() {
+    const messageContent = document.getElementById('messageContent').value;
+    const charCount = messageContent.length;
+    const charCountDisplay = document.getElementById('charCount');
+    const segmentCountDisplay = document.getElementById('segmentCount');
+
+    charCountDisplay.textContent = charCount;
+
+    // Calculate SMS segments (160 chars per segment for GSM-7)
+    const segments = Math.ceil(charCount / 160) || 1;
+    segmentCountDisplay.textContent = `${segments} segment${segments > 1 ? 's' : ''}`;
+
+    // Update preview
+    updateMessagePreview();
+}
+
+// Update message preview
+function updateMessagePreview() {
+    const messageContent = document.getElementById('messageContent').value;
+    const previewContainer = document.getElementById('messagePreview');
+    const messageType = document.querySelector('input[name="messageType"]:checked').value;
+
+    if (!messageContent) {
+        previewContainer.innerHTML = '<em>Your message preview will appear here...</em>';
+        return;
+    }
+
+    let previewText = messageContent;
+
+    // For personalized messages, show placeholder replacement example
+    if (messageType === 'personalized') {
+        previewText = previewText
+            .replace(/{name}/g, '<strong>John Doe</strong>')
+            .replace(/{phone}/g, '<strong>+254700123456</strong>')
+            .replace(/{tournament}/g, '<strong>Summer Championship</strong>')
+            .replace(/{date}/g, '<strong>Dec 15, 2024</strong>')
+            .replace(/{venue}/g, '<strong>Chess Club Hall</strong>');
+    }
+
+    previewContainer.innerHTML = previewText.replace(/\n/g, '<br>');
+}
+
+// Update send button state
+function updateSendButton() {
+    const sendButton = document.getElementById('sendMessageBtn');
+    const messageContent = document.getElementById('messageContent').value;
+    sendButton.disabled = selectedRecipients.length === 0 || !messageContent.trim();
+}
+
+// Show send confirmation dialog
+function showSendConfirmation() {
+    console.log('showSendConfirmation called');
+    const messageType = document.querySelector('input[name="messageType"]:checked').value;
+    const messageContent = document.getElementById('messageContent').value;
+    const segments = Math.ceil(messageContent.length / 160) || 1;
+
+    let confirmMessage = `
+        <p>You are about to send a <strong>${messageType}</strong> message to <strong>${selectedRecipients.length}</strong> recipient(s).</p>
+        <p><strong>Message:</strong></p>
+        <div class="card bg-light mb-3">
+            <div class="card-body">
+                <p class="mb-0">${escapeHtml(messageContent).replace(/\n/g, '<br>')}</p>
+            </div>
+        </div>
+        <p><strong>Estimated SMS segments:</strong> ${segments}</p>
+    `;
+
+    showTTSAAdminConfirm(
+        confirmMessage,
+        function() {
+            console.log('Confirmation callback executed - calling sendMessage');
+            sendMessage();
+        },
+        {
+            title: 'Send Message',
+            confirmText: 'Send',
+            confirmClass: 'btn-primary'
+        }
+    );
+}
+
+// Send message
+async function sendMessage() {
+    const messageType = document.querySelector('input[name="messageType"]:checked').value;
+    const messageContent = document.getElementById('messageContent').value;
+    const recipients = selectedRecipients;
+    const sendButton = document.getElementById('sendMessageBtn');
+
+    console.log('Starting SMS send...');
+    console.log('Message type:', messageType);
+    console.log('Recipients count:', recipients.length);
+    console.log('Message content:', messageContent);
+
+    // Show loading state
+    const originalButtonText = sendButton.innerHTML;
+    sendButton.disabled = true;
+    sendButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+
+    try {
+        console.log('Sending request to /ttsa-admin/api/sms/send/');
+        const response = await fetch('/ttsa-admin/api/sms/send/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({
+                message_type: messageType,
+                message: messageContent,
+                recipients: recipients
+            })
+        });
+
+        console.log('Response status:', response.status);
+        const data = await response.json();
+        console.log('Response data:', data);
+
+        if (data.success) {
+            showTTSAAdminToast(data.message, 'success');
+
+            // Add to message history
+            addMessageToHistory(messageType, selectedRecipients.length, messageContent, 'sent');
+
+            // Clear form
+            clearAllRecipients();
+            document.getElementById('messageContent').value = '';
+            updateCharacterCount();
+            updateSendButton();
+
+            // Refresh message history
+            loadMessageHistory();
+        } else {
+            showTTSAAdminToast(data.error || 'Failed to send message', 'error');
+        }
+    } catch (error) {
+        console.error('Error sending SMS:', error);
+        showTTSAAdminToast('Error sending message. Please try again.', 'error');
+    } finally {
+        // Restore button state
+        sendButton.disabled = false;
+        sendButton.innerHTML = originalButtonText;
+        updateSendButton();
+    }
+}
+
+// Helper function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Add message to history (mock)
+function addMessageToHistory(type, recipientCount, message, status) {
+    const historyTableBody = document.getElementById('messageHistoryTableBody');
+    const now = new Date();
+    const dateStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+
+    // Remove empty state if present
+    if (historyTableBody.querySelector('td[colspan]')) {
+        historyTableBody.innerHTML = '';
+    }
+
+    const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+    const statusBadge = status === 'sent' ? 'bg-success' : 'bg-warning';
+
+    const newRow = document.createElement('tr');
+    newRow.innerHTML = `
+        <td>${escapeHtml(dateStr)}</td>
+        <td><span class="badge bg-info">${type === 'broadcast' ? 'Broadcast' : 'Personalized'}</span></td>
+        <td>${recipientCount} recipient(s)</td>
+        <td>${escapeHtml(messagePreview)}</td>
+        <td><span class="badge ${statusBadge}">${status}</span></td>
+    `;
+
+    historyTableBody.insertBefore(newRow, historyTableBody.firstChild);
+}
+
+// Load message history
+async function loadMessageHistory() {
+    const historyTableBody = document.getElementById('messageHistoryTableBody');
+    
+    try {
+        const response = await fetch('/ttsa-admin/api/sms/history/');
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.messages.length === 0) {
+                historyTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-4">
+                            <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">No messages sent yet</p>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                historyTableBody.innerHTML = data.messages.map(msg => {
+                    const dateStr = new Date(msg.created_at).toLocaleDateString() + ' ' + new Date(msg.created_at).toLocaleTimeString();
+                    const statusBadge = msg.status === 'sent' ? 'bg-success' : msg.status === 'failed' ? 'bg-danger' : 'bg-warning';
+                    return `
+                        <tr>
+                            <td>${escapeHtml(dateStr)}</td>
+                            <td><span class="badge bg-info">${msg.message_type === 'broadcast' ? 'Broadcast' : 'Personalized'}</span></td>
+                            <td>${msg.recipient_count} recipient(s)</td>
+                            <td>${escapeHtml(msg.content)}</td>
+                            <td><span class="badge ${statusBadge}">${msg.status}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            showTTSAAdminToast('Message history refreshed', 'success');
+        } else {
+            showTTSAAdminToast(data.error || 'Failed to load message history', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading message history:', error);
+        showTTSAAdminToast('Error loading message history', 'error');
+    }
+}
+
+// Add event listener for Enter key in search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('messagePlayerSearch');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchMessagePlayers();
+            }
+        });
+    }
+
+    // Add event listener for send button
+    const sendButton = document.getElementById('sendMessageBtn');
+    if (sendButton) {
+        sendButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Send button clicked');
+            showSendConfirmation();
+        });
+    }
+});
 </script>
 
 <!-- Add Player Modal -->

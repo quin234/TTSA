@@ -413,6 +413,10 @@
                 <i class="fas fa-user-plus"></i>
                 <span>Player Plus Requests</span>
             </li>
+            <li class="sidebar-menu-item" data-section="messages">
+                <i class="fas fa-comment-dots"></i>
+                <span>Messages</span>
+            </li>
             {% endif %}
             <li class="sidebar-menu-item" data-section="players">
                 <i class="fas fa-chess"></i>
@@ -676,7 +680,11 @@
                     adminModalCancel.classList.add('d-none');
                 }
                 adminModalConfirm.onclick = function() {
-                    if (typeof adminCallback === 'function') adminCallback();
+                    console.log('Modal confirm button clicked, adminCallback:', adminCallback);
+                    if (typeof adminCallback === 'function') {
+                        console.log('Executing adminCallback');
+                        adminCallback();
+                    }
                     window.closeTTSAAdminModal();
                 };
                 adminModal.classList.remove('d-none');

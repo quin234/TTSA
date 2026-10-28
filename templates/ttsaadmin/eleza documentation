@@ -1,0 +1,256 @@
+
+Search...
+get
+Ping
+post
+Transactional SMS
+post
+Personalized SMS
+post
+Broadcast SMS
+redocly logoAPI docs by Redocly
+Eleza Documentation (1.0.0)
+This API documentation provides all the necessary information for developers to integrate SMS functionality into their applications
+
+Ping
+Ping this end point to check if our APIs are up and running
+
+Responses
+200 OK
+
+get
+/v1/ping
+
+Response samples
+200
+Content type
+application/json
+
+Copy
+{
+"message": "Pong"
+}
+Transactional SMS
+Send a transactional SMS to an individual recipient
+
+Authorizations:
+ApiKeyAuth
+Request Body schema: application/json
+required
+sender_id
+required
+string
+Sender ID or Shortcode
+
+message
+required
+string
+Message text to send
+
+recipient
+required
+string
+Mobile number to receive the message
+
+callback_url	
+string
+Where we will send the delivery status
+
+Responses
+200 OK
+400 Bad Request
+401 Unauthorized
+402 Payment Required
+Callbacks
+postStatus
+
+post
+/v1/sms/transactional
+
+Request samples
+Payload
+Content type
+application/json
+
+Copy
+{
+"sender_id": "Eleza",
+"message": "Hello world",
+"recipient": "254712345678",
+"callback_url": "https://example.com/callback"
+}
+Response samples
+200400401402
+Content type
+application/json
+
+Copy
+{
+"message_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+"recipient": "254712345678"
+}
+Callback payload samples
+Callback
+POST: Status
+Content type
+application/json
+
+Copy
+{
+"message_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+"status": 0,
+"description": "DeliveredToTerminal"
+}
+Personalized SMS
+Send unique messages to multiple recipients
+
+Authorizations:
+ApiKeyAuth
+Request Body schema: application/json
+required
+sender_id
+required
+string
+Sender ID or Shortcode
+
+data
+required
+Array of objects [ 1 .. 100 ] items
+List of objects with the message and recipient
+
+callback_url	
+string
+Where we will send the delivery status
+
+Responses
+200 OK
+400 Bad Request
+401 Unauthorized
+402 Payment Required
+Callbacks
+postStatus
+
+post
+/v1/sms/personalized
+
+Request samples
+Payload
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"sender_id": "Eleza",
+"data": [
+{}
+],
+"callback_url": "https://example.com/callback"
+}
+Response samples
+200400401402
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+[
+{
+"message_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+"recipient": "254712345678"
+}
+]
+Callback payload samples
+Callback
+POST: Status
+Content type
+application/json
+
+Copy
+{
+"message_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+"status": 0,
+"description": "DeliveredToTerminal"
+}
+Broadcast SMS
+Send the same message to multiple recipients
+
+Authorizations:
+ApiKeyAuth
+Request Body schema: application/json
+required
+sender_id
+required
+string
+Sender ID or Shortcode
+
+message
+required
+string
+Message text to send
+
+recipients
+required
+Array of strings [ 1 .. 20 ] items
+Recipients of the message
+
+callback_url	
+string
+Where we will send the delivery status
+
+Responses
+200 OK
+400 Bad Request
+401 Unauthorized
+402 Payment Required
+Callbacks
+postStatus
+
+post
+/v1/sms/broadcast
+Eleza SMS API
+
+https://api.elezasms.com/v1/sms/broadcast
+Request samples
+Payload
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"sender_id": "Eleza",
+"message": "Hello world",
+"recipients": [
+[
+"254712345678",
+"254712345679"
+]
+],
+"callback_url": "https://example.com/callback"
+}
+Response samples
+200400401402
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+[
+{
+"message_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+"recipient": "254712345678"
+}
+]
+Callback payload samples
+Callback
+POST: Status
+Content type
+application/json
+
+Copy
+{
+"message_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+"status": 0,
+"description": "DeliveredToTerminal"
+}

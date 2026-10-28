@@ -48,6 +48,7 @@ urlpatterns = [
     path('api/tournaments/<int:tournament_id>/print-certificates/', views.print_certificates, name='print_certificates'),
     path('api/tournaments/<int:tournament_id>/print-standings/', views.print_standings, name='print_standings'),
     path('api/tournaments/<int:tournament_id>/print-standings/<int:round_number>/', views.print_standings, name='print_standings_round'),
+    path('api/tournaments/<int:tournament_id>/print-statistics/', views.print_player_statistics, name='print_player_statistics'),
     
     # Player Plus application review
     path('player-plus/applications/', views.player_plus_applications, name='player_plus_applications'),
@@ -59,4 +60,9 @@ urlpatterns = [
     path('settings/profile/change-password/', views.admin_change_password, name='admin_change_password'),
     path('settings/profile/upload-photo/', views.admin_upload_profile_photo, name='admin_upload_profile_photo'),
     path('settings/branding/update/', views.admin_update_branding, name='admin_update_branding'),
+
+    # SMS Messaging
+    path('api/sms/send/', views.send_sms_message, name='send_sms_message'),
+    path('api/sms/history/', views.sms_message_history, name='sms_message_history'),
+    path('api/sms/quick-select/', views.get_quick_select_players, name='get_quick_select_players'),
 ]
