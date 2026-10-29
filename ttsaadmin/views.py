@@ -2478,33 +2478,9 @@ def print_player_statistics(request, tournament_id):
                     'rating_after': tp.rating,
                 })
             
-            # Last 5 games
-            from .models import TournamentGame
-            recent_games = TournamentGame.objects.filter(
-                tournament__players__player_name=player.player_name,
-                tournament__start_date__gte=twelve_months_ago
-            ).filter(
-                models.Q(white_player__player_name=player.player_name) |
-                models.Q(black_player__player_name=player.player_name)
-            ).select_related('tournament', 'white_player', 'black_player').order_by('-scheduled_time')[:5]
-            
+            # Skip last_5_games for individual as well (not used in PDF)
             last_5_games = []
-            opponent_ratings = []
-            for game in recent_games:
-                opponent = game.black_player.player_name if game.white_player.player_name == player.player_name else game.white_player.player_name
-                opponent_rating = game.black_player.rating if game.white_player.player_name == player.player_name else game.white_player.rating
-                if opponent_rating:
-                    opponent_ratings.append(opponent_rating)
-                result = game.result
-                last_5_games.append({
-                    'date': game.scheduled_time.strftime('%d %b %Y') if game.scheduled_time else 'N/A',
-                    'opponent': opponent,
-                    'result': result,
-                    'tournament': game.tournament.name,
-                })
-            
-            # Calculate average opponent rating
-            average_opponent_rating = sum(opponent_ratings) / len(opponent_ratings) if opponent_ratings else 'N/A'
+            average_opponent_rating = 'N/A'
             
             player_data = {
                 'player_name': player.player_name,
@@ -2579,55 +2555,80 @@ def print_player_statistics(request, tournament_id):
                 'losses': standing_player.losses,
             })
         
+        # Fetch all opponent games for current tournament in a single query
+        from .models import TournamentGame
+        all_opponent_games = TournamentGame.objects.filter(
+            tournament=tournament
+        ).select_related('white_player', 'black_player').order_by('round_number', 'board_number')
+        
+        # Organize games by player
+        player_games_dict = {}
+        for game in all_opponent_games:
+            # For white player
+            if game.white_player_id not in player_games_dict:
+                player_games_dict[game.white_player_id] = []
+            player_games_dict[game.white_player_id].append(game)
+            
+            # For black player
+            if game.black_player_id not in player_games_dict:
+                player_games_dict[game.black_player_id] = []
+            player_games_dict[game.black_player_id].append(game)
+        
+        # Pre-fetch all tournament players for history (optimize with bulk query)
+        twelve_months_ago = timezone.now() - timedelta(days=365)
+        all_player_names = [p.player_name for p in players]
+        all_tournament_players = TournamentPlayer.objects.filter(
+            player_name__in=all_player_names,
+            tournament__start_date__gte=twelve_months_ago
+        ).select_related('tournament')
+        
+        # Organize by player name
+        players_history_dict = {}
+        for tp in all_tournament_players:
+            if tp.player_name not in players_history_dict:
+                players_history_dict[tp.player_name] = []
+            players_history_dict[tp.player_name].append(tp)
+        
         for player in players:
-            # Get opponent data for current tournament
-            from .models import TournamentGame
-            opponent_games = TournamentGame.objects.filter(
-                tournament=tournament
-            ).filter(
-                models.Q(white_player=player) | models.Q(black_player=player)
-            ).select_related('white_player', 'black_player').order_by('round_number', 'board_number')
-            
+            # Get opponent data from pre-fetched dictionary
             current_opponents = []
-            for game in opponent_games:
-                opponent = game.black_player if game.white_player == player else game.white_player
-                result = game.result
-                # Convert result to score (1 for win, 0.5 for draw, 0 for loss)
-                if game.white_player == player:
-                    if result == '1-0':
-                        score = 1
-                    elif result == '½-½':
-                        score = 0.5
-                    elif result == '0-1':
-                        score = 0
+            if player.id in player_games_dict:
+                for game in player_games_dict[player.id]:
+                    opponent = game.black_player if game.white_player == player else game.white_player
+                    result = game.result
+                    # Convert result to score (1 for win, 0.5 for draw, 0 for loss)
+                    if game.white_player == player:
+                        if result == '1-0':
+                            score = 1
+                        elif result == '½-½':
+                            score = 0.5
+                        elif result == '0-1':
+                            score = 0
+                        else:
+                            score = 'N/A'
                     else:
-                        score = 'N/A'
-                else:
-                    if result == '0-1':
-                        score = 1
-                    elif result == '½-½':
-                        score = 0.5
-                    elif result == '1-0':
-                        score = 0
-                    else:
-                        score = 'N/A'
-                
-                current_opponents.append({
-                    'board_number': game.board_number,
-                    'round_number': game.round_number,
-                    'opponent_name': opponent.player_name,
-                    'opponent_rating': opponent.rating,
-                    'score': score,
-                    'result': result,
-                })
+                        if result == '0-1':
+                            score = 1
+                        elif result == '½-½':
+                            score = 0.5
+                        elif result == '1-0':
+                            score = 0
+                        else:
+                            score = 'N/A'
+                    
+                    current_opponents.append({
+                        'board_number': game.board_number,
+                        'round_number': game.round_number,
+                        'opponent_name': opponent.player_name,
+                        'opponent_rating': opponent.rating,
+                        'score': score,
+                        'result': result,
+                    })
             
-            # Get player's tournament history (last 5)
-            twelve_months_ago = timezone.now() - timedelta(days=365)
-            player_tournaments = TournamentPlayer.objects.filter(
-                player_name=player.player_name,
-                tournament__start_date__gte=twelve_months_ago,
-                tournament__status='completed'
-            ).select_related('tournament').order_by('-tournament__start_date')[:5]
+            # Get player's tournament history from pre-fetched dictionary
+            player_tournaments = players_history_dict.get(player.player_name, [])
+            player_tournaments = [tp for tp in player_tournaments if tp.tournament.status == 'completed']
+            player_tournaments = sorted(player_tournaments, key=lambda x: x.tournament.start_date or timezone.now(), reverse=True)[:5]
             
             last_5_tournaments = []
             for tp in player_tournaments:
@@ -2638,10 +2639,7 @@ def print_player_statistics(request, tournament_id):
                 })
             
             # Calculate overall stats from all tournaments
-            all_tournaments = TournamentPlayer.objects.filter(
-                player_name=player.player_name,
-                tournament__start_date__gte=twelve_months_ago
-            ).select_related('tournament')
+            all_tournaments = players_history_dict.get(player.player_name, [])
             
             total_wins = sum(tp.wins for tp in all_tournaments)
             total_draws = sum(tp.draws for tp in all_tournaments)
@@ -2649,7 +2647,7 @@ def print_player_statistics(request, tournament_id):
             
             # Rating history (last 12 months)
             rating_history = []
-            for tp in all_tournaments.order_by('tournament__start_date'):
+            for tp in sorted(all_tournaments, key=lambda x: x.tournament.start_date or timezone.now()):
                 rating_history.append({
                     'date': tp.tournament.start_date.strftime('%b %Y') if tp.tournament.start_date else 'N/A',
                     'rating': tp.rating,
@@ -2663,7 +2661,7 @@ def print_player_statistics(request, tournament_id):
             
             # All tournaments with details
             all_tournaments_data = []
-            for tp in all_tournaments.order_by('-tournament__start_date'):
+            for tp in sorted(all_tournaments, key=lambda x: x.tournament.start_date or timezone.now(), reverse=True):
                 position = tp.rank
                 all_tournaments_data.append({
                     'date': tp.tournament.start_date.strftime('%d %b %Y') if tp.tournament.start_date else 'N/A',
@@ -2674,32 +2672,9 @@ def print_player_statistics(request, tournament_id):
                     'rating_after': tp.rating,
                 })
             
-            # Last 5 games
-            recent_games = TournamentGame.objects.filter(
-                tournament__players__player_name=player.player_name,
-                tournament__start_date__gte=twelve_months_ago
-            ).filter(
-                models.Q(white_player__player_name=player.player_name) |
-                models.Q(black_player__player_name=player.player_name)
-            ).select_related('tournament', 'white_player', 'black_player').order_by('-scheduled_time')[:5]
-            
+            # Last 5 games (skip for bulk to speed up - not used in PDF)
             last_5_games = []
-            opponent_ratings = []
-            for game in recent_games:
-                opponent = game.black_player.player_name if game.white_player.player_name == player.player_name else game.white_player.player_name
-                opponent_rating = game.black_player.rating if game.white_player.player_name == player.player_name else game.white_player.rating
-                if opponent_rating:
-                    opponent_ratings.append(opponent_rating)
-                result = game.result
-                last_5_games.append({
-                    'date': game.scheduled_time.strftime('%d %b %Y') if game.scheduled_time else 'N/A',
-                    'opponent': opponent,
-                    'result': result,
-                    'tournament': game.tournament.name,
-                })
-            
-            # Calculate average opponent rating
-            average_opponent_rating = sum(opponent_ratings) / len(opponent_ratings) if opponent_ratings else 'N/A'
+            average_opponent_rating = 'N/A'
             
             current_position = player.rank if player.rank else 'N/A'
             
@@ -2713,7 +2688,7 @@ def print_player_statistics(request, tournament_id):
                 'phone': player.phone if player.phone else 'N/A',
                 'current_rating': current_rating,
                 'rating_change': rating_change,
-                'total_tournaments': all_tournaments.count(),
+                'total_tournaments': len(all_tournaments),
                 'wins': total_wins,
                 'draws': total_draws,
                 'losses': total_losses,

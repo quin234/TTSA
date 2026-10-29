@@ -513,19 +513,20 @@ def generate_player_statistics_pdf(player_data):
         text_width = pdf_canvas.stringWidth("TTSA", "Helvetica-Bold", 10)
         pdf_canvas.drawString(logo_x + logo_radius - text_width/2, logo_y + logo_radius - 4, "TTSA")
     
-    # Academy name in uppercase
-    academy_x = logo_x + logo_width + 10 * mm
+    # Academy name and tagline centered
     pdf_canvas.setFillColor(black_color)
     pdf_canvas.setFont("Helvetica-Bold", 14)
     header_text = "TAITA TAVETA SPORTS ACADEMY"
-    pdf_canvas.drawString(academy_x, y_pos - 10 * mm, header_text)
+    text_width = pdf_canvas.stringWidth(header_text, "Helvetica-Bold", 14)
+    pdf_canvas.drawString((page_width - text_width) / 2, y_pos - 10 * mm, header_text)
     
     y_pos -= 5 * mm
     pdf_canvas.setFont("Helvetica-Oblique", 9)
     tagline_text = "Creating Champions On And Off The Board"
-    pdf_canvas.drawString(academy_x, y_pos - 10 * mm, tagline_text)
+    text_width = pdf_canvas.stringWidth(tagline_text, "Helvetica-Oblique", 9)
+    pdf_canvas.drawString((page_width - text_width) / 2, y_pos - 10 * mm, tagline_text)
     
-    y_pos -= 15 * mm
+    y_pos -= 20 * mm
     pdf_canvas.setStrokeColor(black_color)
     pdf_canvas.setLineWidth(1)
     pdf_canvas.line(left_margin, y_pos, page_width - right_margin, y_pos)
