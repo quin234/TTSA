@@ -50,7 +50,7 @@ def update_tournament_ratings(tournament):
         elif game.result == '0-1':
             black_player.beat(white_player)
         elif game.result == '½-½':
-            white_player.draw(black_player)
+            white_player.tied(black_player)
 
     # Update player ratings in database
     for player_id, competitor in players.items():
@@ -64,7 +64,32 @@ def update_tournament_ratings(tournament):
             if hasattr(tp, 'volatility'):
                 tp.volatility = competitor.volatility
             tp.save()
-            logger.info(f"Updated {tp.player_name}: {old_rating} -> {tp.rating} (RD: {competitor.rd}, Vol: {competitor.volatility})")
+            logger.info(f"Updated TournamentPlayer {tp.player_name}: {old_rating} -> {tp.rating} (RD: {competitor.rd}, Vol: {competitor.volatility})")
+
+            # Also update PlayerProfile if matching user exists
+            from ttsa_app.models import PlayerProfile
+            try:
+                # Try to find PlayerProfile by matching email or phone
+                profile = None
+                if tp.email:
+                    profile = PlayerProfile.objects.filter(user__email__iexact=tp.email).first()
+                if not profile and tp.phone:
+                    profile = PlayerProfile.objects.filter(phone_number=tp.phone).first()
+
+                if profile:
+                    profile_old_rating = profile.rating
+                    profile.rating = int(competitor.rating)
+                    if hasattr(profile, 'rating_deviation'):
+                        profile.rating_deviation = competitor.rd
+                    if hasattr(profile, 'volatility'):
+                        profile.volatility = competitor.volatility
+                    profile.save()
+                    logger.info(f"Updated PlayerProfile for {profile.user.username}: {profile_old_rating} -> {profile.rating} (RD: {competitor.rd}, Vol: {competitor.volatility})")
+                else:
+                    logger.warning(f"No matching PlayerProfile found for tournament player {tp.player_name} (email: {tp.email}, phone: {tp.phone})")
+            except Exception as e:
+                logger.error(f"Error updating PlayerProfile for {tp.player_name}: {e}")
+
         except TournamentPlayer.DoesNotExist:
             logger.error(f"TournamentPlayer {player_id} not found")
             continue

@@ -163,6 +163,10 @@ def generate_pairings_pdf(tournament, round_number, games, bye_players=None):
 
     elements.append(Paragraph("TAITA TAVETA SPORTS ACADEMY", academy_style))
     elements.append(Spacer(1, 2 * mm))
+    elements.append(Paragraph("Creating Champions On And Off The Board", small_style))
+    elements.append(Spacer(1, 1 * mm))
+    elements.append(Paragraph("0799786754 / 0182858956 | ttsaacademy@gmail.com | ttsa.co.ke", small_style))
+    elements.append(Spacer(1, 3 * mm))
     elements.append(Paragraph(tournament.name, title_style))
     elements.append(Paragraph(f"Round {round_number}", subtitle_style))
     elements.append(Paragraph(
@@ -519,13 +523,21 @@ def generate_player_statistics_pdf(player_data):
     header_text = "TAITA TAVETA SPORTS ACADEMY"
     text_width = pdf_canvas.stringWidth(header_text, "Helvetica-Bold", 14)
     pdf_canvas.drawString((page_width - text_width) / 2, y_pos - 10 * mm, header_text)
-    
+
     y_pos -= 5 * mm
     pdf_canvas.setFont("Helvetica-Oblique", 9)
     tagline_text = "Creating Champions On And Off The Board"
     text_width = pdf_canvas.stringWidth(tagline_text, "Helvetica-Oblique", 9)
     pdf_canvas.drawString((page_width - text_width) / 2, y_pos - 10 * mm, tagline_text)
-    
+
+    # Contact information
+    y_pos -= 5 * mm
+    pdf_canvas.setFont("Helvetica", 8)
+    pdf_canvas.setFillColor(gray_color)
+    contact_text = "0799786754 / 0182858956 | ttsaacademy@gmail.com | ttsa.co.ke"
+    text_width = pdf_canvas.stringWidth(contact_text, "Helvetica", 8)
+    pdf_canvas.drawString((page_width - text_width) / 2, y_pos - 10 * mm, contact_text)
+
     y_pos -= 20 * mm
     pdf_canvas.setStrokeColor(black_color)
     pdf_canvas.setLineWidth(1)

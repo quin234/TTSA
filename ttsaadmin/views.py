@@ -380,6 +380,7 @@ def admin_delete_player(request, player_id):
         username = player.username
         
         # Delete the player (this will cascade to the profile due to ForeignKey)
+        # Tournament data is NOT deleted - only the player profile and user account
         player.delete()
         
         return JsonResponse({
@@ -396,6 +397,59 @@ def admin_delete_player(request, player_id):
         return JsonResponse({
             'success': False,
             'error': f'Error deleting player: {str(e)}'
+        }, status=500)
+
+
+@ttsa_admin_required
+@require_POST
+def admin_bulk_delete_players(request):
+    """Bulk delete multiple player accounts from admin dashboard"""
+    try:
+        import json
+        data = json.loads(request.body)
+        player_ids = data.get('player_ids', [])
+        
+        if not player_ids:
+            return JsonResponse({
+                'success': False,
+                'error': 'No player IDs provided'
+            }, status=400)
+        
+        # Get all players to delete
+        players = User.objects.filter(
+            id__in=player_ids,
+            role__in=['player', 'player_plus']
+        )
+        
+        count = players.count()
+        
+        if count == 0:
+            return JsonResponse({
+                'success': False,
+                'error': 'No valid players found'
+            }, status=404)
+        
+        # Delete players (this will cascade to profiles due to ForeignKey)
+        # Tournament data is NOT deleted - only player profiles and user accounts
+        usernames = list(players.values_list('username', flat=True))
+        players.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {count} player(s)',
+            'deleted_count': count,
+            'deleted_usernames': usernames
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data'
+        }, status=400)
+    except Exception as e:
+        logger.exception('Error bulk deleting players')
+        return JsonResponse({
+            'success': False,
+            'error': f'Error deleting players: {str(e)}'
         }, status=500)
 
 
@@ -3155,6 +3209,75 @@ def sms_message_history(request):
     except Exception as e:
         logger.exception('Error fetching SMS history')
         return JsonResponse({'success': False, 'error': f'Error fetching history: {str(e)}'}, status=500)
+
+
+@login_required
+@require_GET
+def sms_players_list(request):
+    """Get paginated list of players for SMS messaging"""
+    if not request.user.is_ttsa_admin:
+        return JsonResponse({'success': False, 'error': 'TTSA Admin access required'}, status=403)
+    
+    try:
+        from ttsa_app.models import PlayerProfile
+        from django.core.paginator import Paginator
+        
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 20))
+        search = request.GET.get('search', '').strip()
+        
+        # Build query
+        queryset = PlayerProfile.objects.select_related('user').filter(
+            user__role__in=['player', 'player_plus']
+        )
+        
+        # Apply search filter if provided
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(phone_number__icontains=search)
+            )
+        
+        # Order by most recently joined
+        queryset = queryset.order_by('-user__date_joined')
+        
+        # Apply pagination
+        paginator = Paginator(queryset, per_page)
+        players_page = paginator.get_page(page)
+        
+        # Build response data
+        players_data = []
+        for profile in players_page:
+            players_data.append({
+                'id': profile.user_id,
+                'username': profile.user.username,
+                'first_name': profile.user.first_name or '',
+                'last_name': profile.user.last_name or '',
+                'email': profile.user.email,
+                'phone_number': profile.phone_number or '',
+                'rating': profile.rating,
+                'role': profile.user.role,
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'players': players_data,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total_pages': paginator.num_pages,
+                'total_count': paginator.count,
+                'has_next': players_page.has_next(),
+                'has_previous': players_page.has_previous(),
+            }
+        })
+        
+    except Exception as e:
+        logger.exception('Error fetching SMS players list')
+        return JsonResponse({'success': False, 'error': f'Error fetching players: {str(e)}'}, status=500)
 
 
 @login_required

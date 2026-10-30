@@ -9,6 +9,7 @@ urlpatterns = [
     path('api/players/create/', views.admin_create_player, name='admin_create_player'),
     path('api/players/<int:player_id>/edit/', views.admin_edit_player, name='admin_edit_player'),
     path('api/players/<int:player_id>/delete/', views.admin_delete_player, name='admin_delete_player'),
+    path('api/players/bulk-delete/', views.admin_bulk_delete_players, name='admin_bulk_delete_players'),
     path('youtube-channels/add/', views.add_youtube_channel, name='add_youtube_channel'),
     path('youtube-channels/', views.youtube_channels_list, name='youtube_channels_list'),
     path('youtube-channels/<int:channel_id>/delete/', views.delete_youtube_channel, name='delete_youtube_channel'),
@@ -62,6 +63,7 @@ urlpatterns = [
     path('settings/branding/update/', views.admin_update_branding, name='admin_update_branding'),
 
     # SMS Messaging
+    path('api/sms/players/', views.sms_players_list, name='sms_players_list'),
     path('api/sms/send/', views.send_sms_message, name='send_sms_message'),
     path('api/sms/history/', views.sms_message_history, name='sms_message_history'),
     path('api/sms/quick-select/', views.get_quick_select_players, name='get_quick_select_players'),

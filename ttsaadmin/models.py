@@ -650,7 +650,7 @@ class SMSMessage(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
     
     # API response details
-    api_message_id = models.CharField(max_length=255, blank=True, db_index=True, help_text="Message ID from SMS provider")
+    api_message_id = models.TextField(blank=True, help_text="Message ID from SMS provider")
     api_response = models.JSONField(default=dict, blank=True, help_text="Full API response from SMS provider")
     
     # Delivery tracking
@@ -674,7 +674,6 @@ class SMSMessage(models.Model):
             models.Index(fields=['message_type', '-created_at']),
             models.Index(fields=['status', '-created_at']),
             models.Index(fields=['sent_by', '-created_at']),
-            models.Index(fields=['api_message_id']),
         ]
     
     def __str__(self):

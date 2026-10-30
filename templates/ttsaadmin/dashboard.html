@@ -349,7 +349,9 @@
 
     <!-- Messages Section -->
     <div id="section-messages" class="content-section" style="display: none;">
-        <h2 class="section-title mb-4">SMS Messages</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="section-title mb-0">SMS Messages</h2>
+        </div>
         
         <div class="row">
             <!-- Left Column: Player Selection -->
@@ -364,51 +366,38 @@
                             <label for="messagePlayerSearch" class="form-label">Search Players</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="messagePlayerSearch" placeholder="Search by name, phone, or email...">
-                                <button class="btn btn-outline-secondary" type="button" onclick="searchMessagePlayers()">
+                                <button class="btn btn-outline-secondary" type="button" onclick="searchPaginatedPlayers()">
                                     <i class="fas fa-search"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearPlayerSearch()">
+                                    <i class="fas fa-times"></i>
                                 </button>
                             </div>
                             <div class="form-text">Search by name, phone number, or email address</div>
                         </div>
 
-                        <!-- Search Results -->
-                        <div id="messagePlayerSearchResults" class="mb-3" style="display: none;">
-                            <div class="list-group" id="messagePlayerList">
-                                <!-- Player results will be populated here -->
-                            </div>
-                        </div>
-
-                        <!-- Selected Recipients -->
+                        <!-- Paginated Player List -->
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label mb-0">Selected Recipients</label>
-                                <button class="btn btn-sm btn-outline-danger" onclick="clearAllRecipients()">
-                                    <i class="fas fa-times me-1"></i>Clear All
-                                </button>
-                            </div>
-                            <div id="selectedRecipientsList" class="list-group" style="max-height: 300px; overflow-y: auto;">
-                                <div class="text-center text-muted py-3">
-                                    <i class="fas fa-user-plus fa-2x mb-2"></i>
-                                    <p class="small mb-0">No recipients selected</p>
+                                <label class="form-label mb-0">All Active Players</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="selectAllOnPage" onchange="toggleSelectAllOnPage()">
+                                    <label class="form-check-label small" for="selectAllOnPage">Select All on Page</label>
                                 </div>
                             </div>
-                            <div class="mt-2">
-                                <span class="badge bg-primary" id="recipientCount">0 selected</span>
+                            <div class="list-group" id="paginatedPlayerList" style="max-height: 400px; overflow-y: auto;">
+                                <div class="text-center text-muted py-3">
+                                    <p class="small mb-0">Loading players...</p>
+                                </div>
                             </div>
+                            <!-- Pagination Controls -->
+                            <nav class="mt-2">
+                                <ul class="pagination pagination-sm justify-content-center mb-0" id="playerPagination">
+                                    <!-- Pagination will be populated here -->
+                                </ul>
+                            </nav>
                         </div>
 
-                        <!-- Quick Select -->
-                        <div class="mb-3">
-                            <label class="form-label">Quick Select</label>
-                            <div class="d-flex flex-wrap gap-2">
-                                <button class="btn btn-sm btn-outline-primary" onclick="selectAllActivePlayers()">
-                                    <i class="fas fa-check-circle me-1"></i>All Active
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="selectAllPlayerPlus()">
-                                    <i class="fas fa-star me-1"></i>Player Plus
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -489,35 +478,20 @@
             </div>
         </div>
 
-        <!-- Message History -->
+        <!-- Selected Players List -->
         <div class="card mt-4">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Message History</h5>
-                <button class="btn btn-sm btn-outline-primary" onclick="loadMessageHistory()">
-                    <i class="fas fa-sync me-1"></i>Refresh
+                <h5 class="mb-0"><i class="fas fa-users me-2"></i>Selected Players <span class="badge bg-primary" id="selectedPlayersCount">0</span></h5>
+                <button class="btn btn-sm btn-outline-danger" onclick="clearAllRecipients()">
+                    <i class="fas fa-times me-1"></i>Clear All
                 </button>
             </div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Date</th>
-                                <th>Type</th>
-                                <th>Recipients</th>
-                                <th>Message Preview</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="messageHistoryTableBody">
-                            <tr>
-                                <td colspan="5" class="text-center py-4">
-                                    <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
-                                    <p class="text-muted mb-0">No messages sent yet</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="list-group" id="selectedPlayersList" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-user-plus fa-2x mb-2"></i>
+                        <p class="small mb-0">No players selected</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -552,14 +526,19 @@
         <!-- Players Table -->
         <div class="row mb-3">
             <div class="col-12">
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <button class="btn btn-sm btn-primary" onclick="showAddPlayerModal()">
-                        Add Player
-                    </button>
-                    <input type="text" class="form-control form-control-sm flex-grow-1" id="playerSearch" placeholder="Search players..." style="max-width: 250px;">
-                    <button class="btn btn-sm btn-outline-primary" onclick="loadPlayers()">
-                        Refresh
-                    </button>
+                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <button class="btn btn-sm btn-primary" onclick="showAddPlayerModal()">
+                            Add Player
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="bulkDeletePlayers()" id="bulkDeleteBtn" style="display: none;">
+                            <i class="fas fa-trash me-1"></i>Delete Selected (<span id="selectedCount">0</span>)
+                        </button>
+                        <input type="text" class="form-control form-control-sm flex-grow-1" id="playerSearch" placeholder="Search players..." style="max-width: 250px;">
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadPlayers()">
+                            Refresh
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -567,18 +546,21 @@
             <table class="table table-hover" id="playersTable">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Games Played</th>
-                        <th>Wins</th>
-                        <th>Losses</th>
-                        <th>Win Rate</th>
-                        <th>Rating</th>
+                        <th style="width: 40px;">
+                            <input class="form-check-input" type="checkbox" id="selectAllPlayers" onchange="toggleSelectAllPlayers()">
+                        </th>
+                        <th style="cursor: pointer;" onclick="sortPlayers('name')">Name <i class="fas fa-sort text-muted"></i></th>
+                        <th style="cursor: pointer;" onclick="sortPlayers('games_played')">Games Played <i class="fas fa-sort text-muted"></i></th>
+                        <th style="cursor: pointer;" onclick="sortPlayers('wins')">Wins <i class="fas fa-sort text-muted"></i></th>
+                        <th style="cursor: pointer;" onclick="sortPlayers('losses')">Losses <i class="fas fa-sort text-muted"></i></th>
+                        <th style="cursor: pointer;" onclick="sortPlayers('win_rate')">Win Rate <i class="fas fa-sort text-muted"></i></th>
+                        <th style="cursor: pointer;" onclick="sortPlayers('rating')">Rating <i class="fas fa-sort text-muted"></i></th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="playersTableBody">
                     <tr>
-                        <td colspan="7" class="text-center py-4">
+                        <td colspan="8" class="text-center py-4">
                             <p class="text-muted">Loading players...</p>
                         </td>
                     </tr>
@@ -1275,6 +1257,7 @@
 
 </div>
 
+
 <script>
     const dashboardDataUrl = "{% url 'admin_dashboard_data' %}";
     const dashboardWebSocketUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/admin/dashboard/`;
@@ -1402,6 +1385,11 @@
             // Load videos only when video library section is accessed
             if (sectionName === 'video-library' && videoLessons.length === 0) {
                 loadVideos();
+            }
+
+            // Load paginated players when messages section is accessed
+            if (sectionName === 'messages') {
+                loadPaginatedPlayers(1, '');
             }
 
             // Close sidebar on mobile after selection
@@ -2116,6 +2104,7 @@
 
     // Players Management
     let playersData = [];
+    let selectedPlayerIds = new Set();
 
     async function loadPlayers() {
         const tableBody = document.getElementById('playersTableBody');
@@ -2162,7 +2151,7 @@
         if (playersData.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="text-center py-4">
+                    <td colspan="8" class="text-center py-4">
                         <i class="fas fa-users-slash fa-2x text-muted mb-2"></i>
                         <p class="text-muted">No players found</p>
                     </td>
@@ -2180,8 +2169,17 @@
                 ? `${escapeHtml(player.first_name)} ${escapeHtml(player.last_name)}`
                 : escapeHtml(player.username);
 
+            const isSelected = selectedPlayerIds.has(player.id);
+
             return `
                 <tr>
+                    <td>
+                        <input class="form-check-input player-checkbox" type="checkbox" 
+                               id="player_${player.id}" 
+                               value="${player.id}"
+                               ${isSelected ? 'checked' : ''}
+                               onchange="togglePlayerSelection(${player.id}, this.checked)">
+                    </td>
                     <td>
                         <div class="d-flex align-items-center">
                             <div class="profile-icon me-2" style="width: 35px; height: 35px; font-size: 0.9rem;">
@@ -2211,6 +2209,176 @@
                 </tr>
             `;
         }).join('');
+        
+        updateSelectedPlayersCount();
+    }
+
+    // Toggle player selection
+    function togglePlayerSelection(playerId, isSelected) {
+        if (isSelected) {
+            selectedPlayerIds.add(playerId);
+        } else {
+            selectedPlayerIds.delete(playerId);
+        }
+        updateSelectedPlayersCount();
+    }
+
+    // Toggle select all players
+    function toggleSelectAllPlayers() {
+        const selectAllCheckbox = document.getElementById('selectAllPlayers');
+        const checkboxes = document.querySelectorAll('.player-checkbox');
+        
+        checkboxes.forEach(checkbox => {
+            const playerId = parseInt(checkbox.value);
+            if (selectAllCheckbox.checked) {
+                selectedPlayerIds.add(playerId);
+                checkbox.checked = true;
+            } else {
+                selectedPlayerIds.delete(playerId);
+                checkbox.checked = false;
+            }
+        });
+        updateSelectedPlayersCount();
+    }
+
+    // Update selected players count and show/hide bulk delete button
+    function updateSelectedPlayersCount() {
+        const count = selectedPlayerIds.size;
+        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+        const selectedCountSpan = document.getElementById('selectedCount');
+        const selectAllCheckbox = document.getElementById('selectAllPlayers');
+        
+        selectedCountSpan.textContent = count;
+        
+        if (count > 0) {
+            bulkDeleteBtn.style.display = 'inline-block';
+        } else {
+            bulkDeleteBtn.style.display = 'none';
+        }
+        
+        // Update select all checkbox state
+        const allCheckboxes = document.querySelectorAll('.player-checkbox');
+        const allChecked = allCheckboxes.length > 0 && Array.from(allCheckboxes).every(cb => selectedPlayerIds.has(parseInt(cb.value)));
+        selectAllCheckbox.checked = allChecked;
+    }
+
+    // Helper function to get CSRF token
+    function getCsrfToken() {
+        return getCookie('csrftoken');
+    }
+
+    // Bulk delete players
+    async function bulkDeletePlayers() {
+        const playerIds = Array.from(selectedPlayerIds);
+        
+        if (playerIds.length === 0) {
+            showTTSAAdminToast('No players selected', 'error');
+            return;
+        }
+        
+        if (!confirm(`Are you sure you want to delete ${playerIds.length} player(s)? This action cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/ttsa-admin/api/players/bulk-delete/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ player_ids: playerIds }),
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showTTSAAdminToast(data.message, 'success');
+                // Clear selection
+                selectedPlayerIds.clear();
+                document.getElementById('selectAllPlayers').checked = false;
+                // Reload players
+                await loadPlayers();
+            } else {
+                showTTSAAdminToast(data.error || 'Error deleting players', 'error');
+            }
+        } catch (error) {
+            console.error('Error bulk deleting players:', error);
+            showTTSAAdminToast('Error deleting players', 'error');
+        }
+    }
+
+    // Sort players
+    let currentSortField = null;
+    let currentSortDirection = 'asc';
+
+    function sortPlayers(field) {
+        // Toggle direction if clicking the same field
+        if (currentSortField === field) {
+            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSortField = field;
+            currentSortDirection = 'asc';
+        }
+
+        // Update sort icons in headers
+        document.querySelectorAll('#playersTable th').forEach(th => {
+            const icon = th.querySelector('i');
+            if (icon) {
+                icon.className = 'fas fa-sort text-muted';
+            }
+        });
+        const activeHeader = document.querySelector(`#playersTable th[onclick="sortPlayers('${field}')"]`);
+        if (activeHeader) {
+            const icon = activeHeader.querySelector('i');
+            if (icon) {
+                icon.className = currentSortDirection === 'asc' 
+                    ? 'fas fa-sort-up text-primary' 
+                    : 'fas fa-sort-down text-primary';
+            }
+        }
+
+        // Sort the data
+        playersData.sort((a, b) => {
+            let valueA, valueB;
+
+            switch (field) {
+                case 'name':
+                    valueA = (a.first_name + ' ' + a.last_name).toLowerCase();
+                    valueB = (b.first_name + ' ' + b.last_name).toLowerCase();
+                    break;
+                case 'games_played':
+                    valueA = a.games_played;
+                    valueB = b.games_played;
+                    break;
+                case 'wins':
+                    valueA = a.wins;
+                    valueB = b.wins;
+                    break;
+                case 'losses':
+                    valueA = a.losses;
+                    valueB = b.losses;
+                    break;
+                case 'win_rate':
+                    valueA = a.games_played > 0 ? (a.wins / a.games_played) : 0;
+                    valueB = b.games_played > 0 ? (b.wins / b.games_played) : 0;
+                    break;
+                case 'rating':
+                    valueA = a.rating;
+                    valueB = b.rating;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (valueA < valueB) return currentSortDirection === 'asc' ? -1 : 1;
+            if (valueA > valueB) return currentSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        renderPlayersTable();
     }
 
     // Search players
@@ -2362,6 +2530,8 @@
                     
                     if (data.success) {
                         showTTSAAdminToast(data.message, 'success');
+                        // Remove deleted player from selection
+                        selectedPlayerIds.delete(playerId);
                         // Reload players list
                         await loadPlayers();
                     } else {
@@ -5341,9 +5511,11 @@ loadTournaments();
 
 // ==================== MESSAGES SECTION ====================
 
-// Store selected recipients
+// Store selected recipients and pagination state
 let selectedRecipients = [];
-let allPlayersCache = [];
+let smsCurrentPage = 1;
+let currentSearch = '';
+const perPage = 20;
 
 // Message templates for personalized messages
 const messageTemplates = {
@@ -5353,55 +5525,153 @@ const messageTemplates = {
     custom: ""
 };
 
-// Search players for messaging
-async function searchMessagePlayers() {
-    const searchQuery = document.getElementById('messagePlayerSearch').value.trim();
-    const resultsContainer = document.getElementById('messagePlayerSearchResults');
-    const playerList = document.getElementById('messagePlayerList');
-
-    if (!searchQuery) {
-        resultsContainer.style.display = 'none';
-        return;
-    }
-
+// Load paginated players
+async function loadPaginatedPlayers(page = 1, search = '') {
+    smsCurrentPage = page;
+    currentSearch = search;
+    
+    const playerList = document.getElementById('paginatedPlayerList');
+    const pagination = document.getElementById('playerPagination');
+    const selectAllCheckbox = document.getElementById('selectAllOnPage');
+    
     try {
-        const response = await fetch(`/ttsa-admin/api/players/search/?q=${encodeURIComponent(searchQuery)}`);
+        const url = `/ttsa-admin/api/sms/players/?page=${page}&per_page=${perPage}&search=${encodeURIComponent(search)}`;
+        const response = await fetch(url);
         const data = await response.json();
-
-        if (data.success && data.players.length > 0) {
-            // Cache all players for quick select features
-            allPlayersCache = data.players;
-
+        
+        if (data.success) {
+            // Render player list with checkboxes
             playerList.innerHTML = data.players.map(player => {
                 const isSelected = selectedRecipients.some(r => r.id === player.id);
                 const displayName = `${player.first_name} ${player.last_name}`.trim() || player.username;
                 const phoneDisplay = player.phone_number || 'No phone';
+                const activeBadge = player.is_active ? '<span class="badge bg-success ms-2">Active</span>' : '<span class="badge bg-secondary ms-2">Inactive</span>';
+                
                 return `
-                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${isSelected ? 'list-group-item-success' : ''}"
-                         onclick="toggleRecipient(${JSON.stringify(player).replace(/"/g, '&quot;')})">
-                        <div>
-                            <div class="fw-semibold">${escapeHtml(displayName)}</div>
-                            <div class="small text-muted">${escapeHtml(player.username)} • ${escapeHtml(phoneDisplay)}</div>
-                        </div>
-                        <div>
-                            ${isSelected ? '<i class="fas fa-check-circle text-success"></i>' : '<i class="fas fa-plus-circle text-primary"></i>'}
+                    <div class="list-group-item d-flex justify-content-between align-items-center ${isSelected ? 'list-group-item-success' : ''}">
+                        <div class="d-flex align-items-center">
+                            <input class="form-check-input me-3" type="checkbox" 
+                                   id="player_${player.id}" 
+                                   ${isSelected ? 'checked' : ''} 
+                                   onchange="toggleRecipientById(${player.id}, this.checked)">
+                            <div>
+                                <div class="fw-semibold">${escapeHtml(displayName)} ${activeBadge}</div>
+                                <div class="small text-muted">
+                                    ${escapeHtml(player.username)} • ${escapeHtml(phoneDisplay)} • Rating: ${player.rating}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
             }).join('');
-            resultsContainer.style.display = 'block';
+            
+            // Update select all checkbox state
+            const allSelectedOnPage = data.players.length > 0 && data.players.every(p => selectedRecipients.some(r => r.id === p.id));
+            selectAllCheckbox.checked = allSelectedOnPage;
+            
+            // Render pagination
+            renderPagination(data.pagination);
         } else {
             playerList.innerHTML = '<div class="list-group-item text-muted">No players found</div>';
-            resultsContainer.style.display = 'block';
+            pagination.innerHTML = '';
         }
     } catch (error) {
-        console.error('Error searching players:', error);
-        playerList.innerHTML = '<div class="list-group-item text-danger">Error searching players</div>';
-        resultsContainer.style.display = 'block';
+        console.error('Error loading players:', error);
+        playerList.innerHTML = '<div class="list-group-item text-danger">Error loading players</div>';
+        pagination.innerHTML = '';
     }
 }
 
-// Toggle recipient selection
+// Render pagination controls
+function renderPagination(pagination) {
+    const paginationContainer = document.getElementById('playerPagination');
+    
+    if (pagination.total_pages <= 1) {
+        paginationContainer.innerHTML = '';
+        return;
+    }
+    
+    let html = '';
+    
+    // Previous button
+    html += `<li class="page-item ${!pagination.has_previous ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadPaginatedPlayers(${pagination.current_page - 1}, '${currentSearch}'); return false;">Previous</a>
+    </li>`;
+    
+    // Page numbers
+    for (let i = 1; i <= pagination.total_pages; i++) {
+        if (i === 1 || i === pagination.total_pages || (i >= smsCurrentPage - 1 && i <= smsCurrentPage + 1)) {
+            html += `<li class="page-item ${i === smsCurrentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="loadPaginatedPlayers(${i}, '${currentSearch}'); return false;">${i}</a>
+            </li>`;
+        } else if (i === smsCurrentPage - 2 || i === smsCurrentPage + 2) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+    
+    // Next button
+    html += `<li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadPaginatedPlayers(${pagination.current_page + 1}, '${currentSearch}'); return false;">Next</a>
+    </li>`;
+    
+    paginationContainer.innerHTML = html;
+}
+
+// Search paginated players
+async function searchPaginatedPlayers() {
+    const searchQuery = document.getElementById('messagePlayerSearch').value.trim();
+    await loadPaginatedPlayers(1, searchQuery);
+}
+
+// Clear player search
+async function clearPlayerSearch() {
+    document.getElementById('messagePlayerSearch').value = '';
+    await loadPaginatedPlayers(1, '');
+}
+
+// Toggle select all on current page
+function toggleSelectAllOnPage() {
+    const selectAllCheckbox = document.getElementById('selectAllOnPage');
+    const checkboxes = document.querySelectorAll('#paginatedPlayerList input[type="checkbox"]');
+    
+    checkboxes.forEach(checkbox => {
+        const playerId = parseInt(checkbox.id.replace('player_', ''));
+        checkbox.checked = selectAllCheckbox.checked;
+        toggleRecipientById(playerId, selectAllCheckbox.checked);
+    });
+}
+
+// Toggle recipient selection by ID
+async function toggleRecipientById(playerId, isSelected) {
+    try {
+        // Fetch player details if adding
+        if (isSelected) {
+            const response = await fetch(`/ttsa-admin/api/players/search/?q=${playerId}`);
+            const data = await response.json();
+            if (data.success && data.players.length > 0) {
+                const player = data.players[0];
+                if (!selectedRecipients.some(r => r.id === player.id)) {
+                    selectedRecipients.push(player);
+                }
+            }
+        } else {
+            const index = selectedRecipients.findIndex(r => r.id === playerId);
+            if (index > -1) {
+                selectedRecipients.splice(index, 1);
+            }
+        }
+        
+        updateSelectedRecipientsList();
+        updateSendButton();
+        
+        // Refresh current page to show updated selection state
+        await loadPaginatedPlayers(smsCurrentPage, currentSearch);
+    } catch (error) {
+        console.error('Error toggling recipient:', error);
+    }
+}
+
+// Toggle recipient selection (legacy function for backward compatibility)
 function toggleRecipient(player) {
     const index = selectedRecipients.findIndex(r => r.id === player.id);
     if (index > -1) {
@@ -5411,25 +5681,23 @@ function toggleRecipient(player) {
     }
     updateSelectedRecipientsList();
     updateSendButton();
-    // Refresh search results to show updated selection state
-    if (document.getElementById('messagePlayerSearchResults').style.display !== 'none') {
-        searchMessagePlayers();
-    }
+    // Refresh current page to show updated selection state
+    loadPaginatedPlayers(smsCurrentPage, currentSearch);
 }
 
 // Update selected recipients list
 function updateSelectedRecipientsList() {
-    const listContainer = document.getElementById('selectedRecipientsList');
-    const countBadge = document.getElementById('recipientCount');
+    const listContainer = document.getElementById('selectedPlayersList');
+    const countBadge = document.getElementById('selectedPlayersCount');
 
     if (selectedRecipients.length === 0) {
         listContainer.innerHTML = `
-            <div class="text-center text-muted py-3">
+            <div class="text-center text-muted py-4">
                 <i class="fas fa-user-plus fa-2x mb-2"></i>
-                <p class="small mb-0">No recipients selected</p>
+                <p class="small mb-0">No players selected</p>
             </div>
         `;
-        countBadge.textContent = '0 selected';
+        countBadge.textContent = '0';
     } else {
         listContainer.innerHTML = selectedRecipients.map(player => {
             const displayName = `${player.first_name} ${player.last_name}`.trim() || player.username;
@@ -5446,7 +5714,7 @@ function updateSelectedRecipientsList() {
                 </div>
             `;
         }).join('');
-        countBadge.textContent = `${selectedRecipients.length} selected`;
+        countBadge.textContent = selectedRecipients.length;
     }
 }
 
@@ -5455,9 +5723,7 @@ function clearAllRecipients() {
     selectedRecipients = [];
     updateSelectedRecipientsList();
     updateSendButton();
-    if (document.getElementById('messagePlayerSearchResults').style.display !== 'none') {
-        searchMessagePlayers();
-    }
+    loadPaginatedPlayers(smsCurrentPage, currentSearch);
 }
 
 // Select all active players
@@ -5475,6 +5741,7 @@ async function selectAllActivePlayers() {
             });
             updateSelectedRecipientsList();
             updateSendButton();
+            loadPaginatedPlayers(smsCurrentPage, currentSearch);
             showTTSAAdminToast(`Added ${data.players.length} active players to recipients`, 'success');
         } else {
             showTTSAAdminToast('No active players found with phone numbers', 'warning');
@@ -5500,6 +5767,7 @@ async function selectAllPlayerPlus() {
             });
             updateSelectedRecipientsList();
             updateSendButton();
+            loadPaginatedPlayers(smsCurrentPage, currentSearch);
             showTTSAAdminToast(`Added ${data.players.length} Player Plus members to recipients`, 'success');
         } else {
             showTTSAAdminToast('No Player Plus members found with phone numbers', 'warning');
@@ -5573,8 +5841,20 @@ function updateMessagePreview() {
 // Update send button state
 function updateSendButton() {
     const sendButton = document.getElementById('sendMessageBtn');
-    const messageContent = document.getElementById('messageContent').value;
-    sendButton.disabled = selectedRecipients.length === 0 || !messageContent.trim();
+    sendButton.disabled = selectedRecipients.length === 0;
+}
+
+// Get status badge HTML
+function getStatusBadge(status) {
+    const statusColors = {
+        'pending': 'bg-warning',
+        'sent': 'bg-info',
+        'delivered': 'bg-success',
+        'failed': 'bg-danger',
+        'cancelled': 'bg-secondary'
+    };
+    const color = statusColors[status] || 'bg-secondary';
+    return `<span class="badge ${color}">${status}</span>`;
 }
 
 // Show send confirmation dialog
@@ -5648,17 +5928,11 @@ async function sendMessage() {
         if (data.success) {
             showTTSAAdminToast(data.message, 'success');
 
-            // Add to message history
-            addMessageToHistory(messageType, selectedRecipients.length, messageContent, 'sent');
-
             // Clear form
             clearAllRecipients();
             document.getElementById('messageContent').value = '';
             updateCharacterCount();
             updateSendButton();
-
-            // Refresh message history
-            loadMessageHistory();
         } else {
             showTTSAAdminToast(data.error || 'Failed to send message', 'error');
         }
@@ -5689,76 +5963,7 @@ function getCookie(name) {
     return cookieValue;
 }
 
-// Add message to history (mock)
-function addMessageToHistory(type, recipientCount, message, status) {
-    const historyTableBody = document.getElementById('messageHistoryTableBody');
-    const now = new Date();
-    const dateStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
-
-    // Remove empty state if present
-    if (historyTableBody.querySelector('td[colspan]')) {
-        historyTableBody.innerHTML = '';
-    }
-
-    const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-    const statusBadge = status === 'sent' ? 'bg-success' : 'bg-warning';
-
-    const newRow = document.createElement('tr');
-    newRow.innerHTML = `
-        <td>${escapeHtml(dateStr)}</td>
-        <td><span class="badge bg-info">${type === 'broadcast' ? 'Broadcast' : 'Personalized'}</span></td>
-        <td>${recipientCount} recipient(s)</td>
-        <td>${escapeHtml(messagePreview)}</td>
-        <td><span class="badge ${statusBadge}">${status}</span></td>
-    `;
-
-    historyTableBody.insertBefore(newRow, historyTableBody.firstChild);
-}
-
-// Load message history
-async function loadMessageHistory() {
-    const historyTableBody = document.getElementById('messageHistoryTableBody');
-    
-    try {
-        const response = await fetch('/ttsa-admin/api/sms/history/');
-        const data = await response.json();
-        
-        if (data.success) {
-            if (data.messages.length === 0) {
-                historyTableBody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="text-center py-4">
-                            <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
-                            <p class="text-muted mb-0">No messages sent yet</p>
-                        </td>
-                    </tr>
-                `;
-            } else {
-                historyTableBody.innerHTML = data.messages.map(msg => {
-                    const dateStr = new Date(msg.created_at).toLocaleDateString() + ' ' + new Date(msg.created_at).toLocaleTimeString();
-                    const statusBadge = msg.status === 'sent' ? 'bg-success' : msg.status === 'failed' ? 'bg-danger' : 'bg-warning';
-                    return `
-                        <tr>
-                            <td>${escapeHtml(dateStr)}</td>
-                            <td><span class="badge bg-info">${msg.message_type === 'broadcast' ? 'Broadcast' : 'Personalized'}</span></td>
-                            <td>${msg.recipient_count} recipient(s)</td>
-                            <td>${escapeHtml(msg.content)}</td>
-                            <td><span class="badge ${statusBadge}">${msg.status}</span></td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-            showTTSAAdminToast('Message history refreshed', 'success');
-        } else {
-            showTTSAAdminToast(data.error || 'Failed to load message history', 'error');
-        }
-    } catch (error) {
-        console.error('Error loading message history:', error);
-        showTTSAAdminToast('Error loading message history', 'error');
-    }
-}
-
-// Add event listener for Enter key in search
+// Show send confirmation dialog
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('messagePlayerSearch');
     if (searchInput) {
